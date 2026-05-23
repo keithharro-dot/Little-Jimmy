@@ -299,7 +299,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 #reset-panel{ display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:300; background:var(--bg2); border:1px solid var(--border2); border-radius:7px; padding:18px; width:300px; box-shadow:0 8px 30px rgba(0,0,0,0.6); }
 
 /* ── FONT SIZE OVERRIDES — highest specificity, applied last ── */
-#trades-body td, #pending-body td { font-size: 15px !important; padding: 6px 8px !important; }
+#trades-body td, #pending-body td { font-size: 14px !important; padding: 6px 8px !important; }
 #trades-body tr, #pending-body tr { min-height: 40px !important; }
 thead th { font-size: 13px !important; padding: 6px 8px !important; }
 #sel-instrument { font-size: 15px !important; }
@@ -309,17 +309,17 @@ thead th { font-size: 13px !important; padding: 6px 8px !important; }
 </style>
 <style id="font-override">
 /* Hard backstop — wins over everything including inline styles on JS-rendered rows */
-#trades-body td, #trades-body td * { font-size: 15px !important; }
-#pending-body td, #pending-body td * { font-size: 15px !important; }
+#trades-body td, #trades-body td * { font-size: 14px !important; }
+#pending-body td, #pending-body td * { font-size: 14px !important; }
 #trades-body tr, #pending-body tr { height: 40px !important; }
 #trades-body tr td:first-child { font-weight: bold !important; }
 thead th { font-size: 13px !important; }
 
 /* Font size and padding */
-#trades-body td { padding: 8px 8px !important; font-size: 15px !important; }
+#trades-body td { padding: 8px 8px !important; font-size: 14px !important; }
 
 /* Chart height — .bottom-split contains only the TradingView chart (was 220px, -40% = 132px) */
-.bottom-split { max-height: 132px !important; }
+.bottom-split { min-height: 280px !important; }
 #tv-chart-container, #tradingview_chart { height: 132px !important; }
 </style>
 </head>
@@ -2985,7 +2985,7 @@ function renderTrades(){
     const typeBg=tradeType==='SPOT'?'rgba(99,102,241,0.1)':'rgba(245,200,66,0.08)';
     const typeBorder=tradeType==='SPOT'?'rgba(99,102,241,0.3)':'rgba(245,200,66,0.25)';
     const inStyle='font-family:DM Mono,monospace;font-size:12px;outline:none;text-align:center;width:84px;border:none;border-radius:2px 2px 0 0;padding:3px 4px;cursor:text;';
-    const TD='font-size:15px;padding:6px 8px;';
+    const TD='font-size:14px;padding:6px 8px;';
     return `<tr data-trade-id="${pos.id}" style="height:36px;">
       <td style="${TD}color:${m.color};font-weight:700;">${pos.autoTrade?'🤖':'👤'}${pos.instrument}</td>
       <td style="${TD}"><span style="font-family:Bebas Neue,sans-serif;font-size:13px;padding:2px 7px;border-radius:2px;background:${typeBg};color:${typeColor};border:1px solid ${typeBorder};letter-spacing:1px;white-space:nowrap;">${typeLabel}</span></td>
