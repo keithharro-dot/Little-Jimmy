@@ -1751,7 +1751,10 @@ function renderTradeOverlay(){
   labels.innerHTML='';
   addOverlayToggle(labels);
 
-  const currentAsset = (S.mkt || S.asset || S.selectedAsset || '').toUpperCase();
+  // Always read from the dropdown — S.mkt can be stale (e.g. after restoreState without syncing the dropdown)
+  const dropdownAsset = $('sel-instrument')?.value || '';
+  const currentAsset = (dropdownAsset || S.mkt || '').toUpperCase();
+  console.log('Overlay check: S.mkt=' + S.mkt + ' dropdown=' + dropdownAsset + ' using=' + currentAsset);
   const epicPatterns = {
     'GOLD':   ['GOLD','XAU'],
     'SILVER': ['SILVER','XAG'],
@@ -2056,6 +2059,7 @@ function calcM(){
 function onInstrChange(){
   const k=$('sel-instrument').value;
   S.mkt=k; TV.sym=M[k].tv;
+  console.log('[Jimmy] onInstrChange: S.mkt set to "' + k + '"');
   const lbl=$('tv-sym-lbl');if(lbl){lbl.textContent=k;lbl.style.color=M[k].color;}
   // Apply asset default leverage
   const levSel=$('exec-leverage');
@@ -4633,6 +4637,17 @@ function initMobileLayout(){
 
 document.addEventListener('DOMContentLoaded',()=>{
   restoreState();
+
+  // Sync the asset dropdown to the restored S.mkt so the UI matches state.
+  // Without this, the dropdown shows GOLD (HTML default) while S.mkt is 'SOL' from localStorage.
+  const instrSel=$('sel-instrument');
+  if(instrSel && S.mkt && M[S.mkt]){
+    instrSel.value=S.mkt;
+    const lbl=$('tv-sym-lbl');
+    if(lbl){lbl.textContent=S.mkt;lbl.style.color=M[S.mkt].color;}
+    console.log('[Jimmy] Restored asset dropdown to S.mkt='+S.mkt);
+  }
+
   loadSaved();loadTV();loadCalendar();startFeed();
   initMacro();
   // Fetch live USD→AUD rate (frankfurter.app primary, open.er-api fallback, 1.55 hardcoded last resort)
