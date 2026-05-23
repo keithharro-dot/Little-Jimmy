@@ -44,6 +44,9 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .tbtn:hover{ color:var(--text); border-color:var(--border2); }
 .conn-btn{ background:var(--gold); color:#000; border:none; padding:4px 12px; font-family:"Bebas Neue"; font-size:11px; letter-spacing:1px; cursor:pointer; border-radius:3px; }
 .conn-dot{ width:6px; height:6px; border-radius:50%; background:var(--muted); display:inline-block; margin-right:4px; }
+.acct-switch{ background:var(--bg3); border:1px solid var(--border); color:var(--gold); font-family:"Bebas Neue"; font-size:10px; letter-spacing:1px; padding:4px 8px; cursor:pointer; border-radius:3px; outline:none; max-width:160px; }
+.acct-switch:hover{ border-color:var(--border2); }
+.acct-switch option{ background:var(--bg2); color:var(--text); }
 
 /* ── MAIN WRAPPER ── */
 .main{ flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; height:0; }
@@ -328,8 +331,18 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
     <button class="tbtn" onclick="openTRYT()">▶ TR</button>
     <button class="tbtn" onclick="openTax()">📊 TAX</button>
     <button class="tbtn" id="auto-hdr-btn" onclick="toggleAutoSB()">🤖 AUTO</button>
+    <select id="acct-switcher" class="acct-switch" onchange="switchAccount(this.value)" title="Switch Trading Account">
+      <option value="demo">⬡ DEMO — PRACTICE</option>
+      <option value="swing">◈ SWING TRADES — LIVE</option>
+      <option value="highrisk">⚠ HIGH RISK — LIVE</option>
+    </select>
     <button class="conn-btn" onclick="openConn()">⚙ CONNECT</button>
   </div>
+</div>
+
+<!-- ── HIGH RISK WARNING BANNER ── -->
+<div id="highrisk-banner" style="display:none;background:#7f1d1d;border-bottom:2px solid #ef4444;color:#fca5a5;font-family:'Bebas Neue';font-size:10px;letter-spacing:2px;text-align:center;padding:5px 0;flex-shrink:0;">
+  ⚠ HIGH RISK TRADES ACCOUNT ACTIVE — REAL MONEY AT HIGH LEVERAGE — TRADE WITH EXTREME CAUTION ⚠
 </div>
 
 <!-- ── MAIN ── -->
@@ -717,6 +730,11 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
       <span style="font-size:18px;line-height:1;">🤖</span>AUTO
     </button>
   </nav>
+
+  <!-- PAGE FOOTER -->
+  <div style="text-align:center;padding:6px 12px;background:#0e1117;border-top:1px solid #2a3040;color:#4b5563;font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:1px;flex-shrink:0;">
+    LITTLE JIMMY TRADING CO &nbsp;|&nbsp; v1.0 &nbsp;|&nbsp; 23 MAY 2026
+  </div>
 
 </div><!-- end main -->
 
@@ -1587,12 +1605,20 @@ function onTradeTypeChange(){
 // ══ STATE ══
 const S={
   connected:false,demo:true,bal:10000,
+  activeAccount:'demo',
   mkt:'GOLD',
   prices:{GOLD:2341,SILVER:29.8,OIL:78.3,BTC:67420,ETH:3512,SOL:172.4,XRP:0.52,DOGE:0.15,NASDAQ:17800},
   chg:{GOLD:0.45,SILVER:0.32,OIL:-0.22,BTC:1.32,ETH:0.87,SOL:-1.10,XRP:0.65,DOGE:-0.8,NASDAQ:0.3},
   positions:[],pending:[],tid:1,interval:null,
 };
 const TX={reserve:0,fees:0,trades:[]};
+
+// ── ACCOUNT PROFILES ──
+const ACCT_PROFILES={
+  demo:     {label:'DEMO',             live:false, key:'capitalAccount_demo'    },
+  swing:    {label:'SWING TRADES',     live:true,  key:'capitalAccount_swing'   },
+  highrisk: {label:'HIGH RISK TRADES', live:true,  key:'capitalAccount_highrisk'},
+};
 
 // ══ TV STATE ══
 const TV={sym:'TVC:GOLD',interval:'60'};
@@ -3594,9 +3620,15 @@ function closeAutoSB(){$('auto-sb').classList.remove('open');}
 // ══ CONNECT ══
 function openConn(){
   $('conn-overlay').classList.add('on');
+  const profile=ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo;
+  // Update modal title to show which account is being connected
+  const titleEl=document.querySelector('#conn-overlay .modal-title');
+  if(titleEl) titleEl.textContent='⚡ '+profile.label+' — CONNECT';
+  // Pre-set environment based on active account
+  const envSel=$('m-env');
+  if(envSel) envSel.value=profile.live?'live':'demo';
   loadSaved();
   // Wire environment selector to show/hide read-only banner
-  const envSel=$('m-env');
   if(envSel) envSel.onchange=()=>{
     const ro=$('readonly-info'), btn=$('connect-btn');
     const isRO=envSel.value==='live-readonly';
@@ -3689,7 +3721,8 @@ setInterval(()=>{
 }, 5000);
 function loadSaved(){
   try{
-    const s=localStorage.getItem('ljtc');
+    const acctKey=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
+    const s=localStorage.getItem(acctKey);
     if(!s)return;
     const c=JSON.parse(atob(s));
     const b=$('saved-banner');if(b)b.style.display='flex';
@@ -3705,7 +3738,8 @@ function useSaved(){
   $('m-env').value=c.env||'demo';
 }
 function clearSaved(){
-  localStorage.removeItem('ljtc');
+  const acctKey=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
+  localStorage.removeItem(acctKey);
   window._creds=null;
   const b=$('saved-banner');if(b)b.style.display='none';
 }
@@ -3763,9 +3797,10 @@ async function connectAPI(){
     // Pull real open positions
     await syncCapitalPositions();
 
-    // Save credentials
+    // Save credentials per-account
     if($('m-remember')?.checked){
-      localStorage.setItem('ljtc',btoa(JSON.stringify({apikey:ak,email:em,pass:pw,env})));
+      const acctKey=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
+      localStorage.setItem(acctKey,btoa(JSON.stringify({apikey:ak,email:em,pass:pw,env})));
     }
 
     // Keep session alive every 9 min
@@ -3937,11 +3972,79 @@ async function keepSessionAlive(ak,em,pw,base){
   }catch(e){console.warn('Session refresh failed:',e.message);}
 }
 
+// ── MULTI-ACCOUNT SWITCHER ──
+function updateHighRiskBanner(){
+  const b=$('highrisk-banner');
+  if(b) b.style.display=S.activeAccount==='highrisk'?'block':'none';
+}
+
+function disconnectSession(){
+  clearInterval(S.sessionRefresh);
+  clearInterval(S.positionSync);
+  S.CST=null; S.SEC=null; S.apiKey=null; S.apiBase=null;
+  S.connected=false; S.demo=true; S.readOnly=false;
+  disableReadOnlyMode();
+  setConn(false,'NOT CONNECTED');
+}
+
+async function switchAccount(acctKey){
+  if(!ACCT_PROFILES[acctKey]||acctKey===S.activeAccount) return;
+  S.activeAccount=acctKey;
+  localStorage.setItem('ljtc-activeAccount',acctKey);
+  const sw=$('acct-switcher'); if(sw) sw.value=acctKey;
+  updateHighRiskBanner();
+  disconnectSession();
+
+  const profile=ACCT_PROFILES[acctKey];
+  const stored=localStorage.getItem(profile.key);
+  if(stored){
+    try{
+      const c=JSON.parse(atob(stored));
+      if(c.apikey&&c.email&&c.pass){
+        toast('⚡','Switching to '+profile.label,'Reconnecting...');
+        const isReadOnly=c.env==='live-readonly';
+        const isLive=c.env==='live'||isReadOnly;
+        const base=isLive?'https://api-capital.backend-capital.com':'https://demo-api-capital.backend-capital.com';
+        try{
+          const r=await fetch(`${base}/api/v1/session`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CAP-API-KEY':c.apikey},
+            body:JSON.stringify({identifier:c.email,password:c.pass,encryptedPassword:false})
+          });
+          if(r.ok){
+            S.apiBase=base; S.CST=r.headers.get('CST'); S.SEC=r.headers.get('X-SECURITY-TOKEN');
+            S.apiKey=c.apikey; S.connected=true; S.demo=!isLive; S.readOnly=isReadOnly;
+            await syncCapitalAccount();
+            await syncCapitalPositions();
+            clearInterval(S.sessionRefresh);
+            S.sessionRefresh=setInterval(()=>keepSessionAlive(c.apikey,c.email,c.pass,base),9*60*1000);
+            clearInterval(S.positionSync);
+            S.positionSync=setInterval(syncCapitalPositions,30*1000);
+            const modeLabel=isReadOnly?profile.label+' · READ-ONLY':isLive?profile.label+' · LIVE':profile.label+' · DEMO';
+            setConn(true,modeLabel);
+            if(isReadOnly) applyReadOnlyMode();
+            toast('✅','Switched to '+profile.label,'Connected');
+            return;
+          }
+        }catch(e){console.warn('Auto-reconnect failed:',e.message);}
+        toast('⚠','Reconnect Failed','Credentials may be stale — re-enter below');
+      }
+    }catch(e){}
+  }
+  // No stored credentials or reconnect failed — prompt
+  toast('🔵',profile.label,'Enter credentials to connect');
+  openConn();
+}
+
 function setConn(ok,lbl){
   const d=$('conn-dot'),l=$('conn-lbl');
   if(d)d.style.background=ok?'var(--green)':'var(--muted)';
   if(l){l.textContent=lbl;l.style.color=ok?'var(--green)':'var(--muted)';}
-  const am=$('acct-mode');if(am)am.textContent=lbl;
+  const am=$('acct-mode');
+  if(am){
+    const profile=ACCT_PROFILES[S.activeAccount];
+    am.textContent=profile?profile.label:lbl;
+  }
 }
 
 // ══ BALANCE RESET ══
@@ -4456,6 +4559,11 @@ function initMobileLayout(){
 
 document.addEventListener('DOMContentLoaded',()=>{
   restoreState();
+  // Restore active account selection
+  const savedAcct=localStorage.getItem('ljtc-activeAccount')||'demo';
+  S.activeAccount=ACCT_PROFILES[savedAcct]?savedAcct:'demo';
+  const sw=$('acct-switcher'); if(sw) sw.value=S.activeAccount;
+  updateHighRiskBanner();
   loadSaved();loadTV();loadCalendar();startFeed();
   initMacro();
   // Fetch live AUD/USD rate
