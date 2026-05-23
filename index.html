@@ -120,7 +120,7 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .stat-lbl{ font-size:9px; color:var(--muted); letter-spacing:1.5px; margin-bottom:5px; line-height:1.4; text-transform:uppercase; }
 .stat-val{ font-family:"Bebas Neue"; font-size:26px; line-height:1; display:block; }
 #s-bal{ font-size:38px !important; }
-.stat-aud{ display:block; font-size:10px; color:#6b7280; margin-top:3px; letter-spacing:0.3px; font-family:"DM Mono",monospace; }
+.stat-aud{ display:block; font-size:18px; font-weight:600; color:#3b9eff; margin-top:4px; font-family:"DM Mono",monospace; }
 
 /* ── TRADES REGISTRY ── */
 /* registry now inside centre panel */
@@ -2039,8 +2039,8 @@ function updateAccount(){
   const free=equity-margin;
   const mpct=equity>0?(margin/equity*100):0;
   const r=getAudRate();
-  const fmtAud=v=>'≈ A$'+Math.abs(v*r).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const fmtAudSigned=(v,sign)=>(sign?'≈ A$':'-A$')+Math.abs(v*r).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtAud=v=>'A$'+Math.abs(v*r).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtAudSigned=(v,sign)=>(sign?'A$':'-A$')+Math.abs(v*r).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const setAud=(id,v)=>{const e=$(id);if(e)e.textContent=fmtAud(isFinite(v)?v:0);};
   const setAudSigned=(id,v)=>{const safe=isFinite(v)?v:0;const e=$(id);if(e)e.textContent=fmtAudSigned(safe,safe>=0);};
   set('s-bal','$'+(S.bal||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),'var(--gold)');
