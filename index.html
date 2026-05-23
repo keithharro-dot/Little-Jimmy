@@ -315,25 +315,15 @@ thead th { font-size: 13px !important; padding: 6px 8px !important; }
 #trades-body tr td:first-child { font-weight: bold !important; }
 thead th { font-size: 13px !important; }
 
-/* Hide unwanted columns by position - EXP P&L=11, FEE=12, TAX=13, MARGIN=6 */
-#trades-body td:nth-child(6),
-#trades-body td:nth-child(11),
-#trades-body td:nth-child(12),
-#trades-body td:nth-child(13),
-.trades-table thead th:nth-child(6),
-.trades-table thead th:nth-child(11),
-.trades-table thead th:nth-child(12),
-.trades-table thead th:nth-child(13) {
-  display: none !important;
-}
+/* All 10 columns are keepers — MARGIN/EXP P&L/FEE/TAX already removed from JS */
+/* ASSET(1) TYPE(2) LEVERAGE(3) BUY PRICE(4) QTY(5) CURRENT PRICE(6) PROFIT/LOSS(7) STOP LOSS(8) TAKE PROFIT(9) ACTION(10) */
 
-/* Compact column widths */
-.trades-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
-#trades-body td, .trades-table th { padding: 5px 6px !important; font-size: 14px !important; white-space: nowrap; overflow: hidden; }
+/* Font size and padding */
+#trades-body td { padding: 8px 8px !important; font-size: 15px !important; }
 
-/* Reduce chart height */
-.bottom-split { max-height: 220px !important; }
-#tv-chart-container, #tradingview_chart { height: 200px !important; }
+/* Chart height — .bottom-split contains only the TradingView chart (was 220px, -40% = 132px) */
+.bottom-split { max-height: 132px !important; }
+#tv-chart-container, #tradingview_chart { height: 132px !important; }
 </style>
 </head>
 <body>
