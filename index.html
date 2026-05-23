@@ -3791,6 +3791,9 @@ async function connectAPI(){
     S.sessionId++;
     console.log(`[Jimmy] connectAPI — new session (id=${S.sessionId}) account=${S.activeAccount} base=${base} cst=${S.CST?.slice(0,8)}...`);
 
+    if(statusEl){statusEl.textContent='Selecting account...';statusEl.style.color='var(--gold)';}
+    await selectCapitalAccount();
+
     if(statusEl){statusEl.textContent='Authenticated ✓ — fetching account...';statusEl.style.color='var(--green)';}
 
     // Pull real balance
@@ -3941,6 +3944,54 @@ function disableReadOnlyMode(){
   if(window._origQuickTrade)   window.quickTrade=window._origQuickTrade;
 }
 
+// ── Switch the Capital.com session to the account matching the active profile ──
+async function selectCapitalAccount(){
+  if(!S.apiBase||!S.CST) return;
+  const sid=S.sessionId;
+  const profile=ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo;
+  try{
+    // 1. Fetch all accounts on this API key
+    const r=await fetch(`${S.apiBase}/api/v1/accounts`,{
+      headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
+    });
+    if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed mid-flight');return;}
+    if(!r.ok){console.warn('[Jimmy] selectCapitalAccount: accounts fetch failed',r.status);return;}
+    const data=await r.json();
+    const accounts=data.accounts||[];
+
+    // 2. Log all available accounts for debugging
+    console.log(`[Jimmy] Capital.com accounts available (profile=${S.activeAccount}):`);
+    accounts.forEach(a=>console.log(`  id=${a.accountId}  name="${a.accountName}"  type=${a.accountType}  preferred=${a.preferred}  status=${a.status}`));
+
+    // 3. Match profile to account: exact name → partial name → type fallback
+    const needle=profile.label.toLowerCase();
+    let target=accounts.find(a=>a.accountName?.toLowerCase()===needle);
+    if(!target) target=accounts.find(a=>a.accountName?.toLowerCase().includes(needle));
+    if(!target && S.activeAccount==='demo') target=accounts.find(a=>a.accountType==='DEMO');
+    if(!target && S.activeAccount!=='demo') target=accounts.find(a=>a.accountType!=='DEMO'&&!a.preferred);
+    if(!target) target=accounts.find(a=>a.preferred)||accounts[0];
+
+    if(!target){console.warn('[Jimmy] selectCapitalAccount: no matching account found, using session default');return;}
+    console.log(`[Jimmy] selectCapitalAccount: matched profile "${profile.label}" → Capital account "${target.accountName}" (${target.accountId})`);
+
+    // 4. Switch session to the matched account
+    const sw=await fetch(`${S.apiBase}/api/v1/session/account/${target.accountId}`,{
+      method:'PUT',
+      headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
+    });
+    if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed during PUT, discarding');return;}
+    if(sw.ok){
+      // Capture refreshed tokens if the server returns them
+      const newCST=sw.headers.get('CST'), newSEC=sw.headers.get('X-SECURITY-TOKEN');
+      if(newCST) S.CST=newCST;
+      if(newSEC) S.SEC=newSEC;
+      console.log(`[Jimmy] selectCapitalAccount: session now on "${target.accountName}" ✓`);
+    } else {
+      console.warn(`[Jimmy] selectCapitalAccount: PUT /session/account failed (${sw.status}) — proceeding with default`);
+    }
+  }catch(e){console.warn('[Jimmy] selectCapitalAccount error:',e.message);}
+}
+
 async function syncCapitalAccount(){
   if(!S.apiBase||!S.CST) return;
   const sid=S.sessionId;
@@ -4043,6 +4094,7 @@ async function switchAccount(acctKey){
             console.log(`[Jimmy] switchAccount → session established for ${profile.label} (sid=${S.sessionId}) cst=${S.CST?.slice(0,8)}... base=${base}`);
             const modeLabel=isReadOnly?profile.label+' · READ-ONLY':isLive?profile.label+' · LIVE':profile.label+' · DEMO';
             setConn(true,modeLabel); // update header immediately — don't wait for syncs
+            await selectCapitalAccount();
             await syncCapitalAccount();
             await syncCapitalPositions();
             clearInterval(S.sessionRefresh);
