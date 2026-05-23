@@ -33,14 +33,14 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .logo{ display:flex; align-items:center; gap:8px; }
 .logo-mark{ width:26px; height:26px; background:var(--gold); border-radius:5px; display:flex; align-items:center; justify-content:center; font-family:"Bebas Neue"; font-size:12px; color:#000; font-weight:900; }
 .logo-name{ font-family:"Bebas Neue"; font-size:15px; letter-spacing:3px; color:var(--gold); }
-.logo-sub{ font-size:7px; color:var(--muted); letter-spacing:2px; margin-top:-2px; }
+.logo-sub{ font-size:11px; color:var(--muted); letter-spacing:2px; margin-top:-2px; }
 .ticker{ display:flex; align-items:center; gap:0; }
 .tick{ display:flex; flex-direction:column; align-items:center; padding:0 12px; border-right:1px solid var(--border); }
-.tick-lbl{ font-size:7px; color:var(--muted); letter-spacing:2px; }
+.tick-lbl{ font-size:11px; color:var(--muted); letter-spacing:2px; }
 .tick-p{ font-family:"Bebas Neue"; font-size:13px; }
-.tick-c{ font-size:8px; }
+.tick-c{ font-size:11px; }
 .top-btns{ display:flex; gap:5px; align-items:center; }
-.tbtn{ background:var(--bg3); border:1px solid var(--border); color:var(--muted); padding:4px 10px; font-family:"Bebas Neue"; font-size:10px; letter-spacing:1px; cursor:pointer; border-radius:3px; transition:all 0.15s; }
+.tbtn{ background:var(--bg3); border:1px solid var(--border); color:var(--muted); padding:4px 10px; font-family:"Bebas Neue"; font-size:11px; letter-spacing:1px; cursor:pointer; border-radius:3px; transition:all 0.15s; }
 .tbtn:hover{ color:var(--text); border-color:var(--border2); }
 .conn-btn{ background:var(--gold); color:#000; border:none; padding:4px 12px; font-family:"Bebas Neue"; font-size:11px; letter-spacing:1px; cursor:pointer; border-radius:3px; }
 .conn-dot{ width:6px; height:6px; border-radius:50%; background:var(--muted); display:inline-block; margin-right:4px; }
@@ -55,9 +55,9 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .top-grid{
   display:grid;
   grid-template-columns: 320px 1fr 340px;
-  grid-template-rows: 1fr; min-height:470px;
+  grid-template-rows: 1fr;
   border-bottom:2px solid var(--border2);
-  flex:0 0 470px;
+  flex:0 0 620px;
   gap:0;
   min-height:0;
 }
@@ -74,7 +74,7 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 }
 .cell-label{
   background:#1e2329;
-  font-size:8px; color:var(--muted); letter-spacing:1px; font-weight:500;
+  font-size:11px; color:var(--muted); letter-spacing:1px; font-weight:500;
   text-transform:uppercase;
 }
 .cell-value{ background:var(--bg2); }
@@ -102,19 +102,19 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 /* ── CENTRE: chart controls ── */
 .centre-panel{ border-right:1px solid var(--border2); display:flex; flex-direction:column; overflow:hidden; min-height:0; }
 .chart-bar{ display:flex; align-items:center; gap:5px; padding:5px 10px; background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
-.tf{ background:none; border:1px solid var(--border); color:var(--muted); padding:2px 7px; font-family:"DM Mono"; font-size:8px; cursor:pointer; border-radius:2px; transition:all 0.12s; }
+.tf{ background:none; border:1px solid var(--border); color:var(--muted); padding:2px 7px; font-family:"DM Mono"; font-size:11px; cursor:pointer; border-radius:2px; transition:all 0.12s; }
 .tf.active, .tf:hover{ background:var(--border2); color:var(--text); border-color:var(--border2); }
 .ind-bar{ display:flex; align-items:center; gap:12px; padding:3px 10px; background:var(--bg3); border-bottom:1px solid var(--border); overflow-x:auto; flex-shrink:0; white-space:nowrap; }
 .ind{ display:flex; flex-direction:column; align-items:center; }
-.ind-lbl{ font-size:6px; color:var(--muted); letter-spacing:1px; }
-.ind-v{ font-family:"Bebas Neue"; font-size:12px; }
+.ind-lbl{ font-size:11px; color:var(--muted); letter-spacing:1px; }
+.ind-v{ font-family:"Bebas Neue"; font-size:13px; }
 
 /* ── RIGHT: account stats ── */
 .right-panel{ overflow-y:auto; overflow-x:visible; }
 .stat-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; overflow:visible; }
 .stat-cell{ padding:12px 14px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg2); overflow:visible; box-sizing:border-box; }
 .stat-cell:nth-child(3n){ border-right:none; }
-.stat-lbl{ font-size:9px; color:var(--muted); letter-spacing:1.5px; margin-bottom:5px; line-height:1.4; text-transform:uppercase; }
+.stat-lbl{ font-size:11px; color:var(--muted); letter-spacing:1.5px; margin-bottom:5px; line-height:1.4; text-transform:uppercase; }
 .stat-val{ font-family:"Bebas Neue"; font-size:26px; line-height:1; display:block; }
 #s-bal{ font-size:38px !important; }
 .stat-aud{ display:block; font-size:18px; font-weight:600; color:#3b9eff; margin-top:4px; font-family:"DM Mono",monospace; }
@@ -124,9 +124,9 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .reg-header{ display:flex; align-items:center; padding:5px 12px; background:var(--bg3); border-bottom:1px solid var(--border); flex-shrink:0; }
 .reg-title{ font-family:"Bebas Neue"; font-size:13px; letter-spacing:3px; color:var(--gold); }
 .trades-wrap{ overflow-x:auto; overflow-y:auto; }
-table{ width:100%; border-collapse:collapse; font-size:8px; }
-th{ background:var(--bg3); color:var(--muted); font-weight:400; letter-spacing:1px; padding:4px 8px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:2; }
-td{ padding:5px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
+table{ width:100%; border-collapse:collapse; font-size:13px; }
+th{ background:var(--bg3); color:var(--muted); font-weight:400; letter-spacing:1px; padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:2; font-size:13px; }
+td{ padding:6px 8px; border-bottom:1px solid var(--border); white-space:nowrap; font-size:13px; }
 tr:hover td{ background:rgba(255,255,255,0.015); }
 
 /* ── CHART ── */
@@ -223,18 +223,13 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
   .stat-grid{grid-template-columns:1fr 1fr!important;}
   .auto-sb-body{padding:8px!important;}
 }
-  /* Catch-all: boost any remaining tiny text */
-  [style*="font-size:5px"],[style*="font-size: 5px"]{ font-size:10px !important; }
-  [style*="font-size:6px"],[style*="font-size: 6px"]{ font-size:12px !important; }
-  [style*="font-size:7px"],[style*="font-size: 7px"]{ font-size:14px !important; }
-  [style*="font-size:8px"],[style*="font-size: 8px"]{ font-size:16px !important; }
-  [style*="font-size:9px"],[style*="font-size: 9px"]{ font-size:16px !important; }
-  [style*="font-size:10px"],[style*="font-size: 10px"]{ font-size:18px !important; }
-  [style*="font-size:11px"],[style*="font-size: 11px"]{ font-size:18px !important; }
-  [style*="font-size:12px"],[style*="font-size: 12px"]{ font-size:20px !important; }
-  [style*="font-size:13px"],[style*="font-size: 13px"]{ font-size:22px !important; }
-  [style*="font-size:14px"],[style*="font-size: 14px"]{ font-size:24px !important; }
-  [style*="font-size:15px"],[style*="font-size: 15px"]{ font-size:26px !important; }
+  /* Catch-all: enforce 11px minimum for any remaining tiny inline-style text */
+  [style*="font-size:5px"],[style*="font-size: 5px"],
+  [style*="font-size:6px"],[style*="font-size: 6px"],
+  [style*="font-size:7px"],[style*="font-size: 7px"],
+  [style*="font-size:8px"],[style*="font-size: 8px"],
+  [style*="font-size:9px"],[style*="font-size: 9px"],
+  [style*="font-size:10px"],[style*="font-size: 10px"]{ font-size:11px !important; }
 
 
 @media (min-width:769px){
@@ -246,13 +241,13 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 
 /* ── NEWS ── */
 .news-bar{ height:28px; min-height:28px; display:flex; align-items:center; background:var(--bg2); border-top:1px solid var(--border); overflow:hidden; flex-shrink:0; }
-.news-lbl{ padding:0 10px; font-family:"Bebas Neue"; font-size:10px; letter-spacing:2px; color:var(--red); border-right:1px solid var(--border); white-space:nowrap; display:flex; align-items:center; gap:5px; }
+.news-lbl{ padding:0 10px; font-family:"Bebas Neue"; font-size:11px; letter-spacing:2px; color:var(--red); border-right:1px solid var(--border); white-space:nowrap; display:flex; align-items:center; gap:5px; }
 @keyframes blink{ 0%,100%{opacity:1}50%{opacity:0.3} }
 .blink{ animation:blink 1.5s ease infinite; }
 .ticker-wrap{ flex:1; overflow:hidden; }
 .ticker-inner{ display:inline-flex; gap:40px; animation:scroll 60s linear infinite; white-space:nowrap; }
 @keyframes scroll{ from{transform:translateX(100vw)} to{transform:translateX(-100%)} }
-.tick-item{ font-size:8px; color:var(--muted); display:flex; align-items:center; gap:5px; }
+.tick-item{ font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px; }
 
 /* ── MODALS ── */
 .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px); z-index:200; display:none; align-items:center; justify-content:center; }
@@ -260,12 +255,12 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 .modal{ background:var(--bg2); border:1px solid var(--border2); border-radius:8px; padding:22px; width:440px; max-width:95vw; }
 .modal-title{ font-family:"Bebas Neue"; font-size:17px; letter-spacing:3px; color:var(--gold); margin-bottom:14px; }
 .field{ display:flex; flex-direction:column; gap:3px; margin-bottom:10px; }
-.field label{ font-size:7px; color:var(--muted); letter-spacing:1px; }
-.field input, .field select{ background:var(--bg); border:1px solid var(--border); border-radius:3px; color:var(--text); padding:5px 8px; font-family:"DM Mono"; font-size:10px; outline:none; }
+.field label{ font-size:11px; color:var(--muted); letter-spacing:1px; }
+.field input, .field select{ background:var(--bg); border:1px solid var(--border); border-radius:3px; color:var(--text); padding:5px 8px; font-family:"DM Mono"; font-size:12px; outline:none; }
 .field input:focus, .field select:focus{ border-color:var(--border2); }
 .row2f{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .primary-btn{ background:var(--gold); color:#000; border:none; padding:9px 16px; font-family:"Bebas Neue"; font-size:13px; letter-spacing:2px; cursor:pointer; border-radius:3px; }
-.secondary-btn{ background:none; border:1px solid var(--border); color:var(--muted); padding:9px 14px; font-family:"DM Mono"; font-size:9px; cursor:pointer; border-radius:3px; }
+.secondary-btn{ background:none; border:1px solid var(--border); color:var(--muted); padding:9px 14px; font-family:"DM Mono"; font-size:11px; cursor:pointer; border-radius:3px; }
 
 /* ── BLACKOUT ── */
 .blackout{ position:fixed; top:38px; right:12px; z-index:95; transform:translateY(-70px); transition:transform 0.3s; display:flex; border-radius:4px; overflow:hidden; box-shadow:0 4px 18px rgba(200,20,40,0.5); }
@@ -279,14 +274,14 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 .auto-sb-inner{ width:310px; height:100%; display:flex; flex-direction:column; overflow:hidden; }
 .auto-sb-hdr{ display:flex; align-items:center; justify-content:space-between; padding:9px 13px; background:var(--bg3); border-bottom:1px solid rgba(99,102,241,0.2); flex-shrink:0; }
 .auto-sb-body{ flex:1; overflow-y:auto; padding:11px 13px; }
-.as-sec{ font-size:7px; color:var(--muted); letter-spacing:2px; margin:9px 0 4px; }
+.as-sec{ font-size:11px; color:var(--muted); letter-spacing:2px; margin:9px 0 4px; }
 .as-field{ display:flex; flex-direction:column; gap:2px; margin-bottom:7px; }
-.as-field label{ font-size:7px; color:var(--muted); letter-spacing:1px; }
-.as-field input, .as-field select{ background:var(--bg); border:1px solid var(--border); border-radius:2px; color:var(--text); padding:4px 7px; font-family:"DM Mono"; font-size:9px; outline:none; }
+.as-field label{ font-size:11px; color:var(--muted); letter-spacing:1px; }
+.as-field input, .as-field select{ background:var(--bg); border:1px solid var(--border); border-radius:2px; color:var(--text); padding:4px 7px; font-family:"DM Mono"; font-size:11px; outline:none; }
 .as-2col{ display:grid; grid-template-columns:1fr 1fr; gap:5px; }
-.as-chip{ display:inline-flex; padding:2px 7px; border-radius:10px; font-size:8px; cursor:pointer; border:1px solid var(--border); color:var(--muted); background:transparent; transition:all 0.12s; margin:2px; user-select:none; }
+.as-chip{ display:inline-flex; padding:2px 7px; border-radius:10px; font-size:11px; cursor:pointer; border:1px solid var(--border); color:var(--muted); background:transparent; transition:all 0.12s; margin:2px; user-select:none; }
 .as-chip.on{ border-color:#818cf8; color:#818cf8; background:rgba(99,102,241,0.1); }
-.as-log{ font-family:"DM Mono"; font-size:8px; height:130px; overflow-y:auto; padding:7px; background:var(--bg3); border-radius:3px; border:1px solid var(--border); line-height:1.7; }
+.as-log{ font-family:"DM Mono"; font-size:11px; height:130px; overflow-y:auto; padding:7px; background:var(--bg3); border-radius:3px; border:1px solid var(--border); line-height:1.7; }
 .start-btn{ background:var(--green); color:#000; border:none; padding:5px 13px; font-family:"Bebas Neue"; font-size:12px; letter-spacing:1px; cursor:pointer; border-radius:3px; }
 .stop-btn{ background:var(--red); color:#fff; border:none; padding:5px 13px; font-family:"Bebas Neue"; font-size:12px; letter-spacing:1px; cursor:pointer; border-radius:3px; }
 
@@ -302,6 +297,43 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 
 /* ── DEMO RESET ── */
 #reset-panel{ display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:300; background:var(--bg2); border:1px solid var(--border2); border-radius:7px; padding:18px; width:300px; box-shadow:0 8px 30px rgba(0,0,0,0.6); }
+
+/* ── FONT SIZE OVERRIDES — highest specificity, applied last ── */
+#trades-body td, #pending-body td { font-size: 15px !important; padding: 6px 8px !important; }
+#trades-body tr, #pending-body tr { min-height: 40px !important; }
+thead th { font-size: 13px !important; padding: 6px 8px !important; }
+#sel-instrument { font-size: 15px !important; }
+#lp-price { font-size: 22px !important; }
+.left-panel label, .left-panel .cell-label { font-size: 12px !important; }
+.tbtn { font-size: 12px !important; }
+</style>
+<style id="font-override">
+/* Hard backstop — wins over everything including inline styles on JS-rendered rows */
+#trades-body td, #trades-body td * { font-size: 15px !important; }
+#pending-body td, #pending-body td * { font-size: 15px !important; }
+#trades-body tr, #pending-body tr { height: 40px !important; }
+#trades-body tr td:first-child { font-weight: bold !important; }
+thead th { font-size: 13px !important; }
+
+/* Hide unwanted columns by position - EXP P&L=11, FEE=12, TAX=13, MARGIN=6 */
+#trades-body td:nth-child(6),
+#trades-body td:nth-child(11),
+#trades-body td:nth-child(12),
+#trades-body td:nth-child(13),
+.trades-table thead th:nth-child(6),
+.trades-table thead th:nth-child(11),
+.trades-table thead th:nth-child(12),
+.trades-table thead th:nth-child(13) {
+  display: none !important;
+}
+
+/* Compact column widths */
+.trades-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
+#trades-body td, .trades-table th { padding: 5px 6px !important; font-size: 14px !important; white-space: nowrap; overflow: hidden; }
+
+/* Reduce chart height */
+.bottom-split { max-height: 220px !important; }
+#tv-chart-container, #tradingview_chart { height: 200px !important; }
 </style>
 </head>
 <body>
@@ -313,7 +345,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
     <div><div class="logo-name">LITTLE JIMMY TRADING CO</div></div>
   </div>
   <div class="top-btns">
-    <div style="display:flex;align-items:center;font-size:8px;color:var(--muted);padding:3px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;gap:5px;">
+    <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);padding:3px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;gap:5px;">
       <span class="conn-dot" id="conn-dot"></span><span id="conn-lbl">NOT CONNECTED</span>
     </div>
     <button class="tbtn" onclick="openTRYT()">▶ TR</button>
@@ -334,7 +366,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 
       <!-- Row 1: ASSET TYPE -->
       <div class="row2">
-        <div class="cell cell-label" style="font-size:9px;font-weight:700;color:#9ca3af;background:#161b22;">ASSET TYPE</div>
+        <div class="cell cell-label" style="font-size:11px;font-weight:700;color:#9ca3af;background:#161b22;">ASSET TYPE</div>
         <div class="cell cell-value" style="padding:4px 8px;">
           <select id="sel-instrument" onchange="onInstrChange()"
             style="background:transparent;border:none;color:var(--gold);font-family:'Bebas Neue';font-size:14px;outline:none;cursor:pointer;width:100%;">
@@ -353,27 +385,27 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 
       <!-- Row 2: CURRENT PRICE -->
       <div class="row2">
-        <div class="cell cell-label" style="font-size:8px;font-weight:700;color:#9ca3af;background:#161b22;line-height:1.4;">CURRENT<br>PRICE (USD)</div>
+        <div class="cell cell-label" style="font-size:11px;font-weight:700;color:#9ca3af;background:#161b22;line-height:1.4;">CURRENT<br>PRICE (USD)</div>
         <div class="cell cell-value" style="flex-direction:column;align-items:flex-start;gap:1px;">
           <div style="font-family:'Bebas Neue';font-size:16px;color:var(--gold);" id="lp-price">—</div>
-          <div style="font-size:8px;" id="lp-chg">—</div>
+          <div style="font-size:11px;" id="lp-chg">—</div>
         </div>
       </div>
 
       <!-- Row 3: TRADE SIZE header with AUD/USD selector | QUANTITY header -->
       <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);">
         <div style="padding:4px 8px;background:#161b22;border-right:1px solid var(--border);">
-          <div style="font-size:7px;font-weight:700;color:#9ca3af;margin-bottom:3px;">TRADE SIZE</div>
+          <div style="font-size:11px;font-weight:700;color:#9ca3af;margin-bottom:3px;">TRADE SIZE</div>
           <select id="size-currency" onchange="onCurrencyToggle()"
             style="width:100%;background:var(--bg);border:1px solid rgba(245,200,66,0.3);
-                   color:var(--gold);font-family:'Bebas Neue';font-size:10px;letter-spacing:1px;
+                   color:var(--gold);font-family:'Bebas Neue';font-size:12px;letter-spacing:1px;
                    outline:none;cursor:pointer;border-radius:2px;padding:2px 3px;">
             <option value="USD">$ USD</option>
             <option value="AUD">A$ AUD</option>
           </select>
         </div>
-        <div style="padding:4px 8px;background:#161b22;font-size:7px;font-weight:700;color:#4af0b0;text-align:center;">
-          QUANTITY<br><span style="color:var(--muted);font-size:6px;">UNITS</span>
+        <div style="padding:4px 8px;background:#161b22;font-size:11px;font-weight:700;color:#4af0b0;text-align:center;">
+          QUANTITY<br><span style="color:var(--muted);font-size:11px;">UNITS</span>
         </div>
       </div>
 
@@ -387,15 +419,15 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
       <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);">
         <div style="display:flex;flex-direction:column;align-items:center;padding:5px 6px;border-right:1px solid var(--border);">
           <!-- Currency label updates dynamically -->
-          <div style="font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:2px;" id="size-lbl">$ USD</div>
+          <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:2px;" id="size-lbl">$ USD</div>
           <input type="number" id="inp-lot" value="100" step="1" min="0.01" oninput="onSizeInput()"
             style="background:transparent;border:none;color:var(--text);font-family:'DM Mono';
                    font-size:13px;font-weight:700;outline:none;text-align:center;width:100%;">
           <!-- Equivalent in other currency -->
-          <div style="font-size:7px;color:var(--muted);margin-top:1px;" id="size-equiv">≈ A$155</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px;" id="size-equiv">≈ A$155</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;padding:5px 6px;">
-          <div style="font-size:6px;color:var(--oil);letter-spacing:1px;margin-bottom:2px;">UNITS</div>
+          <div style="font-size:11px;color:var(--oil);letter-spacing:1px;margin-bottom:2px;">UNITS</div>
           <input type="number" id="inp-qty" value="0.5" step="0.000001" oninput="onQtyInput()"
             style="background:transparent;border:none;color:var(--oil);font-family:'DM Mono';
                    font-size:13px;font-weight:700;outline:none;text-align:center;width:100%;">
@@ -421,32 +453,32 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
       </div>
 
       <!-- Auto status bar -->
-      <div id="auto-status-bar" style="display:flex;align-items:center;gap:8px;padding:4px 10px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:7px;">
+      <div id="auto-status-bar" style="display:flex;align-items:center;gap:8px;padding:4px 10px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:11px;">
         <div id="auto-status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;"></div>
         <span id="auto-status-txt" style="color:var(--muted);font-family:'Bebas Neue';letter-spacing:1px;">ENGINE STOPPED</span>
         <span style="margin-left:auto;color:var(--muted);">NEXT: <b id="eng-cd2" style="color:#818cf8;">—</b></span>
-        <button onclick="forceTrade()" style="background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.4);color:var(--gold);padding:2px 7px;font-family:'Bebas Neue';font-size:8px;letter-spacing:1px;cursor:pointer;border-radius:2px;" title="Force a test trade immediately">⚡ TEST</button>
-        <button onclick="toggleAutoSB()" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#818cf8;padding:2px 7px;font-family:'Bebas Neue';font-size:8px;letter-spacing:1px;cursor:pointer;border-radius:2px;">⚙ SETTINGS</button>
+        <button onclick="forceTrade()" style="background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.4);color:var(--gold);padding:2px 7px;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:2px;" title="Force a test trade immediately">⚡ TEST</button>
+        <button onclick="toggleAutoSB()" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#818cf8;padding:2px 7px;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:2px;">⚙ SETTINGS</button>
       </div>
 
       <!-- Row 8: STOP LOSS | TAKE PROFIT inputs -->
       <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);">
         <div style="display:flex;flex-direction:column;padding:5px 8px;border-right:1px solid var(--border);">
-          <div style="font-size:6px;color:var(--red);letter-spacing:1px;margin-bottom:2px;">STOP LOSS $</div>
+          <div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-bottom:2px;">STOP LOSS $</div>
           <input type="number" id="inp-sl" placeholder="e.g. 2290" step="0.01" oninput="calcM()"
-            style="background:transparent;border:none;border-bottom:1px solid rgba(231,76,60,0.3);color:var(--red);font-family:'DM Mono';font-size:10px;outline:none;text-align:center;width:100%;cursor:text;">
+            style="background:transparent;border:none;border-bottom:1px solid rgba(231,76,60,0.3);color:var(--red);font-family:'DM Mono';font-size:12px;outline:none;text-align:center;width:100%;cursor:text;">
         </div>
         <div style="display:flex;flex-direction:column;padding:5px 8px;">
-          <div style="font-size:6px;color:var(--green);letter-spacing:1px;margin-bottom:2px;">TAKE PROFIT $</div>
+          <div style="font-size:11px;color:var(--green);letter-spacing:1px;margin-bottom:2px;">TAKE PROFIT $</div>
           <input type="number" id="inp-tp" placeholder="e.g. 2400" step="0.01" oninput="calcM()"
-            style="background:transparent;border:none;border-bottom:1px solid rgba(46,204,113,0.3);color:var(--green);font-family:'DM Mono';font-size:10px;outline:none;text-align:center;width:100%;cursor:text;">
+            style="background:transparent;border:none;border-bottom:1px solid rgba(46,204,113,0.3);color:var(--green);font-family:'DM Mono';font-size:12px;outline:none;text-align:center;width:100%;cursor:text;">
         </div>
       </div>
 
       <!-- Row 9: LEVERAGE | SPOT/CFD -->
       <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);">
         <div style="display:flex;flex-direction:column;padding:5px 8px;border-right:1px solid var(--border);">
-          <div style="font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:3px;">LEVERAGE</div>
+          <div style="font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:3px;">LEVERAGE</div>
           <select id="exec-leverage" onchange="calcM()"
             style="background:var(--bg);border:1px solid rgba(245,200,66,0.3);color:var(--gold);
                    font-family:'Bebas Neue';font-size:12px;letter-spacing:1px;outline:none;
@@ -465,7 +497,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
           </select>
         </div>
         <div style="display:flex;flex-direction:column;padding:5px 8px;" id="trade-type-row">
-          <div style="font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;">TRADE TYPE</div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;">TRADE TYPE</div>
           <select id="exec-trade-type" onchange="onTradeTypeChange()"
             style="background:var(--bg);border:1px solid rgba(245,200,66,0.3);color:var(--gold);
                    font-family:'Bebas Neue';font-size:12px;letter-spacing:1px;outline:none;
@@ -477,15 +509,15 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
       </div>
 
       <!-- Row 10: Margin info bar -->
-      <div style="padding:5px 10px;background:var(--bg3);border-top:1px solid var(--border);font-size:7px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <span id="asset-type-badge" style="font-family:'Bebas Neue';font-size:9px;padding:1px 6px;border-radius:2px;background:rgba(245,200,66,0.08);color:var(--gold);border:1px solid rgba(245,200,66,0.2);">CFD</span>
+      <div style="padding:5px 10px;background:var(--bg3);border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <span id="asset-type-badge" style="font-family:'Bebas Neue';font-size:11px;padding:2px 7px;border-radius:2px;background:rgba(245,200,66,0.08);color:var(--gold);border:1px solid rgba(245,200,66,0.2);">CFD</span>
         <span>MKT: <b id="mkt-price" style="color:var(--text);">—</b></span>
         <span id="leverage-row" style="display:flex;align-items:center;gap:3px;">
           MARGIN: <b id="mkt-margin" style="color:var(--gold);">—</b>
         </span>
         <span>RISK: <b id="mkt-risk" style="color:var(--red);">—</b></span>
-        <button onclick="toggleAutoSB()" style="margin-left:auto;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);color:#818cf8;padding:3px 8px;font-family:'Bebas Neue';font-size:9px;letter-spacing:1px;cursor:pointer;border-radius:2px;">⚙ AUTO SETTINGS</button>
-        <button onclick="openReset()" style="background:rgba(74,240,176,0.08);border:1px solid rgba(74,240,176,0.2);color:var(--oil);padding:3px 8px;font-size:8px;cursor:pointer;border-radius:2px;">💵 BALANCE</button>
+        <button onclick="toggleAutoSB()" style="margin-left:auto;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);color:#818cf8;padding:3px 8px;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:2px;">⚙ AUTO SETTINGS</button>
+        <button onclick="openReset()" style="background:rgba(74,240,176,0.08);border:1px solid rgba(74,240,176,0.2);color:var(--oil);padding:3px 8px;font-size:11px;cursor:pointer;border-radius:2px;">💵 BALANCE</button>
       </div>
 
     </div><!-- end left panel -->
@@ -494,11 +526,11 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
     <div class="centre-panel">
       <!-- Chart control bar -->
       <div class="chart-bar">
-        <span style="font-size:8px;color:var(--muted);padding-right:8px;border-right:1px solid var(--border);margin-right:4px;">
-          <span id="tv-sym-lbl" style="font-family:'Bebas Neue';font-size:12px;color:var(--gold);">XAUUSD</span>
-          <span style="font-size:7px;color:var(--green);margin-left:4px;padding:1px 4px;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.2);border-radius:2px;">LIVE</span>
+        <span style="font-size:11px;color:var(--muted);padding-right:8px;border-right:1px solid var(--border);margin-right:4px;">
+          <span id="tv-sym-lbl" style="font-family:'Bebas Neue';font-size:13px;color:var(--gold);">XAUUSD</span>
+          <span style="font-size:11px;color:var(--green);margin-left:4px;padding:1px 4px;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.2);border-radius:2px;">LIVE</span>
         </span>
-        <span style="font-size:7px;color:var(--muted);margin-right:3px;">TF</span>
+        <span style="font-size:11px;color:var(--muted);margin-right:3px;">TF</span>
         <button class="tf" onclick="setTF('1',this)">M1</button>
         <button class="tf" onclick="setTF('5',this)">M5</button>
         <button class="tf" onclick="setTF('15',this)">M15</button>
@@ -508,13 +540,13 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
         <button class="tf" onclick="setTF('W',this)">W1</button>
         <div style="margin-left:auto;display:flex;gap:5px;align-items:center;">
           <select id="chart-style" onchange="loadTV()"
-            style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);padding:2px 6px;font-family:'DM Mono';font-size:8px;border-radius:2px;outline:none;cursor:pointer;">
+            style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);padding:2px 6px;font-family:'DM Mono';font-size:11px;border-radius:2px;outline:none;cursor:pointer;">
             <option value="1">🕯 Candles</option><option value="0">📈 Bars</option>
             <option value="2">🔵 Line</option><option value="8">HA</option>
           </select>
-          <button onclick="openTVLogin()" style="background:rgba(41,98,255,0.1);border:1px solid rgba(41,98,255,0.3);color:#4d8fff;padding:2px 8px;font-family:'Bebas Neue';font-size:9px;letter-spacing:1px;cursor:pointer;border-radius:2px;">👤 TV LOGIN</button>
-          <button onclick="openTRScript()" style="background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.3);color:#818cf8;padding:2px 8px;font-family:'Bebas Neue';font-size:9px;letter-spacing:1px;cursor:pointer;border-radius:2px;">📡 TR SCRIPT</button>
-          <span style="font-size:7px;color:var(--muted);border-left:1px solid var(--border);padding-left:8px;">
+          <button onclick="openTVLogin()" style="background:rgba(41,98,255,0.1);border:1px solid rgba(41,98,255,0.3);color:#4d8fff;padding:2px 8px;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:2px;">👤 TV LOGIN</button>
+          <button onclick="openTRScript()" style="background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.3);color:#818cf8;padding:2px 8px;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:2px;">📡 TR SCRIPT</button>
+          <span style="font-size:11px;color:var(--muted);border-left:1px solid var(--border);padding-left:8px;">
             SIGNAL <b id="sig-pct" style="color:var(--green);">—</b>
           </span>
         </div>
@@ -547,32 +579,38 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
         <div class="ind" title="ATR 14 volatility"><div class="ind-lbl">ATR 14</div><div class="ind-v" id="i-atr">—</div></div>
         <div class="ind" title="TR Hybrid overall trend bias"><div class="ind-lbl">TREND</div><div class="ind-v" id="i-trend">—</div></div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding-left:10px;border-left:1px solid var(--border);">
-          <span style="font-size:7px;color:var(--muted);">SESSION: <b id="session-lbl" style="color:var(--text);font-family:'Bebas Neue';letter-spacing:1px;">—</b></span>
-          <span id="session-time" style="font-size:7px;color:var(--muted);">—</span>
+          <span style="font-size:11px;color:var(--muted);">SESSION: <b id="session-lbl" style="color:var(--text);font-family:'Bebas Neue';letter-spacing:1px;">—</b></span>
+          <span id="session-time" style="font-size:11px;color:var(--muted);">—</span>
         </div>
       </div>
       <!-- LIVE TRADES REGISTRY — fills the green area -->
       <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;border-top:1px solid var(--border);">
         <div class="reg-header">
           <span class="reg-title">LIVE TRADES REGISTRY</span>
-          <span id="reg-count" style="font-size:8px;color:var(--muted);margin-left:12px;">0 ACTIVE</span>
+          <span id="reg-count" style="font-size:11px;color:var(--muted);margin-left:12px;">0 ACTIVE</span>
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-            <span style="font-size:8px;color:var(--muted);">PENDING: <b id="pend-cnt2" style="color:var(--gold);">0</b></span>
+            <span style="font-size:11px;color:var(--muted);">PENDING: <b id="pend-cnt2" style="color:var(--gold);">0</b></span>
           </div>
         </div>
-        <div id="auto-scan-status" style="display:none;padding:3px 12px;background:rgba(99,102,241,0.06);border-bottom:1px solid rgba(99,102,241,0.15);font-size:8px;color:#818cf8;font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;"></div>
+        <div id="auto-scan-status" style="display:none;padding:3px 12px;background:rgba(99,102,241,0.06);border-bottom:1px solid rgba(99,102,241,0.15);font-size:11px;color:#818cf8;font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;"></div>
         <div class="trades-wrap" style="flex:1;overflow-x:auto;overflow-y:auto;">
           <table>
             <thead>
               <tr>
-                <th>ASSET</th><th>TYPE</th><th>LEVERAGE</th><th>BUY PRICE</th><th>QTY</th><th>MARGIN</th>
-                <th>CURRENT PRICE</th><th>PROFIT/LOSS</th>
-                <th>STOP LOSS</th><th>TAKE PROFIT</th><th>EXP P&L</th>
-                <th>FEE</th><th>TAX (CGT)</th><th>ACTION</th>
+                <th style="width:80px;">ASSET</th>
+                <th style="width:50px;">TYPE</th>
+                <th style="width:80px;">LEVERAGE</th>
+                <th style="width:80px;">BUY PRICE</th>
+                <th style="width:60px;">QTY</th>
+                <th style="width:90px;">CURRENT PRICE</th>
+                <th style="width:100px;">PROFIT/LOSS</th>
+                <th style="width:120px;">STOP LOSS</th>
+                <th style="width:120px;">TAKE PROFIT</th>
+                <th style="width:80px;">ACTION</th>
               </tr>
             </thead>
             <tbody id="trades-body">
-              <tr><td colspan="14" style="text-align:center;color:var(--muted);padding:14px;font-size:9px;">No open positions — place a trade to begin</td></tr>
+              <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:14px;font-size:13px;">No open positions — place a trade to begin</td></tr>
             </tbody>
             <tbody id="pending-body"></tbody>
           </table>
@@ -583,8 +621,8 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
     <!-- RIGHT: account stats -->
     <div class="right-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:var(--bg3);border-bottom:1px solid var(--border);">
-        <span style="font-size:7px;color:var(--muted);letter-spacing:2px;" id="actual-acct-name">ACCOUNT · CAPITAL.COM</span>
-        <span style="background:rgba(245,200,66,0.1);color:var(--gold);border:1px solid rgba(245,200,66,0.2);font-size:7px;padding:1px 6px;border-radius:2px;font-family:'Bebas Neue';letter-spacing:1px;" id="acct-mode">DEMO</span>
+        <span style="font-size:11px;color:var(--muted);letter-spacing:2px;" id="actual-acct-name">ACCOUNT · CAPITAL.COM</span>
+        <span style="background:rgba(245,200,66,0.1);color:var(--gold);border:1px solid rgba(245,200,66,0.2);font-size:11px;padding:2px 7px;border-radius:2px;font-family:'Bebas Neue';letter-spacing:1px;" id="acct-mode">DEMO</span>
       </div>
       <div class="stat-grid">
         <div class="stat-cell" style="cursor:pointer;" onclick="openReset()" title="Click to change balance">
@@ -632,13 +670,13 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
       </div>
       <!-- Margin bar -->
       <div style="padding:5px 10px;border-top:1px solid var(--border);background:var(--bg3);">
-        <div style="display:flex;justify-content:space-between;font-size:7px;color:var(--muted);margin-bottom:3px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px;">
           <span>MARGIN USAGE</span><span id="s-mpct">0.0%</span>
         </div>
         <div style="background:rgba(255,255,255,0.06);border-radius:2px;height:4px;overflow:hidden;">
           <div id="s-mbar" style="height:100%;width:0%;background:var(--green);border-radius:2px;transition:width 0.5s;"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:7px;color:var(--muted);">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:11px;color:var(--muted);">
           <span>OPEN: <b id="s-open" style="color:var(--text);">0</b></span>
           <span>PENDING: <b id="pend-cnt" style="color:var(--gold);">0</b></span>
           <span style="margin-left:auto;">MAX LEV: <b style="color:var(--gold);">1:200</b></span>
@@ -693,7 +731,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
         <span class="tick-item"><span style="width:5px;height:5px;border-radius:50%;background:var(--muted);display:inline-block;"></span>Loading economic calendar...</span>
       </div>
     </div>
-    <div style="padding:0 12px;font-size:8px;color:var(--muted);border-left:1px solid var(--border);white-space:nowrap;" id="blackout-status">✓ CLEAR TO TRADE</div>
+    <div style="padding:0 12px;font-size:11px;color:var(--muted);border-left:1px solid var(--border);white-space:nowrap;" id="blackout-status">✓ CLEAR TO TRADE</div>
   </div>
 
   <!-- MOBILE TAB BAR — hidden on desktop, shown on iPhone -->
@@ -2933,7 +2971,7 @@ function renderTrades(){
   }
 
   if(!active.length){
-    tbody.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:12px;font-size:9px;">No open positions — place a trade to begin</td></tr>';
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:14px;font-size:13px;">No open positions — place a trade to begin</td></tr>';
     return;
   }
 
@@ -2959,35 +2997,32 @@ function renderTrades(){
     const typeColor=tradeType==='SPOT'?'#818cf8':'var(--gold)';
     const typeBg=tradeType==='SPOT'?'rgba(99,102,241,0.1)':'rgba(245,200,66,0.08)';
     const typeBorder=tradeType==='SPOT'?'rgba(99,102,241,0.3)':'rgba(245,200,66,0.25)';
-    const inStyle='font-family:DM Mono,monospace;font-size:9px;outline:none;text-align:center;width:78px;border:none;border-radius:2px 2px 0 0;padding:2px 4px;cursor:text;';
-    return `<tr data-trade-id="${pos.id}">
-      <td style="color:${m.color};font-weight:700;">${pos.autoTrade?'🤖':'👤'}${pos.instrument}</td>
-      <td><span style="font-family:Bebas Neue,sans-serif;font-size:9px;padding:1px 6px;border-radius:2px;background:${typeBg};color:${typeColor};border:1px solid ${typeBorder};letter-spacing:1px;white-space:nowrap;">${typeLabel}</span></td>
-      <td>
+    const inStyle='font-family:DM Mono,monospace;font-size:12px;outline:none;text-align:center;width:84px;border:none;border-radius:2px 2px 0 0;padding:3px 4px;cursor:text;';
+    const TD='font-size:15px;padding:6px 8px;';
+    return `<tr data-trade-id="${pos.id}" style="height:36px;">
+      <td style="${TD}color:${m.color};font-weight:700;">${pos.autoTrade?'🤖':'👤'}${pos.instrument}</td>
+      <td style="${TD}"><span style="font-family:Bebas Neue,sans-serif;font-size:13px;padding:2px 7px;border-radius:2px;background:${typeBg};color:${typeColor};border:1px solid ${typeBorder};letter-spacing:1px;white-space:nowrap;">${typeLabel}</span></td>
+      <td style="${TD}">
         <select data-id="${pos.id}" onchange="setTradeLeverage(this.dataset.id,this.value)"
           style="background:var(--bg3);border:1px solid rgba(245,200,66,0.3);color:var(--gold);
-                 font-family:'Bebas Neue';font-size:9px;letter-spacing:1px;outline:none;
-                 cursor:pointer;border-radius:2px;padding:1px 3px;max-width:70px;">
+                 font-family:'Bebas Neue';font-size:13px;letter-spacing:1px;outline:none;
+                 cursor:pointer;border-radius:2px;padding:2px 4px;max-width:80px;">
           ${['1:1','1:2','1:5','1:10','1:20','1:30','1:50','1:100','1:200','1:300','1:500'].map(l=>
             `<option value="${l}" ${l===(pos.leverage||'1:100')?'selected':''}>${l}</option>`
           ).join('')}
         </select>
       </td>
-      <td>${pos.direction==='BUY'?'<span style="color:var(--green)">▲</span>':'<span style="color:var(--red)">▼</span>'} $${fv(pos.openPrice,m.dec)}</td>
-      <td>${(pos.lot!=null&&isFinite(pos.lot))?Number(pos.lot).toFixed(4):(pos.lot??'—')}</td>
-      <td id="margin-${pos.id}" style="color:var(--gold);">$${margin}</td>
-      <td style="color:${m.color};" id="curprice-${pos.id}">$${fv(cur,m.dec)}</td>
-      <td style="color:${pc};font-weight:700;" id="pnl-${pos.id}">${pnlStr}</td>
-      <td><input type="number" value="${slVal}" placeholder="Set SL" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setSL(this.dataset.id,this.value)" style="${inStyle}background:rgba(231,76,60,0.08);border-bottom:1px solid rgba(231,76,60,0.4);color:var(--red);"></td>
-      <td><input type="number" value="${tpVal}" placeholder="Set TP" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setTP(this.dataset.id,this.value)" style="${inStyle}background:rgba(46,204,113,0.08);border-bottom:1px solid rgba(46,204,113,0.4);color:var(--green);"></td>
-      <td id="exp-${pos.id}" style="color:var(--muted);">${expPnl!=='—'?'$'+expPnl:'—'}</td>
-      <td style="color:var(--muted);">$${fee}</td>
-      <td style="color:var(--gold);" id="tax-${pos.id}">$${tax}</td>
-      <td><button data-id="${pos.id}" onclick="closePos(this.dataset.id)" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);color:var(--red);font-size:7px;padding:3px 8px;border-radius:2px;cursor:pointer;font-family:DM Mono,monospace;white-space:nowrap;">✕ CLOSE</button></td>
+      <td style="${TD}">${pos.direction==='BUY'?'<span style="color:var(--green)">▲</span>':'<span style="color:var(--red)">▼</span>'} $${fv(pos.openPrice,m.dec)}</td>
+      <td style="${TD}">${(pos.lot!=null&&isFinite(pos.lot))?Number(pos.lot).toFixed(4):(pos.lot??'—')}</td>
+      <td style="${TD}color:${m.color};" id="curprice-${pos.id}">$${fv(cur,m.dec)}</td>
+      <td style="${TD}color:${pc};font-weight:700;" id="pnl-${pos.id}">${pnlStr}</td>
+      <td style="${TD}"><input type="number" value="${slVal}" placeholder="Set SL" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setSL(this.dataset.id,this.value)" style="${inStyle}background:rgba(231,76,60,0.08);border-bottom:1px solid rgba(231,76,60,0.4);color:var(--red);"></td>
+      <td style="${TD}"><input type="number" value="${tpVal}" placeholder="Set TP" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setTP(this.dataset.id,this.value)" style="${inStyle}background:rgba(46,204,113,0.08);border-bottom:1px solid rgba(46,204,113,0.4);color:var(--green);"></td>
+      <td style="${TD}"><button data-id="${pos.id}" onclick="closePos(this.dataset.id)" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);color:var(--red);font-size:13px;padding:4px 9px;border-radius:2px;cursor:pointer;font-family:DM Mono,monospace;white-space:nowrap;">✕ CLOSE</button></td>
     </tr>`;
   }
 
-  const sHdr=(label,count,color)=>`<tr><td colspan="14" style="padding:3px 10px;background:${color}11;border-top:1px solid ${color}33;border-bottom:1px solid ${color}22;"><span style="font-size:7px;color:${color};letter-spacing:2px;font-family:Bebas Neue,sans-serif;">${label} — ${count} ACTIVE</span></td></tr>`;
+  const sHdr=(label,count,color)=>`<tr><td colspan="10" style="padding:4px 10px;background:${color}11;border-top:1px solid ${color}33;border-bottom:1px solid ${color}22;"><span style="font-size:11px;color:${color};letter-spacing:2px;font-family:Bebas Neue,sans-serif;">${label} — ${count} ACTIVE</span></td></tr>`;
 
   let html='';
   if(manual.length){ html+=sHdr('👤 MANUAL TRADES',manual.length,'#e8edf2'); html+=manual.map(tradeRow).join(''); }
@@ -3017,8 +3052,8 @@ function renderPendingInTable(){
 
   const active=S.positions.filter(p=>p.status==='open');
   const sep=`<tr>
-    <td colspan="14" style="padding:3px 10px;background:rgba(245,200,66,0.06);border-top:${active.length?'1px solid rgba(245,200,66,0.2)':'none'};border-bottom:1px solid rgba(245,200,66,0.2);">
-      <span style="font-size:7px;color:var(--gold);letter-spacing:2px;font-family:'Bebas Neue';">⏳ PENDING ORDERS — ${S.pending.length} QUEUED</span>
+    <td colspan="10" style="padding:4px 10px;background:rgba(245,200,66,0.06);border-top:${active.length?'1px solid rgba(245,200,66,0.2)':'none'};border-bottom:1px solid rgba(245,200,66,0.2);">
+      <span style="font-size:11px;color:var(--gold);letter-spacing:2px;font-family:'Bebas Neue';">⏳ PENDING ORDERS — ${S.pending.length} QUEUED</span>
     </td>
   </tr>`;
 
@@ -3029,8 +3064,8 @@ function renderPendingInTable(){
     const ageStr=age<60?age+'s':Math.floor(age/60)+'m';
     const slVal=o.sl?o.sl.toFixed(m.dec):'';
     const tpVal=o.tp?o.tp.toFixed(m.dec):'';
-    const inputStyle=`font-family:'DM Mono';font-size:9px;outline:none;text-align:center;
-                      width:75px;border:none;border-radius:2px 2px 0 0;padding:2px 4px;cursor:text;`;
+    const inputStyle=`font-family:'DM Mono';font-size:12px;outline:none;text-align:center;
+                      width:82px;border:none;border-radius:2px 2px 0 0;padding:3px 4px;cursor:text;`;
 
     // Expected P&L if TP is set
     const expPnl = o.tp
@@ -3054,12 +3089,12 @@ function renderPendingInTable(){
 
     return `<tr data-pending-id="${o.id}" style="background:rgba(245,200,66,0.03);">
       <td style="color:${m.color};font-weight:700;">
-        <span style="font-size:7px;color:var(--gold);padding:1px 4px;border:1px solid rgba(245,200,66,0.3);border-radius:2px;margin-right:3px;font-family:'Bebas Neue';">PENDING</span>
+        <span style="font-size:11px;color:var(--gold);padding:2px 5px;border:1px solid rgba(245,200,66,0.3);border-radius:2px;margin-right:3px;font-family:'Bebas Neue';">PENDING</span>
         ${o.instrument}
       </td>
       <td>
         <span style="color:${dirCol};margin-right:3px;">${o.direction==='BUY'?'▲':'▼'}</span>
-        <span style="font-family:'Bebas Neue';font-size:8px;color:var(--muted);">LIMIT ${o.direction}</span>
+        <span style="font-family:'Bebas Neue';font-size:11px;color:var(--muted);">LIMIT ${o.direction}</span>
       </td>
       <td>
         <input type="number" value="${o.setPrice.toFixed(m.dec)}"
@@ -3069,7 +3104,6 @@ function renderPendingInTable(){
           title="Click to change limit price">
       </td>
       <td style="color:var(--muted);">${o.lot.toFixed?o.lot.toFixed(4):o.lot}</td>
-      <td style="color:var(--muted);">$${margin}</td>
       <td style="color:var(--muted);font-style:italic;">Waiting...</td>
       <td style="color:var(--muted);">—</td>
       <td>
@@ -3086,13 +3120,10 @@ function renderPendingInTable(){
           style="${inputStyle}background:rgba(46,204,113,0.08);border-bottom:1px solid rgba(46,204,113,0.35);color:var(--green);"
           title="Take Profit when filled">
       </td>
-      <td style="line-height:1.6;">${expPnlStr}<br>${slRiskStr}</td>
-      <td style="color:var(--muted);" id="pend-age-${o.id}">${ageStr} ago</td>
-      <td style="color:var(--muted);">$${fee}</td>
       <td>
         <button data-id="${o.id}" onclick="cancelPending(this.dataset.id)"
           style="background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.3);color:var(--red);
-                 font-size:7px;padding:2px 7px;border-radius:2px;cursor:pointer;font-family:'DM Mono';
+                 font-size:12px;padding:4px 9px;border-radius:2px;cursor:pointer;font-family:'DM Mono';
                  white-space:nowrap;">✕ CANCEL</button>
       </td>
     </tr>`;
@@ -3985,6 +4016,10 @@ async function syncCapitalPositions(){
     if(!r.ok) return;
     const data=await r.json();
     const positions=data.positions||[];
+    const rawCount = positions.length;
+    // Capital.com returns upl in account currency; convert to USD for internal use
+    const audRate = S.audRate || 1.55;
+    const isAUD = (S.accountCurrency || 'AUD') === 'AUD';
 
     // Map Capital.com positions to Jimmy format
     const mapped=positions.map(p=>{
@@ -4005,7 +4040,7 @@ async function syncCapitalPositions(){
         openTime:   new Date(pos.createdDateUTC||Date.now()).getTime(),
         sl:         pos.stopLevel||null,
         tp:         pos.limitLevel||null,
-        pnl:        pos.upl||0,
+        pnl:        isAUD ? (pos.upl||0) / audRate : (pos.upl||0),
         status:     'open',
         autoTrade:  false,
         fromCapital:true,
@@ -4013,9 +4048,10 @@ async function syncCapitalPositions(){
       };
     });
 
-    // Merge: keep Jimmy-placed trades, replace/add Capital ones
+    // Full replace: keep Jimmy-placed trades, replace all Capital ones atomically
     const jimmyTrades=S.positions.filter(p=>!p.fromCapital);
     S.positions=[...jimmyTrades,...mapped];
+    console.log(`[Jimmy] Positions loaded: raw count from API=${rawCount} after dedup=${S.positions.length} (${jimmyTrades.length} jimmy + ${mapped.length} capital)`);
     renderTrades(); updateAccount(); saveState();
     autoLog('📡 Capital.com: '+mapped.length+' position(s) synced');
   }catch(e){console.warn('Position sync failed:',e.message);}
@@ -4108,10 +4144,15 @@ async function syncCapitalAccount(){
     if(accounts.length){
       // Use first account (or find preferred currency)
       const acct=accounts.find(a=>a.preferred)||accounts[0];
-      S.bal=acct.balance?.available||acct.balance?.balance||S.bal;
-      S.equity=acct.balance?.balance||S.bal;
+      S.accountCurrency = acct.currency || 'AUD';
+      const audRate = S.audRate || 1.55;
+      const isAUD = S.accountCurrency === 'AUD';
+      // Capital.com returns balance in account currency; convert to USD for internal use
+      const rawBal = acct.balance?.available || acct.balance?.balance || S.bal;
+      S.bal = isAUD ? rawBal / audRate : rawBal;
+      S.equity = isAUD ? (acct.balance?.balance || rawBal) / audRate : (acct.balance?.balance || rawBal);
       updateAccount();
-      autoLog('✅ Capital.com account synced: Balance $'+S.bal.toFixed(2));
+      autoLog('✅ Capital.com account synced: '+S.accountCurrency+' '+rawBal.toFixed(2)+' (USD $'+S.bal.toFixed(2)+')');
     }
   }catch(e){console.warn('Account sync failed:',e.message);}
 }
@@ -4141,7 +4182,7 @@ function clearAccountUI(){
   const bar=$('s-mbar');if(bar){bar.style.width='0%';bar.style.background='var(--green)';}
   const cnt=$('reg-count');if(cnt)cnt.textContent='0 ACTIVE';
   const tbody=$('trades-body');
-  if(tbody)tbody.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:14px;font-size:9px;">Switching account — loading...</td></tr>';
+  if(tbody)tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:14px;font-size:13px;">Switching account — loading...</td></tr>';
   const pbody=$('pending-body');if(pbody)pbody.innerHTML='';
   const nameEl=$('actual-acct-name');if(nameEl)nameEl.textContent='ACCOUNT · CAPITAL.COM';
 }
@@ -4700,7 +4741,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   setInterval(fetchAudRate, 5*60*1000);
   fetchRealPrices();
   setInterval(fetchRealPrices,60000);
-  setInterval(refreshCapitalPositions,30000);
+  // Position sync runs from connectAPI() via S.positionSync — no second interval needed here
   updateLeverageVisibility(); calcM(); updateSizeEquiv();
   setInterval(updateClock,1000);updateClock();
   updateAccount();renderTrades();
