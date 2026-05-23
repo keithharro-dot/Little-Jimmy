@@ -3990,7 +3990,9 @@ async function selectCapitalAccount(){
     console.log(`[Jimmy] selectCapitalAccount: matched profile "${profile.label}" → Capital account "${target.accountName}" (${target.accountId})`);
 
     // 4. Switch session to the matched account
-    const sw=await fetch(`${S.apiBase}/api/v1/session/account/${target.accountId}`,{
+    // CORS proxy required for this specific call when running from GitHub Pages
+    const switchUrl=`https://corsproxy.io/?${encodeURIComponent(`${S.apiBase}/api/v1/session/account/${target.accountId}`)}`;
+    const sw=await fetch(switchUrl,{
       method:'PUT',
       headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
     });
