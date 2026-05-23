@@ -1952,11 +1952,18 @@ function updateTicker(){
 }
 
 function updateLP(){
+  // Dropdown is the UI source of truth; S.mkt is the data-layer state.
+  // Read both and keep them in sync so a stale S.mkt never shows the wrong price.
+  const dropdownVal = $('sel-instrument')?.value;
+  if(dropdownVal && dropdownVal !== S.mkt){
+    console.warn('[Jimmy] updateLP: S.mkt="'+S.mkt+'" but dropdown="'+dropdownVal+'" — correcting S.mkt');
+    S.mkt = dropdownVal;
+  }
   const k=S.mkt,m=M[k],p=S.prices[k],c=S.chg[k];
+  if(!m||!p) return;
   set('lp-price','$'+p.toFixed(m.dec),m.color);
   const ce=$('lp-chg');
   if(ce){ce.textContent=(c>=0?'+':'')+c.toFixed(2)+'%';ce.style.color=c>=0?'var(--green)':'var(--red)';}
-  // Keep qty in sync with current USD value as price moves
   const usd=parseFloat($('inp-lot')?.value||100);
   const qi=$('inp-qty');
   if(qi && document.activeElement!==qi) qi.value=(usd/p).toFixed(6);
@@ -2058,22 +2065,27 @@ function calcM(){
 
 function onInstrChange(){
   const k=$('sel-instrument').value;
-  S.mkt=k; TV.sym=M[k].tv;
-  console.log('[Jimmy] onInstrChange: S.mkt set to "' + k + '"');
+  const prev=S.mkt;
+  // Update ALL asset state together so no variable lags behind the UI
+  S.mkt=k;
+  TV.sym=M[k].tv;
+  console.log('[Jimmy] onInstrChange: "'+prev+'" → "'+k+'" | S.mkt="'+S.mkt+'" TV.sym="'+TV.sym+'" dropdown="'+$('sel-instrument').value+'"');
   const lbl=$('tv-sym-lbl');if(lbl){lbl.textContent=k;lbl.style.color=M[k].color;}
-  // Apply asset default leverage
   const levSel=$('exec-leverage');
-  if(levSel && M[k].defaultLev){
-    levSel.value=M[k].defaultLev;
-  }
+  if(levSel && M[k].defaultLev) levSel.value=M[k].defaultLev;
   updateLeverageVisibility();
-  // Clear manual price calibration — range differs per asset
+  // Clear per-asset manual price calibration
   OV.chartHigh=null; OV.chartLow=null;
   const hi=$('ov-hi'),lo=$('ov-lo');
   if(hi) hi.value=''; if(lo) lo.value='';
-  loadTV(); updateLP(); calcM();
-  renderTradeOverlay();               // immediate redraw — clears stale lines for old asset
-  setTimeout(renderTradeOverlay, 500); // redraw after TradingView finishes loading
+  // Refresh all data-layer displays for the new asset
+  updateLP();      // price display — reads dropdown to catch any remaining S.mkt skew
+  updateInds();    // EMA / signal calculations
+  calcM();
+  loadTV();        // TradingView chart symbol
+  renderTradeOverlay();                // immediate canvas clear + redraw for new asset
+  setTimeout(renderTradeOverlay, 500); // second pass after TradingView iframe loads
+  console.log('[Jimmy] onInstrChange done: S.mkt="'+S.mkt+'" price=$'+S.prices[k]);
 }
 
 // ══ ACCOUNT ══
@@ -2128,6 +2140,8 @@ const IND = {
 };
 
 function updateInds(){
+  const dropdownVal = $('sel-instrument')?.value;
+  if(dropdownVal && dropdownVal !== S.mkt) S.mkt = dropdownVal;
   const k=S.mkt, m=M[k], p=S.prices[k];
   if(!p) return;
 
