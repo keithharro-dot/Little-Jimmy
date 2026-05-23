@@ -584,16 +584,16 @@ thead th { font-size: 13px !important; }
           <table>
             <thead>
               <tr>
-                <th style="width:80px;">ASSET</th>
-                <th style="width:50px;">TYPE</th>
-                <th style="width:80px;">LEVERAGE</th>
-                <th style="width:80px;">BUY PRICE</th>
-                <th style="width:60px;">QTY</th>
-                <th style="width:90px;">CURRENT PRICE</th>
-                <th style="width:100px;">PROFIT/LOSS</th>
-                <th style="width:120px;">STOP LOSS</th>
-                <th style="width:120px;">TAKE PROFIT</th>
-                <th style="width:80px;">ACTION</th>
+                <th>ASSET</th>
+                <th>DIR</th>
+                <th>#</th>
+                <th>AVG ENTRY</th>
+                <th>TOTAL QTY</th>
+                <th>CURRENT</th>
+                <th style="min-width:110px;">P&amp;L</th>
+                <th>MARGIN</th>
+                <th></th>
+                <th>ACTION</th>
               </tr>
             </thead>
             <tbody id="trades-body">
@@ -2857,6 +2857,26 @@ function closePos(id){
   toast('✓','Closed',`${pos.direction} ${pos.instrument}: ${pnl>=0?'+$':'-$'}${Math.abs(pnl).toFixed(2)}`);
 }
 
+function toggleTradeGroup(instrument){
+  if(!S._expandedGroups) S._expandedGroups=new Set();
+  const isOpen=S._expandedGroups.has(instrument);
+  if(isOpen) S._expandedGroups.delete(instrument);
+  else S._expandedGroups.add(instrument);
+  document.querySelectorAll('.grp-detail-'+instrument).forEach(row=>{
+    row.style.display=isOpen?'none':'table-row';
+  });
+  const grpRow=document.querySelector(`tr[data-group-id="${instrument}"]`);
+  if(grpRow){
+    const arrow=grpRow.querySelector('.grp-arrow');
+    if(arrow) arrow.style.transform=isOpen?'rotate(0deg)':'rotate(90deg)';
+  }
+}
+
+function closeAllGroup(instrument){
+  const ids=S.positions.filter(p=>p.instrument===instrument&&p.status==='open').map(p=>p.id);
+  ids.slice().reverse().forEach(id=>closePos(id));
+}
+
 function updatePosPnL(){
   S.positions.forEach(pos=>{
     if(!pos || pos.status!=='open') return;
@@ -2934,86 +2954,113 @@ function renderTrades(){
   const tbody=$('trades-body'), cnt=$('reg-count');
   if(!tbody) return;
   const active=S.positions.filter(p=>p.status==='open');
-  const manual=active.filter(p=>!p.autoTrade);
-  const auto=active.filter(p=>p.autoTrade);
   if(cnt) cnt.textContent=active.length+' ACTIVE';
-
-  // In-place update if count unchanged
-  const currentRows=tbody.querySelectorAll('tr[data-trade-id]').length;
-  if(currentRows===active.length && active.length>0){
-    active.forEach(pos=>{
-      if(!pos) return;
-      const m=M[pos.instrument]||M.GOLD, cur=S.prices[pos.instrument]||pos.openPrice;
-      const pnl=pos.pnl??0;
-      const pc=pnl>=0?'var(--green)':'var(--red)';
-      const pnlEl=$('pnl-'+pos.id), prEl=$('curprice-'+pos.id), taxEl=$('tax-'+pos.id);
-      if(pnlEl){
-        pnlEl.textContent=(pnl!=null&&isFinite(pnl))?((pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2)):'$—';
-        pnlEl.style.color=pc;
-      }
-      if(prEl){prEl.textContent=(cur!=null&&isFinite(cur))?'$'+Number(cur).toFixed(m.dec):'$—';prEl.style.color=m.color;}
-      if(taxEl){taxEl.textContent=(pnl!=null&&isFinite(pnl))?'$'+Math.max(0,pnl*0.37).toFixed(2):'$—';}
-    });
-    return;
-  }
 
   if(!active.length){
     tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:14px;font-size:13px;">No open positions — place a trade to begin</td></tr>';
     return;
   }
 
-  function tradeRow(pos){
-    const m=M[pos.instrument]||M.GOLD, cur=S.prices[pos.instrument]||pos.openPrice;
-    // Safe toFixed helper — returns '—' for null/undefined/NaN/Infinity
-    const fv=(v,d)=>(v!=null&&isFinite(v))?Number(v).toFixed(d):'—';
-    const rawMargin=pos.margin||getMargin(pos.instrument,(pos.usdValue||((pos.openPrice||0)*(pos.lot||0))),pos.leverage||'1:100');
-    const margin=fv(rawMargin,2);
-    const expRaw=(pos.tp!=null&&isFinite(pos.tp)&&isFinite(pos.openPrice)&&isFinite(pos.lot))
-      ?((pos.direction==='BUY'?(pos.tp-pos.openPrice):(pos.openPrice-pos.tp))*(pos.lot||0)*(m.pv||1)*10)
-      :null;
-    const expPnl=(expRaw!=null&&isFinite(expRaw))?expRaw.toFixed(2):'—';
-    const fee=fv((pos.lot||0)*0.5,2);
-    const tax=fv(Math.max(0,(pos.pnl||0)*0.37),2);
-    const pnl=pos.pnl??0;
-    const pc=pnl>=0?'var(--green)':' var(--red)';
-    const pnlStr=(pnl!=null&&isFinite(pnl))?((pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2)):'$—';
-    const tpVal=(pos.tp!=null&&isFinite(pos.tp))?Number(pos.tp).toFixed(m.dec):'';
-    const slVal=(pos.sl!=null&&isFinite(pos.sl))?Number(pos.sl).toFixed(m.dec):'';
-    const tradeType=pos.tradeType||'CFD';
-    const typeLabel=tradeType==='SPOT'?'SPOT':(pos.leverage||'1:100');
-    const typeColor=tradeType==='SPOT'?'#818cf8':'var(--gold)';
-    const typeBg=tradeType==='SPOT'?'rgba(99,102,241,0.1)':'rgba(245,200,66,0.08)';
-    const typeBorder=tradeType==='SPOT'?'rgba(99,102,241,0.3)':'rgba(245,200,66,0.25)';
-    const inStyle='font-family:DM Mono,monospace;font-size:12px;outline:none;text-align:center;width:84px;border:none;border-radius:2px 2px 0 0;padding:3px 4px;cursor:text;';
-    const TD='font-size:14px;padding:6px 8px;';
-    return `<tr data-trade-id="${pos.id}" style="height:36px;">
-      <td style="${TD}color:${m.color};font-weight:700;">${pos.autoTrade?'🤖':'👤'}${pos.instrument}</td>
-      <td style="${TD}"><span style="font-family:Bebas Neue,sans-serif;font-size:13px;padding:2px 7px;border-radius:2px;background:${typeBg};color:${typeColor};border:1px solid ${typeBorder};letter-spacing:1px;white-space:nowrap;">${typeLabel}</span></td>
-      <td style="${TD}">
-        <select data-id="${pos.id}" onchange="setTradeLeverage(this.dataset.id,this.value)"
-          style="background:var(--bg3);border:1px solid rgba(245,200,66,0.3);color:var(--gold);
-                 font-family:'Bebas Neue';font-size:13px;letter-spacing:1px;outline:none;
-                 cursor:pointer;border-radius:2px;padding:2px 4px;max-width:80px;">
-          ${['1:1','1:2','1:5','1:10','1:20','1:30','1:50','1:100','1:200','1:300','1:500'].map(l=>
-            `<option value="${l}" ${l===(pos.leverage||'1:100')?'selected':''}>${l}</option>`
-          ).join('')}
-        </select>
-      </td>
-      <td style="${TD}">${pos.direction==='BUY'?'<span style="color:var(--green)">▲</span>':'<span style="color:var(--red)">▼</span>'} $${fv(pos.openPrice,m.dec)}</td>
-      <td style="${TD}">${(pos.lot!=null&&isFinite(pos.lot))?Number(pos.lot).toFixed(4):(pos.lot??'—')}</td>
-      <td style="${TD}color:${m.color};" id="curprice-${pos.id}">$${fv(cur,m.dec)}</td>
-      <td style="${TD}color:${pc};font-weight:700;" id="pnl-${pos.id}">${pnlStr}</td>
-      <td style="${TD}"><input type="number" value="${slVal}" placeholder="Set SL" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setSL(this.dataset.id,this.value)" style="${inStyle}background:rgba(231,76,60,0.08);border-bottom:1px solid rgba(231,76,60,0.4);color:var(--red);"></td>
-      <td style="${TD}"><input type="number" value="${tpVal}" placeholder="Set TP" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setTP(this.dataset.id,this.value)" style="${inStyle}background:rgba(46,204,113,0.08);border-bottom:1px solid rgba(46,204,113,0.4);color:var(--green);"></td>
-      <td style="${TD}"><button data-id="${pos.id}" onclick="closePos(this.dataset.id)" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);color:var(--red);font-size:13px;padding:4px 9px;border-radius:2px;cursor:pointer;font-family:DM Mono,monospace;white-space:nowrap;">✕ CLOSE</button></td>
+  // Group by instrument
+  const groups={};
+  active.forEach(pos=>{
+    if(!groups[pos.instrument]) groups[pos.instrument]={instrument:pos.instrument,positions:[]};
+    groups[pos.instrument].positions.push(pos);
+  });
+  const groupKeys=Object.keys(groups);
+
+  // In-place update when groups and position counts are unchanged
+  const existingGroups=tbody.querySelectorAll('tr[data-group-id]');
+  const existingKeys=[...existingGroups].map(r=>r.dataset.groupId);
+  const existingTrades=tbody.querySelectorAll('tr[data-trade-id]').length;
+  const canUpdate=existingGroups.length===groupKeys.length &&
+    existingTrades===active.length &&
+    groupKeys.every(k=>existingKeys.includes(k));
+
+  if(canUpdate){
+    groupKeys.forEach(k=>{
+      const grp=groups[k]; const m=M[k]||M.GOLD; const cur=S.prices[k];
+      const totalPnl=grp.positions.reduce((s,p)=>s+(p.pnl||0),0);
+      const pc=totalPnl>=0?'var(--green)':'var(--red)';
+      const grpPnlEl=document.getElementById('grp-pnl-'+k);
+      const grpCurEl=document.getElementById('grp-cur-'+k);
+      if(grpPnlEl){grpPnlEl.textContent=(totalPnl>=0?'+$':'-$')+Math.abs(totalPnl).toFixed(2);grpPnlEl.style.color=pc;}
+      if(grpCurEl&&cur!=null){grpCurEl.textContent='$'+Number(cur).toFixed(m.dec);}
+      grp.positions.forEach(pos=>{
+        const pnl=pos.pnl??0; const pc2=pnl>=0?'var(--green)':'var(--red)';
+        const pnlEl=document.getElementById('pnl-'+pos.id);
+        const prEl=document.getElementById('curprice-'+pos.id);
+        if(pnlEl){pnlEl.textContent=(pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);pnlEl.style.color=pc2;}
+        if(prEl&&cur!=null){prEl.textContent='$'+Number(cur).toFixed(m.dec);}
+      });
+    });
+    return;
+  }
+
+  // Full render
+  if(!S._expandedGroups) S._expandedGroups=new Set();
+  const fv=(v,d)=>(v!=null&&isFinite(v))?Number(v).toFixed(d):'—';
+
+  function summaryRow(grp){
+    const k=grp.instrument; const m=M[k]||M.GOLD; const cur=S.prices[k];
+    const ps=grp.positions;
+    const totalPnl=ps.reduce((s,p)=>s+(p.pnl||0),0);
+    const totalQty=ps.reduce((s,p)=>s+(p.lot||0),0);
+    const totalMargin=ps.reduce((s,p)=>s+(p.margin||getMargin(k,(p.usdValue||(p.openPrice||0)*(p.lot||0)),p.leverage||'1:100')),0);
+    const weightedEntry=totalQty>0?ps.reduce((s,p)=>s+(p.openPrice||0)*(p.lot||0),0)/totalQty:0;
+    const pc=totalPnl>=0?'var(--green)':'var(--red)';
+    const pnlStr=(totalPnl>=0?'+$':'-$')+Math.abs(totalPnl).toFixed(2);
+    const multi=ps.length>1;
+    const isExp=S._expandedGroups.has(k);
+    const arrow=multi
+      ?`<span class="grp-arrow" style="display:inline-block;transform:rotate(${isExp?90:0}deg);transition:transform 0.2s;margin-right:5px;font-size:10px;color:var(--muted);">▶</span>`
+      :`<span style="display:inline-block;width:15px;margin-right:5px;"></span>`;
+    const dc={BUY:0,SELL:0}; ps.forEach(p=>{dc[p.direction]=(dc[p.direction]||0)+1;});
+    const dir=dc.BUY>0&&dc.SELL>0?'MIXED':dc.BUY>0?'BUY':'SELL';
+    const dirCol=dir==='BUY'?'var(--green)':dir==='SELL'?'var(--red)':'var(--gold)';
+    return `<tr data-group-id="${k}" onclick="${multi?`toggleTradeGroup('${k}')`:''}" style="cursor:${multi?'pointer':'default'};background:var(--bg2);border-bottom:1px solid var(--border2);">
+      <td style="font-size:14px;padding:9px 8px;color:${m.color};font-weight:700;white-space:nowrap;">${arrow}${k}<span style="font-size:11px;color:var(--muted);margin-left:5px;font-weight:400;">${ps.length>1?ps.length+'×':''}</span></td>
+      <td style="font-size:13px;padding:9px 6px;"><span style="color:${dirCol};font-family:'Bebas Neue';letter-spacing:1px;">${dir}</span></td>
+      <td style="font-size:13px;padding:9px 6px;color:var(--muted);">${ps.length}</td>
+      <td style="font-size:13px;padding:9px 6px;">$${weightedEntry.toFixed(m.dec)}</td>
+      <td style="font-size:13px;padding:9px 6px;">${totalQty.toFixed(4)}</td>
+      <td style="font-size:13px;padding:9px 6px;color:${m.color};" id="grp-cur-${k}">${cur!=null?'$'+Number(cur).toFixed(m.dec):'—'}</td>
+      <td style="font-size:14px;padding:9px 6px;font-weight:700;color:${pc};" id="grp-pnl-${k}">${pnlStr}</td>
+      <td style="font-size:12px;padding:9px 6px;color:var(--muted);">$${totalMargin.toFixed(2)}</td>
+      <td></td>
+      <td style="padding:9px 6px;"><button onclick="event.stopPropagation();closeAllGroup('${k}')" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);color:var(--red);font-size:12px;padding:3px 8px;border-radius:2px;cursor:pointer;font-family:'DM Mono';white-space:nowrap;">✕ ALL</button></td>
     </tr>`;
   }
 
-  const sHdr=(label,count,color)=>`<tr><td colspan="10" style="padding:4px 10px;background:${color}11;border-top:1px solid ${color}33;border-bottom:1px solid ${color}22;"><span style="font-size:11px;color:${color};letter-spacing:2px;font-family:Bebas Neue,sans-serif;">${label} — ${count} ACTIVE</span></td></tr>`;
+  function detailRow(pos){
+    const m=M[pos.instrument]||M.GOLD; const cur=S.prices[pos.instrument];
+    const pnl=pos.pnl??0; const pc=pnl>=0?'var(--green)':'var(--red)';
+    const pnlStr=(pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);
+    const tpVal=pos.tp!=null&&isFinite(pos.tp)?Number(pos.tp).toFixed(m.dec):'';
+    const slVal=pos.sl!=null&&isFinite(pos.sl)?Number(pos.sl).toFixed(m.dec):'';
+    const dt=pos.openTime?new Date(pos.openTime).toLocaleString('en-AU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+    const dirCol=pos.direction==='BUY'?'var(--green)':'var(--red)';
+    const vis=S._expandedGroups.has(pos.instrument);
+    const ins='font-family:DM Mono,monospace;font-size:11px;outline:none;text-align:center;width:76px;border:none;border-radius:2px 2px 0 0;padding:2px 3px;cursor:text;';
+    return `<tr data-trade-id="${pos.id}" class="grp-detail-${pos.instrument}" style="display:${vis?'table-row':'none'};background:rgba(255,255,255,0.015);border-bottom:1px solid var(--border);">
+      <td style="font-size:12px;padding:5px 8px 5px 28px;color:var(--muted);">${pos.autoTrade?'🤖 ':''}${dt}</td>
+      <td style="font-size:12px;padding:5px 6px;"><span style="color:${dirCol};font-family:'Bebas Neue';font-size:12px;">${pos.direction}</span></td>
+      <td style="font-size:12px;padding:5px 6px;color:var(--muted);">${pos.leverage||'—'}</td>
+      <td style="font-size:12px;padding:5px 6px;">$${fv(pos.openPrice,m.dec)}</td>
+      <td style="font-size:12px;padding:5px 6px;">${fv(pos.lot,4)}</td>
+      <td style="font-size:12px;padding:5px 6px;color:${m.color};" id="curprice-${pos.id}">${cur!=null?'$'+Number(cur).toFixed(m.dec):'—'}</td>
+      <td style="font-size:12px;padding:5px 6px;font-weight:600;color:${pc};" id="pnl-${pos.id}">${pnlStr}</td>
+      <td style="padding:5px 6px;"><input type="number" value="${slVal}" placeholder="SL" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setSL(this.dataset.id,this.value)" style="${ins}background:rgba(231,76,60,0.08);border-bottom:1px solid rgba(231,76,60,0.4);color:var(--red);"></td>
+      <td style="padding:5px 6px;"><input type="number" value="${tpVal}" placeholder="TP" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setTP(this.dataset.id,this.value)" style="${ins}background:rgba(46,204,113,0.08);border-bottom:1px solid rgba(46,204,113,0.35);color:var(--green);"></td>
+      <td style="padding:5px 6px;"><button data-id="${pos.id}" onclick="closePos(this.dataset.id)" style="background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.2);color:var(--red);font-size:11px;padding:2px 7px;border-radius:2px;cursor:pointer;font-family:'DM Mono';white-space:nowrap;">✕</button></td>
+    </tr>`;
+  }
 
   let html='';
-  if(manual.length){ html+=sHdr('👤 MANUAL TRADES',manual.length,'#e8edf2'); html+=manual.map(tradeRow).join(''); }
-  if(auto.length){   html+=sHdr('🤖 AUTO TRADES — TR HYBRID',auto.length,'#818cf8'); html+=auto.map(tradeRow).join(''); }
+  groupKeys.forEach(k=>{
+    html+=summaryRow(groups[k]);
+    if(groups[k].positions.length>1) groups[k].positions.forEach(p=>{html+=detailRow(p);});
+  });
   tbody.innerHTML=html;
 }
 
