@@ -2345,11 +2345,11 @@ async function refreshCapitalPositions(){
             dealRef:cp.position.dealId,
             instrument:k,
             direction:cp.position.direction,
-            lot:cp.position.size,
-            usdValue:cp.position.size*cp.position.openLevel,
+            lot:cp.position.size||0,
+            usdValue:isFinite(cp.position.size*cp.position.openLevel)?cp.position.size*cp.position.openLevel:0,
             leverage:'1:'+Math.round(1/(cp.position.limitedRiskPremium||0.01)),
             margin:cp.position.limitLevel||0,
-            openPrice:cp.position.openLevel,
+            openPrice:cp.position.openLevel||0,
             openTime:new Date(cp.position.createdDateUTC).getTime(),
             sl:cp.position.stopLevel||null,
             tp:cp.position.limitLevel||null,
@@ -2822,12 +2822,17 @@ function renderTrades(){
   const currentRows=tbody.querySelectorAll('tr[data-trade-id]').length;
   if(currentRows===active.length && active.length>0){
     active.forEach(pos=>{
+      if(!pos) return;
       const m=M[pos.instrument]||M.GOLD, cur=S.prices[pos.instrument]||pos.openPrice;
-      const pc=pos.pnl>=0?'var(--green)':'var(--red)';
+      const pnl=pos.pnl??0;
+      const pc=pnl>=0?'var(--green)':'var(--red)';
       const pnlEl=$('pnl-'+pos.id), prEl=$('curprice-'+pos.id), taxEl=$('tax-'+pos.id);
-      if(pnlEl){pnlEl.textContent=(pos.pnl>=0?'+$':'-$')+Math.abs(pos.pnl).toFixed(2);pnlEl.style.color=pc;}
-      if(prEl){prEl.textContent='$'+cur.toFixed(m.dec);prEl.style.color=m.color;}
-      if(taxEl){taxEl.textContent='$'+Math.max(0,pos.pnl*0.37).toFixed(2);}
+      if(pnlEl){
+        pnlEl.textContent=(pnl!=null&&isFinite(pnl))?((pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2)):'$—';
+        pnlEl.style.color=pc;
+      }
+      if(prEl){prEl.textContent=(cur!=null&&isFinite(cur))?'$'+Number(cur).toFixed(m.dec):'$—';prEl.style.color=m.color;}
+      if(taxEl){taxEl.textContent=(pnl!=null&&isFinite(pnl))?'$'+Math.max(0,pnl*0.37).toFixed(2):'$—';}
     });
     return;
   }
@@ -2839,11 +2844,21 @@ function renderTrades(){
 
   function tradeRow(pos){
     const m=M[pos.instrument]||M.GOLD, cur=S.prices[pos.instrument]||pos.openPrice;
-    const margin=(pos.margin||getMargin(pos.instrument,pos.usdValue||pos.openPrice*pos.lot,pos.leverage||'1:100')).toFixed(2);
-    const expPnl=pos.tp?((pos.direction==='BUY'?(pos.tp-pos.openPrice):(pos.openPrice-pos.tp))*pos.lot*(m.pv||1)*10).toFixed(2):'—';
-    const fee=(pos.lot*0.5).toFixed(2), tax=Math.max(0,pos.pnl*0.37).toFixed(2);
-    const pc=pos.pnl>=0?'var(--green)':' var(--red)';
-    const tpVal=pos.tp?pos.tp.toFixed(m.dec):'', slVal=pos.sl?pos.sl.toFixed(m.dec):'';
+    // Safe toFixed helper — returns '—' for null/undefined/NaN/Infinity
+    const fv=(v,d)=>(v!=null&&isFinite(v))?Number(v).toFixed(d):'—';
+    const rawMargin=pos.margin||getMargin(pos.instrument,(pos.usdValue||((pos.openPrice||0)*(pos.lot||0))),pos.leverage||'1:100');
+    const margin=fv(rawMargin,2);
+    const expRaw=(pos.tp!=null&&isFinite(pos.tp)&&isFinite(pos.openPrice)&&isFinite(pos.lot))
+      ?((pos.direction==='BUY'?(pos.tp-pos.openPrice):(pos.openPrice-pos.tp))*(pos.lot||0)*(m.pv||1)*10)
+      :null;
+    const expPnl=(expRaw!=null&&isFinite(expRaw))?expRaw.toFixed(2):'—';
+    const fee=fv((pos.lot||0)*0.5,2);
+    const tax=fv(Math.max(0,(pos.pnl||0)*0.37),2);
+    const pnl=pos.pnl??0;
+    const pc=pnl>=0?'var(--green)':' var(--red)';
+    const pnlStr=(pnl!=null&&isFinite(pnl))?((pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2)):'$—';
+    const tpVal=(pos.tp!=null&&isFinite(pos.tp))?Number(pos.tp).toFixed(m.dec):'';
+    const slVal=(pos.sl!=null&&isFinite(pos.sl))?Number(pos.sl).toFixed(m.dec):'';
     const tradeType=pos.tradeType||'CFD';
     const typeLabel=tradeType==='SPOT'?'SPOT':(pos.leverage||'1:100');
     const typeColor=tradeType==='SPOT'?'#818cf8':'var(--gold)';
@@ -2863,11 +2878,11 @@ function renderTrades(){
           ).join('')}
         </select>
       </td>
-      <td>${pos.direction==='BUY'?'<span style="color:var(--green)">▲</span>':'<span style="color:var(--red)">▼</span>'} $${pos.openPrice.toFixed(m.dec)}</td>
-      <td>${pos.lot.toFixed?pos.lot.toFixed(4):pos.lot}</td>
+      <td>${pos.direction==='BUY'?'<span style="color:var(--green)">▲</span>':'<span style="color:var(--red)">▼</span>'} $${fv(pos.openPrice,m.dec)}</td>
+      <td>${(pos.lot!=null&&isFinite(pos.lot))?Number(pos.lot).toFixed(4):(pos.lot??'—')}</td>
       <td id="margin-${pos.id}" style="color:var(--gold);">$${margin}</td>
-      <td style="color:${m.color};" id="curprice-${pos.id}">$${cur.toFixed(m.dec)}</td>
-      <td style="color:${pc};font-weight:700;" id="pnl-${pos.id}">${pos.pnl>=0?'+$':'-$'}${Math.abs(pos.pnl).toFixed(2)}</td>
+      <td style="color:${m.color};" id="curprice-${pos.id}">$${fv(cur,m.dec)}</td>
+      <td style="color:${pc};font-weight:700;" id="pnl-${pos.id}">${pnlStr}</td>
       <td><input type="number" value="${slVal}" placeholder="Set SL" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setSL(this.dataset.id,this.value)" style="${inStyle}background:rgba(231,76,60,0.08);border-bottom:1px solid rgba(231,76,60,0.4);color:var(--red);"></td>
       <td><input type="number" value="${tpVal}" placeholder="Set TP" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setTP(this.dataset.id,this.value)" style="${inStyle}background:rgba(46,204,113,0.08);border-bottom:1px solid rgba(46,204,113,0.4);color:var(--green);"></td>
       <td id="exp-${pos.id}" style="color:var(--muted);">${expPnl!=='—'?'$'+expPnl:'—'}</td>
@@ -3858,12 +3873,12 @@ async function syncCapitalPositions(){
         id:       pos.dealId||('C'+Date.now()),
         instrument: k||mkt.instrumentName,
         direction:  pos.direction==='BUY'?'BUY':'SELL',
-        lot:        pos.size,
-        usdValue:   pos.size*(mkt.bid||mkt.offer||0),
+        lot:        pos.size||0,
+        usdValue:   isFinite(pos.size*(mkt.bid||mkt.offer||0))?pos.size*(mkt.bid||mkt.offer||0):0,
         leverage:   '1:'+(pos.limitLevel?Math.round(1/0.05):'20'),
         tradeType:  'CFD',
         margin:     pos.limitedRiskPremium||pos.dealSize||0,
-        openPrice:  pos.level,
+        openPrice:  pos.level||0,
         openTime:   new Date(pos.createdDateUTC||Date.now()).getTime(),
         sl:         pos.stopLevel||null,
         tp:         pos.limitLevel||null,
