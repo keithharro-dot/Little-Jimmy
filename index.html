@@ -58,9 +58,9 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .top-grid{
   display:grid;
   grid-template-columns: 320px 1fr 340px;
-  grid-template-rows: 1fr; min-height:390px;
+  grid-template-rows: 1fr; min-height:470px;
   border-bottom:2px solid var(--border2);
-  flex:0 0 390px;
+  flex:0 0 470px;
   gap:0;
   min-height:0;
 }
@@ -115,10 +115,11 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 /* ── RIGHT: account stats ── */
 .right-panel{ }
 .stat-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; }
-.stat-cell{ padding:8px 10px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg2); }
+.stat-cell{ padding:13px 16px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg2); }
 .stat-cell:nth-child(3n){ border-right:none; }
-.stat-lbl{ font-size:7px; color:var(--muted); letter-spacing:1px; margin-bottom:3px; line-height:1.3; }
-.stat-val{ font-family:"Bebas Neue"; font-size:18px; }
+.stat-lbl{ font-size:9px; color:var(--muted); letter-spacing:1.5px; margin-bottom:6px; line-height:1.4; text-transform:uppercase; }
+.stat-val{ font-family:"Bebas Neue"; font-size:26px; line-height:1; }
+#s-bal{ font-size:38px !important; }
 
 /* ── TRADES REGISTRY ── */
 /* registry now inside centre panel */
@@ -312,17 +313,6 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
   <div class="logo">
     <div class="logo-mark">LJ</div>
     <div><div class="logo-name">LITTLE JIMMY TRADING CO</div></div>
-  </div>
-  <div class="ticker">
-    <div class="tick"><div class="tick-lbl">GOLD</div><div class="tick-p" id="t-gold" style="color:var(--gold)">—</div><div class="tick-c" id="c-gold">—</div></div>
-    <div class="tick"><div class="tick-lbl">SILVER</div><div class="tick-p" id="t-silver" style="color:#b0b8c8">—</div><div class="tick-c" id="c-silver">—</div></div>
-    <div class="tick"><div class="tick-lbl">OIL</div><div class="tick-p" id="t-oil" style="color:var(--oil)">—</div><div class="tick-c" id="c-oil">—</div></div>
-    <div class="tick"><div class="tick-lbl">BTC</div><div class="tick-p" id="t-btc" style="color:var(--btc)">—</div><div class="tick-c" id="c-btc">—</div></div>
-    <div class="tick"><div class="tick-lbl">ETH</div><div class="tick-p" id="t-eth" style="color:var(--eth)">—</div><div class="tick-c" id="c-eth">—</div></div>
-    <div class="tick"><div class="tick-lbl">SOL</div><div class="tick-p" id="t-sol" style="color:var(--sol)">—</div><div class="tick-c" id="c-sol">—</div></div>
-    <div class="tick"><div class="tick-lbl">XRP</div><div class="tick-p" id="t-xrp" style="color:#346aa9">—</div><div class="tick-c" id="c-xrp">—</div></div>
-    <div class="tick"><div class="tick-lbl">DOGE</div><div class="tick-p" id="t-doge" style="color:#c2a633">—</div><div class="tick-c" id="c-doge">—</div></div>
-    <div class="tick" style="border-right:none"><div class="tick-lbl">NQ100</div><div class="tick-p" id="t-nasdaq" style="color:#00b4d8">—</div><div class="tick-c" id="c-nasdaq">—</div></div>
   </div>
   <div class="top-btns">
     <div style="display:flex;align-items:center;font-size:8px;color:var(--muted);padding:3px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;gap:5px;">
