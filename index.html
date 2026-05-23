@@ -1596,6 +1596,7 @@ function onTradeTypeChange(){
 const S={
   connected:false,demo:true,bal:10000,
   activeAccount:'demo',
+  sessionId:0,
   mkt:'GOLD',
   prices:{GOLD:2341,SILVER:29.8,OIL:78.3,BTC:67420,ETH:3512,SOL:172.4,XRP:0.52,DOGE:0.15,NASDAQ:17800},
   chg:{GOLD:0.45,SILVER:0.32,OIL:-0.22,BTC:1.32,ETH:0.87,SOL:-1.10,XRP:0.65,DOGE:-0.8,NASDAQ:0.3},
@@ -2325,10 +2326,13 @@ async function closeCapitalTrade(dealId){
 
 async function refreshCapitalPositions(){
   if(!S.apiBase||!S.CST||S.demo) return;
+  const sid=S.sessionId;
+  console.log(`[Jimmy] refreshCapitalPositions — account=${S.activeAccount} sid=${sid} cst=${S.CST?.slice(0,8)}...`);
   try {
     const res=await fetch(`${S.apiBase}/api/v1/positions`,{
       headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
     });
+    if(sid!==S.sessionId){console.warn('[Jimmy] refreshCapitalPositions: session changed mid-flight, discarding');return;}
     const data=await res.json();
     if(data.positions){
       // Sync open positions from Capital.com into local state
@@ -3783,6 +3787,8 @@ async function connectAPI(){
     S.connected = true;
     S.demo      = !isLive;
     S.readOnly  = isReadOnly;
+    S.sessionId++;
+    console.log(`[Jimmy] connectAPI — new session (id=${S.sessionId}) account=${S.activeAccount} base=${base} cst=${S.CST?.slice(0,8)}...`);
 
     if(statusEl){statusEl.textContent='Authenticated ✓ — fetching account...';statusEl.style.color='var(--green)';}
 
@@ -3828,10 +3834,13 @@ async function connectAPI(){
 // ── Pull real open positions from Capital.com ──
 async function syncCapitalPositions(){
   if(!S.apiBase||!S.CST) return;
+  const sid=S.sessionId;
+  console.log(`[Jimmy] syncCapitalPositions — account=${S.activeAccount} sid=${sid} cst=${S.CST?.slice(0,8)}...`);
   try{
     const r=await fetch(`${S.apiBase}/api/v1/positions`,{
       headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
     });
+    if(sid!==S.sessionId){console.warn('[Jimmy] syncCapitalPositions: session changed mid-flight, discarding');return;}
     if(!r.ok) return;
     const data=await r.json();
     const positions=data.positions||[];
@@ -3933,10 +3942,13 @@ function disableReadOnlyMode(){
 
 async function syncCapitalAccount(){
   if(!S.apiBase||!S.CST) return;
+  const sid=S.sessionId;
+  console.log(`[Jimmy] syncCapitalAccount — account=${S.activeAccount} sid=${sid} cst=${S.CST?.slice(0,8)}...`);
   try{
     const r=await fetch(`${S.apiBase}/api/v1/accounts`,{
       headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
     });
+    if(sid!==S.sessionId){console.warn('[Jimmy] syncCapitalAccount: session changed mid-flight, discarding');return;}
     if(!r.ok) return;
     const data=await r.json();
     const accounts=data.accounts||[];
@@ -3986,6 +3998,7 @@ function clearAccountUI(){
 }
 
 function disconnectSession(){
+  S.sessionId++;                                          // invalidate all in-flight fetches immediately
   clearInterval(S.sessionRefresh);  S.sessionRefresh=null;
   clearInterval(S.positionSync);    S.positionSync=null;
   S.CST=null; S.SEC=null; S.apiKey=null; S.apiBase=null;
@@ -3994,6 +4007,7 @@ function disconnectSession(){
   disableReadOnlyMode();
   setConn(false,'NOT CONNECTED');
   clearAccountUI();
+  console.log(`[Jimmy] disconnectSession — sessionId now ${S.sessionId}`);
 }
 
 async function switchAccount(acctKey){
@@ -4023,6 +4037,8 @@ async function switchAccount(acctKey){
           if(r.ok){
             S.apiBase=base; S.CST=r.headers.get('CST'); S.SEC=r.headers.get('X-SECURITY-TOKEN');
             S.apiKey=c.apikey; S.connected=true; S.demo=!isLive; S.readOnly=isReadOnly;
+            S.sessionId++;
+            console.log(`[Jimmy] switchAccount → session established for ${profile.label} (sid=${S.sessionId}) cst=${S.CST?.slice(0,8)}... base=${base}`);
             await syncCapitalAccount();
             await syncCapitalPositions();
             clearInterval(S.sessionRefresh);
