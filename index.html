@@ -10,6 +10,7 @@
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230e1117' rx='20'/><text y='70' x='50' text-anchor='middle' font-size='65'>📈</text></svg>">
 <title>LITTLE JIMMY TRADING CO</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 *{ margin:0; padding:0; box-sizing:border-box; }
 :root{
@@ -237,7 +238,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
   .mobile-view{display:contents;}
 }
 
-#tv-container{ position:absolute; inset:0; }
+#lw-chart{ position:absolute; inset:0; }
 
 /* ── NEWS ── */
 .news-bar{ height:28px; min-height:28px; display:flex; align-items:center; background:var(--bg2); border-top:1px solid var(--border); overflow:hidden; flex-shrink:0; }
@@ -690,30 +691,15 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
   <!-- BOTTOM SPLIT: registry + chart filling remaining space -->
   <div class="bottom-split" id="bottom-split">
 
-    <!-- TRADINGVIEW CHART — full width dominant -->
+    <!-- LIGHTWEIGHT CHARTS — full width dominant -->
     <div class="chart-wrap" id="chart-panel">
-      <div id="tv-container"></div>
+      <div id="lw-chart" style="position:absolute;inset:0;"></div>
 
       <!-- PRICE LEVEL SIDEBAR — trade level badges on right edge of chart -->
       <div id="price-sidebar" style="position:absolute;top:0;right:0;width:148px;height:100%;pointer-events:none;z-index:6;overflow:hidden;"></div>
-      <!-- Mobile fallback shown when TV iframe can't load -->
-      <div id="tv-fallback" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--bg);padding:20px;">
-        <div style="text-align:center;">
-          <div style="font-family:'Bebas Neue';font-size:13px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">TRADINGVIEW CHART</div>
-          <div style="font-size:9px;color:var(--muted);line-height:1.6;max-width:280px;">
-            The chart requires the GitHub Pages URL to load.<br>
-            Open <b style="color:var(--gold);">keithharro-dot.github.io/Little-Jimmy</b> in your browser for the full chart.
-          </div>
-        </div>
-        <a id="tv-open-link" href="https://www.tradingview.com/chart/" target="_blank"
-          style="background:rgba(41,98,255,0.15);border:1px solid rgba(41,98,255,0.4);color:#4d8fff;
-                 padding:10px 20px;font-family:'Bebas Neue';font-size:13px;letter-spacing:2px;
-                 text-decoration:none;border-radius:4px;display:block;">
-          📈 OPEN TRADINGVIEW APP
-        </a>
-        <!-- Mini price display when no chart -->
-        <div id="mini-price-display" style="width:100%;max-width:320px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;"></div>
-      </div>
+      <!-- Mini price display (mobile / loading state) -->
+      <div id="mini-price-display" style="display:none;"></div>
+      <div id="tv-fallback" style="display:none;"></div>
     </div>
 
   </div><!-- end bottom-split -->
@@ -1698,6 +1684,7 @@ function startFeed(){
       updateLP();
       updatePosPnL();
       renderPriceSidebar();
+      updateLivePriceLine();
       if(AE.running){ AE.tickCount++; updateEngCd(); }
     }catch(e){ console.error('Feed tick error:',e); }
   }, 3000);
@@ -1710,6 +1697,7 @@ function startFeed(){
       checkPendingTriggers();
       updateInds();
       renderPriceSidebar();
+      drawTradeOverlays();
       if(isMobile()) updateMiniPriceDisplay();
     }catch(e){ console.error('Slow tick error:',e); }
   }, 8000);
@@ -3115,71 +3103,165 @@ function updateClock(){
   set('sess-name',active?active.n:'ASIAN');set('utc-time',utc);
 }
 
-// ══ TRADINGVIEW ══
+// ══ LIGHTWEIGHT CHARTS ══
 
-// Authoritative symbol map — single source of truth for chart symbols
 const TV_SYMBOLS={
-  GOLD:   'TVC:GOLD',
-  SILVER: 'TVC:SILVER',
-  OIL:    'TVC:USOIL',
-  BTC:    'BITSTAMP:BTCUSD',
-  ETH:    'BITSTAMP:ETHUSD',
-  SOL:    'COINBASE:SOLUSD',
-  XRP:    'BITSTAMP:XRPUSD',
-  DOGE:   'BITSTAMP:DOGEUSD',
-  NASDAQ: 'NASDAQ:NDX',
+  GOLD:'TVC:GOLD',SILVER:'TVC:SILVER',OIL:'TVC:USOIL',
+  BTC:'BITSTAMP:BTCUSD',ETH:'BITSTAMP:ETHUSD',SOL:'COINBASE:SOLUSD',
+  XRP:'BITSTAMP:XRPUSD',DOGE:'BITSTAMP:DOGEUSD',NASDAQ:'NASDAQ:NDX',
 };
 
-// Fully destroy and recreate the TradingView widget with the given symbol.
-// A unique frameElementId is used on every call so TradingView cannot serve
-// a cached widget — this is required for symbol switching to take effect.
-function initTVChart(symbol){
-  const c=$('tv-container');if(!c)return;
+const LWC={chart:null,candleSeries:null,volSeries:null,ema5:null,ema13:null,ema50:null,ema200:null,priceLine:null,tradeLines:[],asset:null,interval:null,refreshTimer:null,_resizeObs:null};
 
-  // Completely clear any existing widget
-  c.innerHTML='';
-  c.style.cssText='position:absolute;inset:0;';
+const _LW_BNC={BTC:'BTC',ETH:'ETH',SOL:'SOL',XRP:'XRP',DOGE:'DOGE'};
+const _LW_BNC_INT={'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d','W':'1w'};
+const _LW_CAP_RES={'1':'MINUTE','5':'MINUTE_5','15':'MINUTE_15','60':'HOUR','240':'HOUR_4','D':'DAY','W':'WEEK'};
 
-  const resolvedSym = symbol || TV_SYMBOLS[S.mkt] || 'TVC:GOLD';
-  TV.sym = resolvedSym; // keep TV state in sync
-  const style=$('chart-style')?.value||'1';
-  // Unique ID prevents TradingView from reusing the previous widget instance
-  const frameId='tv_'+Date.now();
-  console.log('[Jimmy] initTVChart: symbol="'+resolvedSym+'" frameId='+frameId+' S.mkt='+S.mkt);
-
-  const src='https://s.tradingview.com/widgetembed/?frameElementId='+frameId+
-    '&symbol='+encodeURIComponent(resolvedSym)+
-    '&interval='+(TV.interval||'60')+
-    '&theme=dark&style='+style+
-    '&locale=en&toolbar_bg=%230a0c0f&hide_top_toolbar=0&save_image=0'+
-    '&studies=RSI%40tv-scriptstd%1FMACD%40tv-scriptstd';
-
-  const iframe=document.createElement('iframe');
-  iframe.id=frameId;
-  iframe.src=src;
-  iframe.frameBorder='0';
-  iframe.allowFullscreen=true;
-  iframe.scrolling='no';
-  iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-  iframe.allow='autoplay;fullscreen;clipboard-write';
-  c.appendChild(iframe);
-
-  const fallback=$('tv-fallback');
-  if(fallback){
-    fallback.style.display='flex';
-    updateMiniPriceDisplay();
-    const link=$('tv-open-link');
-    if(link) link.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(resolvedSym);
-    iframe.onload=()=>{
-      try{ const _=iframe.contentWindow.location.href; fallback.style.display='none'; }
-      catch(e){ fallback.style.display='none'; }
-    };
-    iframe.onerror=()=>{ fallback.style.display='flex'; updateMiniPriceDisplay(); };
-  }
+function initLWChart(){
+  const container=$('lw-chart');
+  if(!container) return;
+  if(LWC.chart){try{LWC.chart.remove();}catch(e){} LWC.chart=null;LWC.candleSeries=null;LWC.volSeries=null;LWC.ema5=LWC.ema13=LWC.ema50=LWC.ema200=null;LWC.priceLine=null;LWC.tradeLines=[];}
+  if(LWC.refreshTimer){clearInterval(LWC.refreshTimer);LWC.refreshTimer=null;}
+  if(LWC._resizeObs){LWC._resizeObs.disconnect();LWC._resizeObs=null;}
+  if(typeof LightweightCharts==='undefined'){console.warn('[LWC] library not loaded');return;}
+  LWC.asset=S.mkt||'GOLD';
+  LWC.interval=TV.interval||'60';
+  LWC.chart=LightweightCharts.createChart(container,{
+    width:container.clientWidth||600,
+    height:container.clientHeight||300,
+    layout:{background:{color:'#0a0c0f'},textColor:'#5a6878'},
+    grid:{vertLines:{color:'#1a1f28'},horzLines:{color:'#1a1f28'}},
+    crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878'},
+    timeScale:{borderColor:'#2a2f38',textColor:'#5a6878',timeVisible:true,secondsVisible:false},
+  });
+  LWC.candleSeries=LWC.chart.addCandlestickSeries({upColor:'#2ecc71',downColor:'#e74c3c',borderUpColor:'#2ecc71',borderDownColor:'#e74c3c',wickUpColor:'#2ecc71',wickDownColor:'#e74c3c'});
+  LWC.volSeries=LWC.chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'',scaleMargins:{top:0.82,bottom:0}});
+  const mkLine=c=>LWC.chart.addLineSeries({color:c,lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  LWC.ema5=mkLine('rgba(255,255,80,0.75)');
+  LWC.ema13=mkLine('rgba(41,182,246,0.75)');
+  LWC.ema50=mkLine('rgba(255,165,0,0.85)');
+  LWC.ema200=mkLine('rgba(231,76,60,0.85)');
+  LWC._resizeObs=new ResizeObserver(()=>{
+    if(LWC.chart&&container.clientWidth>0&&container.clientHeight>0)
+      LWC.chart.resize(container.clientWidth,container.clientHeight);
+  });
+  LWC._resizeObs.observe(container);
+  loadLWChart();
 }
 
-// Convenience wrapper — all existing callers (setTF, reloadTV, chart-style onchange) use this
-function loadTV(){ initTVChart(TV.sym||TV_SYMBOLS[S.mkt]); }
+async function loadLWChart(){
+  if(!LWC.chart||!LWC.candleSeries) return;
+  LWC.asset=S.mkt||'GOLD';
+  LWC.interval=TV.interval||'60';
+  const bars=await _lwFetch(LWC.asset,LWC.interval);
+  if(bars&&bars.length) _lwApply(bars);
+  LWC.chart.timeScale().fitContent();
+  drawTradeOverlays();
+  updateLivePriceLine();
+  if(LWC.refreshTimer) clearInterval(LWC.refreshTimer);
+  LWC.refreshTimer=setInterval(async()=>{
+    if(!LWC.chart||!LWC.candleSeries) return;
+    const fresh=await _lwFetch(LWC.asset,LWC.interval);
+    if(fresh&&fresh.length){
+      try{LWC.candleSeries.update(fresh[fresh.length-1]);}catch(e){}
+    }
+    updateLivePriceLine();
+    drawTradeOverlays();
+  },30000);
+}
+
+async function _lwFetch(asset,interval){
+  if(S.connected&&S.CST&&S.apiBase){
+    try{
+      const epic=M[asset]?.epic;
+      if(epic){
+        const res=_LW_CAP_RES[interval]||'HOUR';
+        const sid=S.sessionId;
+        const r=await fetch(`${S.apiBase}/api/v1/prices/${epic}?resolution=${res}&max=500`,{headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC||'','X-CAP-API-KEY':S.apiKey||''}});
+        if(r.ok&&S.sessionId===sid){
+          const d=await r.json();
+          const bars=(d.prices||[]).map(p=>{
+            const mid=x=>(x.bid+x.ask)/2;
+            const ts=p.snapshotTime.replace(/(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}):\d{3}/,'$1').replace(/\//g,'-');
+            return{time:Math.floor(new Date(ts).getTime()/1000),open:mid(p.openPrice),high:mid(p.highPrice),low:mid(p.lowPrice),close:mid(p.closePrice),volume:p.lastTradedVolume||0};
+          }).filter(b=>isFinite(b.time)&&b.time>0).sort((a,b)=>a.time-b.time);
+          if(bars.length>20) return bars;
+        }
+      }
+    }catch(e){console.warn('[LWC] Capital.com fetch:',e.message);}
+  }
+  const bncSym=_LW_BNC[asset];
+  if(bncSym){
+    try{
+      const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${bncSym}USDT&interval=${_LW_BNC_INT[interval]||'1h'}&limit=500`);
+      if(r.ok){
+        const d=await r.json();
+        return d.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4],volume:+k[5]})).filter(b=>isFinite(b.time)&&b.time>0);
+      }
+    }catch(e){console.warn('[LWC] Binance fetch:',e.message);}
+  }
+  return null;
+}
+
+function _lwApply(bars){
+  const seen=new Map();
+  bars.forEach(b=>seen.set(b.time,b));
+  const candles=Array.from(seen.values()).sort((a,b)=>a.time-b.time);
+  LWC.candleSeries.setData(candles);
+  if(LWC.volSeries) LWC.volSeries.setData(candles.map(b=>({time:b.time,value:b.volume||0,color:b.close>=b.open?'rgba(46,204,113,0.25)':'rgba(231,76,60,0.25)'})));
+  const closes=candles.map(b=>b.close);
+  const setEMA=(series,period)=>{
+    if(!series||closes.length<period) return;
+    const k=2/(period+1);
+    let ema=closes.slice(0,period).reduce((a,b)=>a+b,0)/period;
+    const out=[{time:candles[period-1].time,value:ema}];
+    for(let i=period;i<closes.length;i++){ema=closes[i]*k+ema*(1-k);out.push({time:candles[i].time,value:ema});}
+    series.setData(out);
+  };
+  setEMA(LWC.ema5,5);setEMA(LWC.ema13,13);setEMA(LWC.ema50,50);setEMA(LWC.ema200,200);
+}
+
+function drawTradeOverlays(){
+  if(!LWC.chart||!LWC.candleSeries) return;
+  LWC.tradeLines.forEach(l=>{try{LWC.candleSeries.removePriceLine(l);}catch(e){}});
+  LWC.tradeLines=[];
+  const asset=LWC.asset||S.mkt;
+  const patterns=_EPIC_PATTERNS[asset]||[asset];
+  const matched=(S.positions||[]).filter(p=>{
+    if(p.status!=='open') return false;
+    const epic=(p.epic||p.instrument||p.instrumentName||p.symbol||'').toUpperCase();
+    return patterns.some(pat=>epic.includes(pat));
+  });
+  const LS=LightweightCharts.LineStyle;
+  matched.forEach(pos=>{
+    const dec=M[asset]?.dec||2;
+    const isBuy=pos.direction==='BUY';
+    const mk=(price,color,style,title)=>{
+      if(price==null||!isFinite(price)) return;
+      const l=LWC.candleSeries.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title});
+      LWC.tradeLines.push(l);
+    };
+    mk(pos.openPrice,isBuy?'#00c851':'#ff4444',LS.Solid,(isBuy?'▶ BUY':'▶ SELL')+' $'+pos.openPrice?.toFixed(dec));
+    mk(pos.sl,'#ff4444',LS.Dashed,'SL $'+pos.sl?.toFixed(dec));
+    mk(pos.tp,'#00c851',LS.Dashed,'TP $'+pos.tp?.toFixed(dec));
+  });
+}
+
+function updateLivePriceLine(){
+  if(!LWC.chart||!LWC.candleSeries) return;
+  const price=S.prices[LWC.asset||S.mkt];
+  if(!price||!isFinite(price)) return;
+  if(LWC.priceLine){try{LWC.candleSeries.removePriceLine(LWC.priceLine);}catch(e){}}
+  LWC.priceLine=LWC.candleSeries.createPriceLine({
+    price,color:M[LWC.asset]?.color||'#f5c842',lineWidth:1,
+    lineStyle:LightweightCharts.LineStyle.Dotted,axisLabelVisible:true,title:'LIVE',
+  });
+}
+
+// Shims — all existing call sites continue to work unchanged
+function initTVChart(symbol){TV.sym=symbol||TV_SYMBOLS[S.mkt]||'TVC:GOLD';initLWChart();}
+function loadTV(){if(LWC.chart){loadLWChart();}else{initLWChart();}}
 
 function updateMiniPriceDisplay(){
   const el=$('mini-price-display');if(!el)return;
