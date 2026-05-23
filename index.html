@@ -113,13 +113,14 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .ind-v{ font-family:"Bebas Neue"; font-size:12px; }
 
 /* ── RIGHT: account stats ── */
-.right-panel{ }
+.right-panel{ overflow-y:auto; }
 .stat-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; }
-.stat-cell{ padding:13px 16px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg2); }
+.stat-cell{ padding:13px 16px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--bg2); overflow:visible; min-height:90px; }
 .stat-cell:nth-child(3n){ border-right:none; }
 .stat-lbl{ font-size:9px; color:var(--muted); letter-spacing:1.5px; margin-bottom:6px; line-height:1.4; text-transform:uppercase; }
 .stat-val{ font-family:"Bebas Neue"; font-size:26px; line-height:1; }
 #s-bal{ font-size:38px !important; }
+.stat-aud{ display:block; font-size:9px; color:#8a99aa; margin-top:5px; letter-spacing:0.5px; font-family:"DM Mono",monospace; min-height:12px; }
 
 /* ── TRADES REGISTRY ── */
 /* registry now inside centre panel */
@@ -602,10 +603,12 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
         <div class="stat-cell" style="cursor:pointer;" onclick="openReset()" title="Click to change balance">
           <div class="stat-lbl">ACCOUNT BALANCE (USD) ✎</div>
           <div class="stat-val" id="s-bal" style="color:var(--gold);">—</div>
+          <div class="stat-aud" id="s-bal-aud"></div>
         </div>
         <div class="stat-cell">
           <div class="stat-lbl">EQUITY</div>
           <div class="stat-val" id="s-eq">—</div>
+          <div class="stat-aud" id="s-eq-aud"></div>
         </div>
         <div class="stat-cell" style="border-right:none;">
           <div class="stat-lbl" style="color:var(--gold);">TOTAL TAX LIABILITY THIS FINANCIAL YEAR</div>
@@ -614,10 +617,12 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
         <div class="stat-cell">
           <div class="stat-lbl">USED MARGIN (USD)</div>
           <div class="stat-val" id="s-um">—</div>
+          <div class="stat-aud" id="s-um-aud"></div>
         </div>
         <div class="stat-cell">
           <div class="stat-lbl">FREE MARGIN (USD)</div>
           <div class="stat-val" id="s-fm" style="color:var(--green);">—</div>
+          <div class="stat-aud" id="s-fm-aud"></div>
         </div>
         <div class="stat-cell" style="border-right:none;">
           <div class="stat-lbl" style="color:var(--gold);">TOTAL TRADING FEES THIS FINANCIAL YEAR</div>
@@ -626,6 +631,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
         <div class="stat-cell">
           <div class="stat-lbl">OPEN P&L (USD)</div>
           <div class="stat-val" id="s-pnl" style="color:var(--green);">$0.00</div>
+          <div class="stat-aud" id="s-pnl-aud"></div>
         </div>
         <div class="stat-cell">
           <div class="stat-lbl">MARGIN LEVEL (USD)</div>
@@ -634,6 +640,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
         <div class="stat-cell" style="border-right:none;">
           <div class="stat-lbl" style="color:var(--green);">CURRENT P&L IF ALL TRADES CLOSED</div>
           <div class="stat-val" id="s-pnlc" style="color:var(--green);">$0.00</div>
+          <div class="stat-aud" id="s-pnlc-aud"></div>
         </div>
       </div>
       <!-- Margin bar -->
@@ -1731,16 +1738,11 @@ function renderTradeOverlay(){
   const open=S.positions.filter(p=>p.status==='open'&&p.instrument===S.mkt);
   if(!open.length||!OV.visible) return;
 
-  const audRate=S.audRate||1.55;
+  const audRate=getAudRate();
   const livePrice=S.prices[S.mkt];
   if(!livePrice) return;
 
-  // ── PRICE RANGE STRATEGY ──
-  // Priority 1: manually entered chart hi/lo
-  // Priority 2: read from TV OHLC header text
-  // Priority 3: estimate from live price ± 8%
   let chartHi, chartLo;
-
   if(OV.chartHigh && OV.chartLow && OV.chartHigh > OV.chartLow){
     chartHi = OV.chartHigh;
     chartLo = OV.chartLow;
@@ -1750,17 +1752,15 @@ function renderTradeOverlay(){
     else { chartHi=livePrice*1.08; chartLo=livePrice*0.92; }
   }
 
-  // Expand range slightly so lines near edges stay visible
   const span = chartHi - chartLo;
   const pMin = chartLo - span*0.05;
   const pMax = chartHi + span*0.05;
   const pRange = pMax - pMin;
 
-  // Reserve space for TV toolbar (top ~95px) and bottom volume bar (~80px)
   const TOP=95, BOT=80, chartH=H-TOP-BOT;
   const toY=p=>Math.round(TOP + chartH*(1-(p-pMin)/pRange));
   const clamp=y=>Math.max(TOP+1, Math.min(TOP+chartH-1, y));
-  const lineEnd=W-145;
+  const lineEnd=W-150;
 
   open.forEach(pos=>{
     const m=M[pos.instrument]||M.GOLD;
@@ -1770,59 +1770,64 @@ function renderTradeOverlay(){
     const isProfit=pnl>=0;
     const eY=clamp(toY(pos.openPrice));
     const cY=clamp(toY(cur));
-    const eCol=isBuy?'#4d8fff':'#f97316';
+    const entryCol=isBuy?'#2ecc71':'#e74c3c';
     const cCol=isProfit?'#2ecc71':'#e74c3c';
 
-    // ── SHADED P&L REGION ──
-    const y1=Math.min(eY,cY), y2=Math.max(eY,cY);
-    if(y2-y1>1){
-      ctx.fillStyle=isProfit?'rgba(46,204,113,0.10)':'rgba(231,76,60,0.10)';
-      ctx.fillRect(0,y1,lineEnd,y2-y1);
+    // ── SHADED RISK ZONE: entry → SL only, very subtle ──
+    if(pos.sl && isFinite(pos.sl)){
+      const sY=clamp(toY(pos.sl));
+      const y1=Math.min(eY,sY), y2=Math.max(eY,sY);
+      if(y2-y1>1){
+        ctx.fillStyle='rgba(231,76,60,0.09)';
+        ctx.fillRect(0,y1,lineEnd,y2-y1);
+      }
     }
 
-    // ── TP LINE ──
-    if(pos.tp){
+    // ── TP LINE — dashed green, 1px ──
+    if(pos.tp && isFinite(pos.tp)){
       const tY=clamp(toY(pos.tp));
       ctx.save();
-      ctx.strokeStyle='#2ecc71';ctx.lineWidth=1.5;ctx.globalAlpha=0.8;
-      ctx.setLineDash([6,4]);
-      ctx.beginPath();ctx.moveTo(0,tY);ctx.lineTo(lineEnd,tY);ctx.stroke();
+      ctx.strokeStyle='#2ecc71'; ctx.lineWidth=1; ctx.globalAlpha=0.7;
+      ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(0,tY); ctx.lineTo(lineEnd,tY); ctx.stroke();
       ctx.restore();
-      drawOvLabel(ctx,lineEnd,tY,'TP  $'+pos.tp.toFixed(m.dec),'#2ecc71',false);
+      drawOvLabel(ctx,lineEnd,tY,'TP: '+pos.tp.toFixed(m.dec),'#2ecc71',false);
     }
 
-    // ── SL LINE ──
-    if(pos.sl){
+    // ── SL LINE — dashed red, 1px ──
+    if(pos.sl && isFinite(pos.sl)){
       const sY=clamp(toY(pos.sl));
       ctx.save();
-      ctx.strokeStyle='#e74c3c';ctx.lineWidth=1.5;ctx.globalAlpha=0.8;
-      ctx.setLineDash([6,4]);
-      ctx.beginPath();ctx.moveTo(0,sY);ctx.lineTo(lineEnd,sY);ctx.stroke();
+      ctx.strokeStyle='#e74c3c'; ctx.lineWidth=1; ctx.globalAlpha=0.7;
+      ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(0,sY); ctx.lineTo(lineEnd,sY); ctx.stroke();
       ctx.restore();
-      drawOvLabel(ctx,lineEnd,sY,'SL  $'+pos.sl.toFixed(m.dec),'#e74c3c',false);
+      drawOvLabel(ctx,lineEnd,sY,'SL: '+pos.sl.toFixed(m.dec),'#e74c3c',false);
     }
 
-    // ── ENTRY LINE ──
+    // ── ENTRY LINE — solid, 2px ──
     ctx.save();
-    ctx.strokeStyle=eCol;ctx.lineWidth=1.5;ctx.setLineDash([8,4]);ctx.globalAlpha=0.9;
-    ctx.beginPath();ctx.moveTo(0,eY);ctx.lineTo(lineEnd,eY);ctx.stroke();
+    ctx.strokeStyle=entryCol; ctx.lineWidth=2; ctx.globalAlpha=0.9;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(0,eY); ctx.lineTo(lineEnd,eY); ctx.stroke();
     ctx.restore();
-    drawOvLabel(ctx,lineEnd,eY,(isBuy?'▲BUY':'▼SELL')+'  $'+pos.openPrice.toFixed(m.dec),eCol,true);
+    drawOvLabel(ctx,lineEnd,eY,(isBuy?'▲ ':'▼ ')+pos.openPrice.toFixed(m.dec),entryCol,true);
 
-    // ── CURRENT PRICE LINE ──
+    // ── CURRENT PRICE MARKER — thin dotted, subtle ──
     ctx.save();
-    ctx.strokeStyle=cCol;ctx.lineWidth=2;ctx.globalAlpha=1;
-    ctx.beginPath();ctx.moveTo(0,cY);ctx.lineTo(lineEnd,cY);ctx.stroke();
+    ctx.strokeStyle=cCol; ctx.lineWidth=1; ctx.globalAlpha=0.5;
+    ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(0,cY); ctx.lineTo(lineEnd,cY); ctx.stroke();
     ctx.restore();
 
-    // ── P&L LABEL (left side, midpoint) ──
+    // ── P&L BADGE (left side, midpoint between entry and current) ──
     const midY=Math.round((eY+cY)/2);
     const d=document.createElement('div');
-    d.style.cssText='position:absolute;left:8px;top:'+(midY-12)+'px;'+
-      'background:'+(isProfit?'rgba(46,204,113,0.2)':'rgba(231,76,60,0.2)')+';'+
-      'border:1px solid '+(isProfit?'rgba(46,204,113,0.6)':'rgba(231,76,60,0.6)')+';'+
+    d.style.cssText='position:absolute;left:8px;top:'+(midY-11)+'px;'+
+      'background:'+(isProfit?'rgba(46,204,113,0.12)':'rgba(231,76,60,0.12)')+';'+
+      'border:1px solid '+(isProfit?'rgba(46,204,113,0.35)':'rgba(231,76,60,0.35)')+';'+
       'color:'+cCol+';font-family:DM Mono,monospace;font-size:10px;font-weight:700;'+
-      'padding:3px 10px;border-radius:3px;white-space:nowrap;pointer-events:none;';
+      'padding:2px 8px;border-radius:3px;white-space:nowrap;pointer-events:none;';
     d.textContent=(isProfit?'+$':'-$')+Math.abs(pnl).toFixed(2)+
                  '  /  '+(isProfit?'+A$':'-A$')+Math.abs(pnl*audRate).toFixed(2);
     labels.appendChild(d);
@@ -1830,7 +1835,7 @@ function renderTradeOverlay(){
     // ── CURRENT PRICE PILL (right edge) ──
     const pill=document.createElement('div');
     pill.style.cssText='position:absolute;right:4px;top:'+(cY-11)+'px;'+
-      'background:'+(isProfit?'#1a3d28':'#3d1a1a')+';'+
+      'background:rgba(10,12,15,0.92);'+
       'border:1px solid '+cCol+';color:'+cCol+';'+
       'font-family:Bebas Neue,sans-serif;font-size:12px;letter-spacing:1px;'+
       'padding:2px 10px;border-radius:2px;white-space:nowrap;pointer-events:none;';
@@ -1838,7 +1843,6 @@ function renderTradeOverlay(){
     labels.appendChild(pill);
   });
 
-  // ── CALIBRATION DEBUG (small overlay, removable) ──
   if(OV.debug){
     ctx.fillStyle='rgba(245,200,66,0.6)';
     ctx.font='9px DM Mono';
@@ -1924,7 +1928,7 @@ function updateExecPrice(){
 }
 
 // Called when user types in USD field — updates qty
-function getAudRate(){ return S.audRate||1.55; }
+function getAudRate(){ const r=S.audRate; return (r&&isFinite(r)&&r>0)?r:0.645; }
 
 function onCurrencyToggle(){
   const cur=$('size-currency')?.value||'USD';
@@ -2023,16 +2027,27 @@ function updateAccount(){
   },0);
   const free=equity-margin;
   const mpct=equity>0?(margin/equity*100):0;
+  const r=getAudRate();
+  const fmtAud=v=>'≈ A$'+Math.abs(v*r).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtAudSigned=(v,sign)=>(sign?'≈ A$':'-A$')+Math.abs(v*r).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const setAud=(id,v)=>{const e=$(id);if(e)e.textContent=fmtAud(isFinite(v)?v:0);};
+  const setAudSigned=(id,v)=>{const safe=isFinite(v)?v:0;const e=$(id);if(e)e.textContent=fmtAudSigned(safe,safe>=0);};
   set('s-bal','$'+(S.bal||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),'var(--gold)');
+  setAud('s-bal-aud',S.bal||0);
   set('s-eq','$'+(isFinite(equity)?equity:0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+  setAud('s-eq-aud',isFinite(equity)?equity:0);
   set('s-um','$'+(isFinite(margin)?margin:0).toFixed(2));
+  setAud('s-um-aud',isFinite(margin)?margin:0);
   set('s-fm','$'+(isFinite(free)?free:0).toFixed(2),'var(--green)');
+  setAudSigned('s-fm-aud',isFinite(free)?free:0);
   set('s-pnl',(openPnl>=0?'+$':'-$')+Math.abs(openPnl).toFixed(2),openPnl>=0?'var(--green)':'var(--red)');
+  setAudSigned('s-pnl-aud',openPnl);
   set('s-ml',margin>0?(equity/margin*100).toFixed(0)+'%':'∞');
   set('s-open',open.length);
   set('s-mpct',(isFinite(mpct)?mpct:0).toFixed(1)+'%');
   const bar=$('s-mbar');if(bar){bar.style.width=Math.min(isFinite(mpct)?mpct:0,100)+'%';bar.style.background=mpct>80?'var(--red)':mpct>50?'var(--gold)':'var(--green)';}
   const pnlc=$('s-pnlc');if(pnlc){pnlc.textContent=(openPnl>=0?'+$':'-$')+Math.abs(openPnl).toFixed(2);pnlc.style.color=openPnl>=0?'var(--green)':'var(--red)';}
+  const pnlcAud=$('s-pnlc-aud');if(pnlcAud)pnlcAud.textContent=fmtAudSigned(isFinite(openPnl)?openPnl:0,(isFinite(openPnl)?openPnl:0)>=0);
   set('s-tax','$'+TX.reserve.toFixed(2));set('s-fees','$'+TX.fees.toFixed(2));
 }
 
@@ -4118,6 +4133,7 @@ function updateHighRiskBanner(){
 
 function clearAccountUI(){
   ['s-bal','s-eq','s-um','s-fm','s-pnl','s-ml','s-pnlc'].forEach(id=>set(id,'—'));
+  ['s-bal-aud','s-eq-aud','s-um-aud','s-fm-aud','s-pnl-aud','s-pnlc-aud'].forEach(id=>{const e=$(id);if(e)e.textContent='';});
   set('s-tax','$0.00'); set('s-fees','$0.00');
   set('s-mpct','0.0%'); set('s-open','0');
   ['pend-cnt','pend-cnt2'].forEach(id=>{const e=$(id);if(e)e.textContent='0';});
