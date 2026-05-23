@@ -595,7 +595,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
     <!-- RIGHT: account stats -->
     <div class="right-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:var(--bg3);border-bottom:1px solid var(--border);">
-        <span style="font-size:7px;color:var(--muted);letter-spacing:2px;">ACCOUNT · CAPITAL.COM</span>
+        <span style="font-size:7px;color:var(--muted);letter-spacing:2px;" id="actual-acct-name">ACCOUNT · CAPITAL.COM</span>
         <span style="background:rgba(245,200,66,0.1);color:var(--gold);border:1px solid rgba(245,200,66,0.2);font-size:7px;padding:1px 6px;border-radius:2px;font-family:'Bebas Neue';letter-spacing:1px;" id="acct-mode">DEMO</span>
       </div>
       <div class="stat-grid">
@@ -3959,6 +3959,27 @@ function disableReadOnlyMode(){
   if(window._origQuickTrade)   window.quickTrade=window._origQuickTrade;
 }
 
+// ── Account mismatch banner ──
+function showAccountMismatchBanner(actualName, targetLabel){
+  let b=$('acct-mismatch-banner');
+  if(!b){
+    b=document.createElement('div');
+    b.id='acct-mismatch-banner';
+    b.style.cssText='display:none;background:#78350f;border-bottom:2px solid #f59e0b;color:#fde68a;'+
+      'font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.5px;text-align:center;'+
+      'padding:6px 14px;flex-shrink:0;line-height:1.6;';
+    const main=document.querySelector('.main');
+    if(main) document.body.insertBefore(b,main);
+    else document.body.appendChild(b);
+  }
+  b.style.display='block';
+  b.innerHTML=`⚠️ Connected to <b>"${actualName}"</b> — account switch failed. `+
+    `To fix: set <b>"${targetLabel}"</b> as your preferred account in Capital.com settings, then reconnect.`;
+}
+function hideAccountMismatchBanner(){
+  const b=$('acct-mismatch-banner');if(b)b.style.display='none';
+}
+
 // ── Switch the Capital.com session to the account matching the active profile ──
 async function selectCapitalAccount(){
   if(!S.apiBase||!S.CST) return;
@@ -3989,8 +4010,7 @@ async function selectCapitalAccount(){
     if(!target){console.warn('[Jimmy] selectCapitalAccount: no matching account found, using session default');return;}
     console.log(`[Jimmy] selectCapitalAccount: matched profile "${profile.label}" → Capital account "${target.accountName}" (${target.accountId})`);
 
-    // 4. Switch session to the matched account
-    // CORS proxy required for this specific call when running from GitHub Pages
+    // 4. Switch session to the matched account (CORS proxy required for GitHub Pages)
     const switchUrl=`https://corsproxy.io/?${encodeURIComponent(`${S.apiBase}/api/v1/session/account/${target.accountId}`)}`;
     const sw=await fetch(switchUrl,{
       method:'PUT',
@@ -3998,13 +4018,42 @@ async function selectCapitalAccount(){
     });
     if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed during PUT, discarding');return;}
     if(sw.ok){
-      // Capture refreshed tokens if the server returns them
       const newCST=sw.headers.get('CST'), newSEC=sw.headers.get('X-SECURITY-TOKEN');
       if(newCST) S.CST=newCST;
       if(newSEC) S.SEC=newSEC;
-      console.log(`[Jimmy] selectCapitalAccount: session now on "${target.accountName}" ✓`);
+      console.log(`[Jimmy] selectCapitalAccount: PUT succeeded for "${target.accountName}" ✓`);
     } else {
-      console.warn(`[Jimmy] selectCapitalAccount: PUT /session/account failed (${sw.status}) — proceeding with default`);
+      console.warn(`[Jimmy] selectCapitalAccount: PUT /session/account failed (${sw.status})`);
+    }
+
+    // 5. Verify: re-fetch accounts to confirm which is now preferred/active
+    const vr=await fetch(`${S.apiBase}/api/v1/accounts`,{
+      headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
+    });
+    if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed during verify, discarding');return;}
+    if(!vr.ok){console.warn('[Jimmy] selectCapitalAccount: verify fetch failed',vr.status);return;}
+    const vdata=await vr.json();
+    const vaccts=vdata.accounts||[];
+    const activeAcct=vaccts.find(a=>a.preferred)||vaccts[0];
+    const actualName=activeAcct?.accountName||'Unknown';
+    console.log(`[Jimmy] selectCapitalAccount: verified — session is on "${actualName}" (preferred=${activeAcct?.preferred}, id=${activeAcct?.accountId})`);
+
+    // Update right-panel header with the actual connected account name
+    const nameEl=$('actual-acct-name');
+    if(nameEl) nameEl.textContent=actualName;
+
+    // Warn if the actual account doesn't match what was requested
+    const expectedLower=profile.label.toLowerCase();
+    const actualLower=actualName.toLowerCase();
+    const isMatch=actualLower===expectedLower
+      ||actualLower.includes(expectedLower)
+      ||expectedLower.includes(actualLower)
+      ||activeAcct?.accountId===target.accountId;
+    if(isMatch){
+      hideAccountMismatchBanner();
+    } else {
+      console.warn(`[Jimmy] selectCapitalAccount: MISMATCH — wanted "${profile.label}" but session is on "${actualName}"`);
+      showAccountMismatchBanner(actualName, profile.label);
     }
   }catch(e){console.warn('[Jimmy] selectCapitalAccount error:',e.message);}
 }
@@ -4064,6 +4113,8 @@ function clearAccountUI(){
   const tbody=$('trades-body');
   if(tbody)tbody.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:14px;font-size:9px;">Switching account — loading...</td></tr>';
   const pbody=$('pending-body');if(pbody)pbody.innerHTML='';
+  const nameEl=$('actual-acct-name');if(nameEl)nameEl.textContent='ACCOUNT · CAPITAL.COM';
+  hideAccountMismatchBanner();
 }
 
 function disconnectSession(){
