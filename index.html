@@ -1153,6 +1153,16 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
       </div>
     </div>
 
+    <!-- Account selector -->
+    <div class="field" style="margin-bottom:8px;">
+      <label>ACCOUNT</label>
+      <select id="m-acct" onchange="onModalAcctChange()" style="width:100%;font-size:12px;padding:6px;">
+        <option value="demo">🟡 DEMO — Practice account</option>
+        <option value="swing">🟢 SWING TRADES — Live account</option>
+        <option value="highrisk">🔴 HIGH RISK TRADES — Live account</option>
+      </select>
+    </div>
+
     <!-- Environment selector -->
     <div class="field" style="margin-bottom:8px;">
       <label>ENVIRONMENT & MODE</label>
@@ -3661,15 +3671,14 @@ function closeAutoSB(){$('auto-sb').classList.remove('open');}
 // ══ CONNECT ══
 function openConn(){
   $('conn-overlay').classList.add('on');
-  const profile=ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo;
-  // Update modal title to show which account is being connected
-  const titleEl=document.querySelector('#conn-overlay .modal-title');
-  if(titleEl) titleEl.textContent='⚡ '+profile.label+' — CONNECT';
-  // Pre-set environment based on active account
+  // Default to currently active account, or SWING if not connected
+  const defaultAcct=S.connected?S.activeAccount:'swing';
+  const mAcct=$('m-acct');
+  if(mAcct) mAcct.value=ACCT_PROFILES[defaultAcct]?defaultAcct:'swing';
+  // Load credentials for this account (populates fields + banner)
+  loadModalSaved(mAcct?.value||defaultAcct);
+  // Wire env selector to show/hide read-only banner
   const envSel=$('m-env');
-  if(envSel) envSel.value=profile.live?'live':'demo';
-  loadSaved();
-  // Wire environment selector to show/hide read-only banner
   if(envSel) envSel.onchange=()=>{
     const ro=$('readonly-info'), btn=$('connect-btn');
     const isRO=envSel.value==='live-readonly';
@@ -3761,27 +3770,65 @@ setInterval(()=>{
   if(S.positions.length || S.pending.length) saveState();
 }, 5000);
 function loadSaved(){
+  // Legacy: load active account creds for initial window._creds cache only
   try{
-    const acctKey=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
-    const s=localStorage.getItem(acctKey);
-    if(!s)return;
-    const c=JSON.parse(atob(s));
-    const b=$('saved-banner');if(b)b.style.display='flex';
-    window._creds=c;
-  }catch(e){}
+    const key=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
+    const s=localStorage.getItem(key);
+    window._creds=s?JSON.parse(atob(s)):null;
+  }catch(e){ window._creds=null; }
+}
+function loadModalSaved(acctProfileKey){
+  const profile=ACCT_PROFILES[acctProfileKey]||ACCT_PROFILES.demo;
+  const b=$('saved-banner');
+  try{
+    const s=localStorage.getItem(profile.key);
+    if(s){
+      const c=JSON.parse(atob(s));
+      window._creds=c;
+      if($('m-apikey')) $('m-apikey').value=c.apikey||'';
+      if($('m-email'))  $('m-email').value =c.email||'';
+      if($('m-pass'))   $('m-pass').value  =c.pass||'';
+      if($('m-env'))    $('m-env').value   =c.env||'demo';
+      if(b) b.style.display='flex';
+    } else {
+      window._creds=null;
+      if($('m-apikey')) $('m-apikey').value='';
+      if($('m-email'))  $('m-email').value ='';
+      if($('m-pass'))   $('m-pass').value  ='';
+      if(b) b.style.display='none';
+    }
+  }catch(e){ window._creds=null; if(b) b.style.display='none'; }
+}
+function onModalAcctChange(){
+  const acct=$('m-acct')?.value||'swing';
+  const profile=ACCT_PROFILES[acct]||ACCT_PROFILES.demo;
+  // Update modal title
+  const titleEl=document.querySelector('#conn-overlay .modal-title');
+  if(titleEl) titleEl.textContent='⚡ '+profile.label+' — CONNECT';
+  // Load (or clear) credentials for this account
+  loadModalSaved(acct);
+  // Default env selector if no saved creds
+  if(!window._creds){
+    const envSel=$('m-env');
+    if(envSel) envSel.value=profile.live?'live':'demo';
+  }
 }
 function useSaved(){
   if(!window._creds)return;
   const c=window._creds;
-  $('m-apikey').value=c.apikey||'';
-  $('m-email').value=c.email||'';
-  $('m-pass').value=c.pass||'';
-  $('m-env').value=c.env||'demo';
+  if($('m-apikey')) $('m-apikey').value=c.apikey||'';
+  if($('m-email'))  $('m-email').value =c.email||'';
+  if($('m-pass'))   $('m-pass').value  =c.pass||'';
+  if($('m-env'))    $('m-env').value   =c.env||'demo';
 }
 function clearSaved(){
-  const acctKey=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
-  localStorage.removeItem(acctKey);
+  const acct=$('m-acct')?.value||S.activeAccount;
+  const profile=ACCT_PROFILES[acct]||ACCT_PROFILES.demo;
+  localStorage.removeItem(profile.key);
   window._creds=null;
+  if($('m-apikey')) $('m-apikey').value='';
+  if($('m-email'))  $('m-email').value ='';
+  if($('m-pass'))   $('m-pass').value  ='';
   const b=$('saved-banner');if(b)b.style.display='none';
 }
 function startDemo(){
@@ -3792,6 +3839,7 @@ function startDemo(){
 }
 
 async function connectAPI(){
+  const modalAcct=$('m-acct')?.value||S.activeAccount;
   const ak=$('m-apikey')?.value?.trim();
   const em=$('m-email')?.value?.trim();
   const pw=$('m-pass')?.value?.trim();
@@ -3822,6 +3870,12 @@ async function connectAPI(){
       return;
     }
 
+    // Switch active account to whatever was selected in the modal
+    S.activeAccount=modalAcct;
+    localStorage.setItem('ljtc-activeAccount',modalAcct);
+    const sw=$('acct-switcher');if(sw)sw.value=modalAcct;
+    updateHighRiskBanner();
+
     S.apiBase   = base;
     S.CST       = r.headers.get('CST');
     S.SEC       = r.headers.get('X-SECURITY-TOKEN');
@@ -3830,7 +3884,7 @@ async function connectAPI(){
     S.demo      = !isLive;
     S.readOnly  = isReadOnly;
     S.sessionId++;
-    console.log(`[Jimmy] connectAPI — new session (id=${S.sessionId}) account=${S.activeAccount} base=${base} cst=${S.CST?.slice(0,8)}...`);
+    console.log(`[Jimmy] connectAPI — new session (id=${S.sessionId}) account=${modalAcct} base=${base} cst=${S.CST?.slice(0,8)}...`);
 
     if(statusEl){statusEl.textContent='Selecting account...';statusEl.style.color='var(--gold)';}
     await selectCapitalAccount();
@@ -3843,9 +3897,9 @@ async function connectAPI(){
     // Pull real open positions
     await syncCapitalPositions();
 
-    // Save credentials per-account
+    // Save credentials to the account selected in the modal
     if($('m-remember')?.checked){
-      const acctKey=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
+      const acctKey=(ACCT_PROFILES[modalAcct]||ACCT_PROFILES.demo).key;
       localStorage.setItem(acctKey,btoa(JSON.stringify({apikey:ak,email:em,pass:pw,env})));
     }
 
