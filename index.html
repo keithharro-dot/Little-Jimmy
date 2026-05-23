@@ -2739,9 +2739,10 @@ function closePos(id){
 
 function updatePosPnL(){
   S.positions.forEach(pos=>{
-    if(pos.status!=='open') return;
+    if(!pos || pos.status!=='open') return;
     if(pos._editing) return; // skip SL/TP check while user is typing
     const m=M[pos.instrument], p=S.prices[pos.instrument];
+    if(!m || p==null) return; // skip Capital.com positions with unmapped instruments
     pos.pnl = pos.direction==='BUY'
       ? (p-pos.openPrice)*pos.lot*(m.pv||1)*10
       : (pos.openPrice-p)*pos.lot*(m.pv||1)*10;
@@ -4004,6 +4005,7 @@ function disconnectSession(){
   S.CST=null; S.SEC=null; S.apiKey=null; S.apiBase=null;
   S.connected=false; S.demo=true; S.readOnly=false;
   S.positions=[]; S.pending=[];
+  set('s-open','0'); // reset immediately — clearAccountUI repeats this but be explicit
   disableReadOnlyMode();
   setConn(false,'NOT CONNECTED');
   clearAccountUI();
@@ -4039,14 +4041,14 @@ async function switchAccount(acctKey){
             S.apiKey=c.apikey; S.connected=true; S.demo=!isLive; S.readOnly=isReadOnly;
             S.sessionId++;
             console.log(`[Jimmy] switchAccount → session established for ${profile.label} (sid=${S.sessionId}) cst=${S.CST?.slice(0,8)}... base=${base}`);
+            const modeLabel=isReadOnly?profile.label+' · READ-ONLY':isLive?profile.label+' · LIVE':profile.label+' · DEMO';
+            setConn(true,modeLabel); // update header immediately — don't wait for syncs
             await syncCapitalAccount();
             await syncCapitalPositions();
             clearInterval(S.sessionRefresh);
             S.sessionRefresh=setInterval(()=>keepSessionAlive(c.apikey,c.email,c.pass,base),9*60*1000);
             clearInterval(S.positionSync);
             S.positionSync=setInterval(syncCapitalPositions,30*1000);
-            const modeLabel=isReadOnly?profile.label+' · READ-ONLY':isLive?profile.label+' · LIVE':profile.label+' · DEMO';
-            setConn(true,modeLabel);
             if(isReadOnly) applyReadOnlyMode();
             toast('✅','Switched to '+profile.label,'Connected');
             return;
