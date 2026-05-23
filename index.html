@@ -4010,12 +4010,25 @@ async function selectCapitalAccount(){
     if(!target){console.warn('[Jimmy] selectCapitalAccount: no matching account found, using session default');return;}
     console.log(`[Jimmy] selectCapitalAccount: matched profile "${profile.label}" → Capital account "${target.accountName}" (${target.accountId})`);
 
-    // 4. Switch session to the matched account (CORS proxy required for GitHub Pages)
-    const switchUrl=`https://corsproxy.io/?${encodeURIComponent(`${S.apiBase}/api/v1/session/account/${target.accountId}`)}`;
-    const sw=await fetch(switchUrl,{
-      method:'PUT',
-      headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
-    });
+    // 4. Switch session — local proxy first, corsproxy.io fallback
+    let sw;
+    try{
+      // Try the local Node proxy (start-proxy.bat) — no CORS issues, forwards tokens correctly
+      sw=await fetch('http://localhost:3001/switch-account',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({accountId:target.accountId,CST:S.CST,SEC:S.SEC,apiKey:S.apiKey,base:S.apiBase})
+      });
+      console.log('[Jimmy] selectCapitalAccount: used local proxy (localhost:3001)');
+    }catch(_){
+      // Local proxy not running — fall back to corsproxy.io
+      console.log('[Jimmy] selectCapitalAccount: local proxy unavailable, falling back to corsproxy.io');
+      const switchUrl=`https://corsproxy.io/?${encodeURIComponent(`${S.apiBase}/api/v1/session/account/${target.accountId}`)}`;
+      sw=await fetch(switchUrl,{
+        method:'PUT',
+        headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
+      });
+    }
     if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed during PUT, discarding');return;}
     if(sw.ok){
       const newCST=sw.headers.get('CST'), newSEC=sw.headers.get('X-SECURITY-TOKEN');
