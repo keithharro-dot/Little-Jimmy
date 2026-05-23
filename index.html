@@ -319,14 +319,8 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
     <button class="tbtn" onclick="openTRYT()">▶ TR</button>
     <button class="tbtn" onclick="openTax()">📊 TAX</button>
     <button class="tbtn" id="auto-hdr-btn" onclick="toggleAutoSB()">🤖 AUTO</button>
-    <span id="acct-switcher" style="font-family:'Bebas Neue';font-size:10px;letter-spacing:1.5px;color:var(--gold);padding:0 4px;appearance:none;-webkit-appearance:none;cursor:default;pointer-events:none;user-select:none;">DEMO</span>
     <button class="conn-btn" onclick="openConn()">⚙ CONNECT</button>
   </div>
-</div>
-
-<!-- ── HIGH RISK WARNING BANNER ── -->
-<div id="highrisk-banner" style="display:none;background:#7f1d1d;border-bottom:2px solid #ef4444;color:#fca5a5;font-family:'Bebas Neue';font-size:10px;letter-spacing:2px;text-align:center;padding:5px 0;flex-shrink:0;">
-  ⚠ HIGH RISK TRADES ACCOUNT ACTIVE — REAL MONEY AT HIGH LEVERAGE — TRADE WITH EXTREME CAUTION ⚠
 </div>
 
 <!-- ── MAIN ── -->
@@ -1146,16 +1140,6 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
       </div>
     </div>
 
-    <!-- Account selector -->
-    <div class="field" style="margin-bottom:8px;">
-      <label>ACCOUNT</label>
-      <select id="m-acct" onchange="onModalAcctChange()" style="width:100%;font-size:12px;padding:6px;">
-        <option value="demo">🟡 DEMO — Practice account</option>
-        <option value="swing">🟢 SWING TRADES — Live account</option>
-        <option value="highrisk">🔴 HIGH RISK TRADES — Live account</option>
-      </select>
-    </div>
-
     <!-- Environment selector -->
     <div class="field" style="margin-bottom:8px;">
       <label>ENVIRONMENT & MODE</label>
@@ -1605,7 +1589,6 @@ function onTradeTypeChange(){
 // ══ STATE ══
 const S={
   connected:false,demo:true,bal:10000,
-  activeAccount:'demo',
   sessionId:0,
   mkt:'GOLD',
   prices:{GOLD:2341,SILVER:29.8,OIL:78.3,BTC:67420,ETH:3512,SOL:172.4,XRP:0.52,DOGE:0.15,NASDAQ:17800},
@@ -1613,13 +1596,6 @@ const S={
   positions:[],pending:[],tid:1,interval:null,
 };
 const TX={reserve:0,fees:0,trades:[]};
-
-// ── ACCOUNT PROFILES ──
-const ACCT_PROFILES={
-  demo:     {label:'DEMO',             live:false, key:'capitalAccount_demo'    },
-  swing:    {label:'SWING TRADES',     live:true,  key:'capitalAccount_swing'   },
-  highrisk: {label:'HIGH RISK TRADES', live:true,  key:'capitalAccount_highrisk'},
-};
 
 // ══ TV STATE ══
 const TV={sym:'TVC:GOLD',interval:'60'};
@@ -2356,7 +2332,7 @@ async function closeCapitalTrade(dealId){
 async function refreshCapitalPositions(){
   if(!S.apiBase||!S.CST||S.demo) return;
   const sid=S.sessionId;
-  console.log(`[Jimmy] refreshCapitalPositions — account=${S.activeAccount} sid=${sid} cst=${S.CST?.slice(0,8)}...`);
+  console.log(`[Jimmy] refreshCapitalPositions — sid=${sid} cst=${S.CST?.slice(0,8)}...`);
   try {
     const res=await fetch(`${S.apiBase}/api/v1/positions`,{
       headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
@@ -3664,13 +3640,7 @@ function closeAutoSB(){$('auto-sb').classList.remove('open');}
 // ══ CONNECT ══
 function openConn(){
   $('conn-overlay').classList.add('on');
-  // Default to currently active account, or SWING if not connected
-  const defaultAcct=S.connected?S.activeAccount:'swing';
-  const mAcct=$('m-acct');
-  if(mAcct) mAcct.value=ACCT_PROFILES[defaultAcct]?defaultAcct:'swing';
-  // Load credentials for this account (populates fields + banner)
-  loadModalSaved(mAcct?.value||defaultAcct);
-  // Wire env selector to show/hide read-only banner
+  loadSaved();
   const envSel=$('m-env');
   if(envSel) envSel.onchange=()=>{
     const ro=$('readonly-info'), btn=$('connect-btn');
@@ -3763,18 +3733,9 @@ setInterval(()=>{
   if(S.positions.length || S.pending.length) saveState();
 }, 5000);
 function loadSaved(){
-  // Legacy: load active account creds for initial window._creds cache only
-  try{
-    const key=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).key;
-    const s=localStorage.getItem(key);
-    window._creds=s?JSON.parse(atob(s)):null;
-  }catch(e){ window._creds=null; }
-}
-function loadModalSaved(acctProfileKey){
-  const profile=ACCT_PROFILES[acctProfileKey]||ACCT_PROFILES.demo;
   const b=$('saved-banner');
   try{
-    const s=localStorage.getItem(profile.key);
+    const s=localStorage.getItem('ljtc');
     if(s){
       const c=JSON.parse(atob(s));
       window._creds=c;
@@ -3785,26 +3746,9 @@ function loadModalSaved(acctProfileKey){
       if(b) b.style.display='flex';
     } else {
       window._creds=null;
-      if($('m-apikey')) $('m-apikey').value='';
-      if($('m-email'))  $('m-email').value ='';
-      if($('m-pass'))   $('m-pass').value  ='';
       if(b) b.style.display='none';
     }
   }catch(e){ window._creds=null; if(b) b.style.display='none'; }
-}
-function onModalAcctChange(){
-  const acct=$('m-acct')?.value||'swing';
-  const profile=ACCT_PROFILES[acct]||ACCT_PROFILES.demo;
-  // Update modal title
-  const titleEl=document.querySelector('#conn-overlay .modal-title');
-  if(titleEl) titleEl.textContent='⚡ '+profile.label+' — CONNECT';
-  // Load (or clear) credentials for this account
-  loadModalSaved(acct);
-  // Default env selector if no saved creds
-  if(!window._creds){
-    const envSel=$('m-env');
-    if(envSel) envSel.value=profile.live?'live':'demo';
-  }
 }
 function useSaved(){
   if(!window._creds)return;
@@ -3815,9 +3759,7 @@ function useSaved(){
   if($('m-env'))    $('m-env').value   =c.env||'demo';
 }
 function clearSaved(){
-  const acct=$('m-acct')?.value||S.activeAccount;
-  const profile=ACCT_PROFILES[acct]||ACCT_PROFILES.demo;
-  localStorage.removeItem(profile.key);
+  localStorage.removeItem('ljtc');
   window._creds=null;
   if($('m-apikey')) $('m-apikey').value='';
   if($('m-email'))  $('m-email').value ='';
@@ -3832,7 +3774,6 @@ function startDemo(){
 }
 
 async function connectAPI(){
-  const modalAcct=$('m-acct')?.value||S.activeAccount;
   const ak=$('m-apikey')?.value?.trim();
   const em=$('m-email')?.value?.trim();
   const pw=$('m-pass')?.value?.trim();
@@ -3863,12 +3804,6 @@ async function connectAPI(){
       return;
     }
 
-    // Switch active account to whatever was selected in the modal
-    S.activeAccount=modalAcct;
-    localStorage.setItem('ljtc-activeAccount',modalAcct);
-    const sw=$('acct-switcher');if(sw)sw.textContent=(ACCT_PROFILES[modalAcct]||ACCT_PROFILES.demo).label;
-    updateHighRiskBanner();
-
     S.apiBase   = base;
     S.CST       = r.headers.get('CST');
     S.SEC       = r.headers.get('X-SECURITY-TOKEN');
@@ -3877,10 +3812,7 @@ async function connectAPI(){
     S.demo      = !isLive;
     S.readOnly  = isReadOnly;
     S.sessionId++;
-    console.log(`[Jimmy] connectAPI — new session (id=${S.sessionId}) account=${modalAcct} base=${base} cst=${S.CST?.slice(0,8)}...`);
-
-    if(statusEl){statusEl.textContent='Selecting account...';statusEl.style.color='var(--gold)';}
-    await selectCapitalAccount();
+    console.log(`[Jimmy] connectAPI — new session (id=${S.sessionId}) base=${base} cst=${S.CST?.slice(0,8)}...`);
 
     if(statusEl){statusEl.textContent='Authenticated ✓ — fetching account...';statusEl.style.color='var(--green)';}
 
@@ -3890,10 +3822,8 @@ async function connectAPI(){
     // Pull real open positions
     await syncCapitalPositions();
 
-    // Save credentials to the account selected in the modal
     if($('m-remember')?.checked){
-      const acctKey=(ACCT_PROFILES[modalAcct]||ACCT_PROFILES.demo).key;
-      localStorage.setItem(acctKey,btoa(JSON.stringify({apikey:ak,email:em,pass:pw,env})));
+      localStorage.setItem('ljtc',btoa(JSON.stringify({apikey:ak,email:em,pass:pw,env})));
     }
 
     // Keep session alive every 9 min
@@ -3927,7 +3857,7 @@ async function connectAPI(){
 async function syncCapitalPositions(){
   if(!S.apiBase||!S.CST) return;
   const sid=S.sessionId;
-  console.log(`[Jimmy] syncCapitalPositions — account=${S.activeAccount} sid=${sid} cst=${S.CST?.slice(0,8)}...`);
+  console.log(`[Jimmy] syncCapitalPositions — sid=${sid} cst=${S.CST?.slice(0,8)}...`);
   try{
     const r=await fetch(`${S.apiBase}/api/v1/positions`,{
       headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
@@ -4032,122 +3962,10 @@ function disableReadOnlyMode(){
   if(window._origQuickTrade)   window.quickTrade=window._origQuickTrade;
 }
 
-// ── Account mismatch banner ──
-function showAccountMismatchBanner(actualName, targetLabel){
-  let b=$('acct-mismatch-banner');
-  if(!b){
-    b=document.createElement('div');
-    b.id='acct-mismatch-banner';
-    b.style.cssText='display:none;background:#78350f;border-bottom:2px solid #f59e0b;color:#fde68a;'+
-      'font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.5px;text-align:center;'+
-      'padding:6px 14px;flex-shrink:0;line-height:1.6;';
-    const main=document.querySelector('.main');
-    if(main) document.body.insertBefore(b,main);
-    else document.body.appendChild(b);
-  }
-  b.style.display='block';
-  b.innerHTML=`⚠️ Connected to <b>"${actualName}"</b> — account switch failed. `+
-    `To fix: set <b>"${targetLabel}"</b> as your preferred account in Capital.com settings, then reconnect.`;
-}
-function hideAccountMismatchBanner(){
-  const b=$('acct-mismatch-banner');if(b)b.style.display='none';
-}
-
-// ── Switch the Capital.com session to the account matching the active profile ──
-async function selectCapitalAccount(){
-  if(!S.apiBase||!S.CST) return;
-  const sid=S.sessionId;
-  const profile=ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo;
-  try{
-    // 1. Fetch all accounts on this API key
-    const r=await fetch(`${S.apiBase}/api/v1/accounts`,{
-      headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
-    });
-    if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed mid-flight');return;}
-    if(!r.ok){console.warn('[Jimmy] selectCapitalAccount: accounts fetch failed',r.status);return;}
-    const data=await r.json();
-    const accounts=data.accounts||[];
-
-    // 2. Log all available accounts for debugging
-    console.log(`[Jimmy] Capital.com accounts available (profile=${S.activeAccount}):`);
-    accounts.forEach(a=>console.log(`  id=${a.accountId}  name="${a.accountName}"  type=${a.accountType}  preferred=${a.preferred}  status=${a.status}`));
-
-    // 3. Match profile to account: exact name → partial name → type fallback
-    const needle=profile.label.toLowerCase();
-    let target=accounts.find(a=>a.accountName?.toLowerCase()===needle);
-    if(!target) target=accounts.find(a=>a.accountName?.toLowerCase().includes(needle));
-    if(!target && S.activeAccount==='demo') target=accounts.find(a=>a.accountType==='DEMO');
-    if(!target && S.activeAccount!=='demo') target=accounts.find(a=>a.accountType!=='DEMO'&&!a.preferred);
-    if(!target) target=accounts.find(a=>a.preferred)||accounts[0];
-
-    if(!target){console.warn('[Jimmy] selectCapitalAccount: no matching account found, using session default');return;}
-    console.log(`[Jimmy] selectCapitalAccount: matched profile "${profile.label}" → Capital account "${target.accountName}" (${target.accountId})`);
-
-    // 4. Switch session — local proxy first, corsproxy.io fallback
-    let sw;
-    try{
-      // Try the local Node proxy (start-proxy.bat) — no CORS issues, forwards tokens correctly
-      sw=await fetch('http://localhost:3001/switch-account',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({accountId:target.accountId,CST:S.CST,SEC:S.SEC,apiKey:S.apiKey,base:S.apiBase})
-      });
-      console.log('[Jimmy] selectCapitalAccount: used local proxy (localhost:3001)');
-    }catch(_){
-      // Local proxy not running — fall back to corsproxy.io
-      console.log('[Jimmy] selectCapitalAccount: local proxy unavailable, falling back to corsproxy.io');
-      const switchUrl=`https://corsproxy.io/?${encodeURIComponent(`${S.apiBase}/api/v1/session/account/${target.accountId}`)}`;
-      sw=await fetch(switchUrl,{
-        method:'PUT',
-        headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
-      });
-    }
-    if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed during PUT, discarding');return;}
-    if(sw.ok){
-      const newCST=sw.headers.get('CST'), newSEC=sw.headers.get('X-SECURITY-TOKEN');
-      if(newCST) S.CST=newCST;
-      if(newSEC) S.SEC=newSEC;
-      console.log(`[Jimmy] selectCapitalAccount: PUT succeeded for "${target.accountName}" ✓`);
-    } else {
-      console.warn(`[Jimmy] selectCapitalAccount: PUT /session/account failed (${sw.status})`);
-    }
-
-    // 5. Verify: re-fetch accounts to confirm which is now preferred/active
-    const vr=await fetch(`${S.apiBase}/api/v1/accounts`,{
-      headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
-    });
-    if(sid!==S.sessionId){console.warn('[Jimmy] selectCapitalAccount: session changed during verify, discarding');return;}
-    if(!vr.ok){console.warn('[Jimmy] selectCapitalAccount: verify fetch failed',vr.status);return;}
-    const vdata=await vr.json();
-    const vaccts=vdata.accounts||[];
-    const activeAcct=vaccts.find(a=>a.preferred)||vaccts[0];
-    const actualName=activeAcct?.accountName||'Unknown';
-    console.log(`[Jimmy] selectCapitalAccount: verified — session is on "${actualName}" (preferred=${activeAcct?.preferred}, id=${activeAcct?.accountId})`);
-
-    // Update right-panel header with the actual connected account name
-    const nameEl=$('actual-acct-name');
-    if(nameEl) nameEl.textContent=actualName;
-
-    // Warn if the actual account doesn't match what was requested
-    const expectedLower=profile.label.toLowerCase();
-    const actualLower=actualName.toLowerCase();
-    const isMatch=actualLower===expectedLower
-      ||actualLower.includes(expectedLower)
-      ||expectedLower.includes(actualLower)
-      ||activeAcct?.accountId===target.accountId;
-    if(isMatch){
-      hideAccountMismatchBanner();
-    } else {
-      console.warn(`[Jimmy] selectCapitalAccount: MISMATCH — wanted "${profile.label}" but session is on "${actualName}"`);
-      showAccountMismatchBanner(actualName, profile.label);
-    }
-  }catch(e){console.warn('[Jimmy] selectCapitalAccount error:',e.message);}
-}
-
 async function syncCapitalAccount(){
   if(!S.apiBase||!S.CST) return;
   const sid=S.sessionId;
-  console.log(`[Jimmy] syncCapitalAccount — account=${S.activeAccount} sid=${sid} cst=${S.CST?.slice(0,8)}...`);
+  console.log(`[Jimmy] syncCapitalAccount — sid=${sid} cst=${S.CST?.slice(0,8)}...`);
   try{
     const r=await fetch(`${S.apiBase}/api/v1/accounts`,{
       headers:{'CST':S.CST,'X-SECURITY-TOKEN':S.SEC,'X-CAP-API-KEY':S.apiKey}
@@ -4183,12 +4001,6 @@ async function keepSessionAlive(ak,em,pw,base){
   }catch(e){console.warn('Session refresh failed:',e.message);}
 }
 
-// ── MULTI-ACCOUNT SWITCHER ──
-function updateHighRiskBanner(){
-  const b=$('highrisk-banner');
-  if(b) b.style.display=S.activeAccount==='highrisk'?'block':'none';
-}
-
 function clearAccountUI(){
   ['s-bal','s-eq','s-um','s-fm','s-pnl','s-ml','s-pnlc'].forEach(id=>set(id,'—'));
   ['s-bal-aud','s-eq-aud','s-um-aud','s-fm-aud','s-pnl-aud','s-pnlc-aud'].forEach(id=>{const e=$(id);if(e)e.textContent='';});
@@ -4201,7 +4013,6 @@ function clearAccountUI(){
   if(tbody)tbody.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:14px;font-size:9px;">Switching account — loading...</td></tr>';
   const pbody=$('pending-body');if(pbody)pbody.innerHTML='';
   const nameEl=$('actual-acct-name');if(nameEl)nameEl.textContent='ACCOUNT · CAPITAL.COM';
-  hideAccountMismatchBanner();
 }
 
 function disconnectSession(){
@@ -4218,67 +4029,12 @@ function disconnectSession(){
   console.log(`[Jimmy] disconnectSession — sessionId now ${S.sessionId}`);
 }
 
-async function switchAccount(acctKey){
-  if(!ACCT_PROFILES[acctKey]||acctKey===S.activeAccount) return;
-  S.activeAccount=acctKey;
-  localStorage.setItem('ljtc-activeAccount',acctKey);
-  const sw=$('acct-switcher'); if(sw) sw.textContent=(ACCT_PROFILES[acctKey]||ACCT_PROFILES.demo).label;
-  updateHighRiskBanner();
-  disconnectSession();
-
-  const profile=ACCT_PROFILES[acctKey];
-  const stored=localStorage.getItem(profile.key);
-  if(stored){
-    try{
-      const c=JSON.parse(atob(stored));
-      if(c.apikey&&c.email&&c.pass){
-        toast('⚡','Switching to '+profile.label,'Reconnecting...');
-        const isReadOnly=c.env==='live-readonly';
-        const isLive=c.env==='live'||isReadOnly;
-        const base=isLive?'https://api-capital.backend-capital.com':'https://demo-api-capital.backend-capital.com';
-        try{
-          const r=await fetch(`${base}/api/v1/session`,{
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-CAP-API-KEY':c.apikey},
-            body:JSON.stringify({identifier:c.email,password:c.pass,encryptedPassword:false})
-          });
-          if(r.ok){
-            S.apiBase=base; S.CST=r.headers.get('CST'); S.SEC=r.headers.get('X-SECURITY-TOKEN');
-            S.apiKey=c.apikey; S.connected=true; S.demo=!isLive; S.readOnly=isReadOnly;
-            S.sessionId++;
-            console.log(`[Jimmy] switchAccount → session established for ${profile.label} (sid=${S.sessionId}) cst=${S.CST?.slice(0,8)}... base=${base}`);
-            const modeLabel=isReadOnly?profile.label+' · READ-ONLY':isLive?profile.label+' · LIVE':profile.label+' · DEMO';
-            setConn(true,modeLabel); // update header immediately — don't wait for syncs
-            await selectCapitalAccount();
-            await syncCapitalAccount();
-            await syncCapitalPositions();
-            clearInterval(S.sessionRefresh);
-            S.sessionRefresh=setInterval(()=>keepSessionAlive(c.apikey,c.email,c.pass,base),9*60*1000);
-            clearInterval(S.positionSync);
-            S.positionSync=setInterval(syncCapitalPositions,30*1000);
-            if(isReadOnly) applyReadOnlyMode();
-            toast('✅','Switched to '+profile.label,'Connected');
-            return;
-          }
-        }catch(e){console.warn('Auto-reconnect failed:',e.message);}
-        toast('⚠','Reconnect Failed','Credentials may be stale — re-enter below');
-      }
-    }catch(e){}
-  }
-  // No stored credentials or reconnect failed — prompt
-  toast('🔵',profile.label,'Enter credentials to connect');
-  openConn();
-}
-
 function setConn(ok,lbl){
   const d=$('conn-dot'),l=$('conn-lbl');
   if(d)d.style.background=ok?'var(--green)':'var(--muted)';
   if(l){l.textContent=lbl;l.style.color=ok?'var(--green)':'var(--muted)';}
   const am=$('acct-mode');
-  if(am){
-    const profile=ACCT_PROFILES[S.activeAccount];
-    am.textContent=profile?profile.label:lbl;
-  }
+  if(am) am.textContent=lbl;
 }
 
 // ══ BALANCE RESET ══
@@ -4793,11 +4549,6 @@ function initMobileLayout(){
 
 document.addEventListener('DOMContentLoaded',()=>{
   restoreState();
-  // Restore active account selection
-  const savedAcct=localStorage.getItem('ljtc-activeAccount')||'demo';
-  S.activeAccount=ACCT_PROFILES[savedAcct]?savedAcct:'demo';
-  const sw=$('acct-switcher'); if(sw) sw.textContent=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).label;
-  updateHighRiskBanner();
   loadSaved();loadTV();loadCalendar();startFeed();
   initMacro();
   // Fetch live USD→AUD rate (frankfurter.app primary, open.er-api fallback, 1.55 hardcoded last resort)
