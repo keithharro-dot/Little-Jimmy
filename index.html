@@ -2012,20 +2012,25 @@ function onInstrChange(){
 
 // ══ ACCOUNT ══
 function updateAccount(){
-  const openPnl=S.positions.filter(p=>p.status==='open').reduce((s,p)=>s+p.pnl,0);
+  const open=S.positions.filter(p=>p.status==='open');
+  const openPnl=open.reduce((s,p)=>s+(isFinite(p.pnl)?p.pnl:0),0);
   const equity=S.bal+openPnl;
-  const margin=S.positions.filter(p=>p.status==='open').reduce((s,p)=>s+getMargin(p.instrument,p.usdValue||p.openPrice*p.lot,p.leverage||'1:100'),0);
+  const margin=open.reduce((s,p)=>{
+    const uv=isFinite(p.usdValue)&&p.usdValue>0 ? p.usdValue
+            : (isFinite(p.openPrice)&&isFinite(p.lot) ? p.openPrice*p.lot : 0);
+    return s+getMargin(p.instrument,uv,p.leverage||'1:100');
+  },0);
   const free=equity-margin;
   const mpct=equity>0?(margin/equity*100):0;
-  set('s-bal','$'+S.bal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),'var(--gold)');
-  set('s-eq','$'+equity.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
-  set('s-um','$'+margin.toFixed(2));
-  set('s-fm','$'+free.toFixed(2),'var(--green)');
+  set('s-bal','$'+(S.bal||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),'var(--gold)');
+  set('s-eq','$'+(isFinite(equity)?equity:0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+  set('s-um','$'+(isFinite(margin)?margin:0).toFixed(2));
+  set('s-fm','$'+(isFinite(free)?free:0).toFixed(2),'var(--green)');
   set('s-pnl',(openPnl>=0?'+$':'-$')+Math.abs(openPnl).toFixed(2),openPnl>=0?'var(--green)':'var(--red)');
   set('s-ml',margin>0?(equity/margin*100).toFixed(0)+'%':'∞');
-  set('s-open',S.positions.filter(p=>p.status==='open').length);
-  set('s-mpct',mpct.toFixed(1)+'%');
-  const bar=$('s-mbar');if(bar){bar.style.width=Math.min(mpct,100)+'%';bar.style.background=mpct>80?'var(--red)':mpct>50?'var(--gold)':'var(--green)';}
+  set('s-open',open.length);
+  set('s-mpct',(isFinite(mpct)?mpct:0).toFixed(1)+'%');
+  const bar=$('s-mbar');if(bar){bar.style.width=Math.min(isFinite(mpct)?mpct:0,100)+'%';bar.style.background=mpct>80?'var(--red)':mpct>50?'var(--gold)':'var(--green)';}
   const pnlc=$('s-pnlc');if(pnlc){pnlc.textContent=(openPnl>=0?'+$':'-$')+Math.abs(openPnl).toFixed(2);pnlc.style.color=openPnl>=0?'var(--green)':'var(--red)';}
   set('s-tax','$'+TX.reserve.toFixed(2));set('s-fees','$'+TX.fees.toFixed(2));
 }
@@ -3968,13 +3973,27 @@ function updateHighRiskBanner(){
   if(b) b.style.display=S.activeAccount==='highrisk'?'block':'none';
 }
 
+function clearAccountUI(){
+  ['s-bal','s-eq','s-um','s-fm','s-pnl','s-ml','s-pnlc'].forEach(id=>set(id,'—'));
+  set('s-tax','$0.00'); set('s-fees','$0.00');
+  set('s-mpct','0.0%'); set('s-open','0');
+  ['pend-cnt','pend-cnt2'].forEach(id=>{const e=$(id);if(e)e.textContent='0';});
+  const bar=$('s-mbar');if(bar){bar.style.width='0%';bar.style.background='var(--green)';}
+  const cnt=$('reg-count');if(cnt)cnt.textContent='0 ACTIVE';
+  const tbody=$('trades-body');
+  if(tbody)tbody.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:14px;font-size:9px;">Switching account — loading...</td></tr>';
+  const pbody=$('pending-body');if(pbody)pbody.innerHTML='';
+}
+
 function disconnectSession(){
-  clearInterval(S.sessionRefresh);
-  clearInterval(S.positionSync);
+  clearInterval(S.sessionRefresh);  S.sessionRefresh=null;
+  clearInterval(S.positionSync);    S.positionSync=null;
   S.CST=null; S.SEC=null; S.apiKey=null; S.apiBase=null;
   S.connected=false; S.demo=true; S.readOnly=false;
+  S.positions=[]; S.pending=[];
   disableReadOnlyMode();
   setConn(false,'NOT CONNECTED');
+  clearAccountUI();
 }
 
 async function switchAccount(acctKey){
