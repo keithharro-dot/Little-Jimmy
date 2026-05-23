@@ -1705,21 +1705,30 @@ function readTVPriceRange(){
 
 // Does a position's instrument/epic match the given market key?
 const ASSET_ALIASES={
-  GOLD:   ['GOLD','XAU'],
-  SILVER: ['SILVER','XAG'],
-  OIL:    ['OIL','CRUDE','XBR'],
-  BTC:    ['BITCOIN','BTC'],
-  ETH:    ['ETHEREUM','ETH'],
-  SOL:    ['SOLANA','SOL'],
-  XRP:    ['RIPPLE','XRP'],
-  DOGE:   ['DOGECOIN','DOGE'],
-  NASDAQ: ['NASDAQ','US100','NDX'],
+  GOLD:   ['GOLD','XAU','XAUUSD'],
+  SILVER: ['SILVER','XAG','XAGUSD'],
+  OIL:    ['OIL_CRUDE','OIL','CRUDE','XBR','XBRUSD'],
+  BTC:    ['BITCOIN','BTCUSD','BTC'],
+  ETH:    ['ETHEREUM','ETHUSD','ETH'],
+  SOL:    ['SOLANA','SOLUSD','SOL'],
+  XRP:    ['RIPPLE','XRPUSD','XRP'],
+  DOGE:   ['DOGECOIN','DOGEUSD','DOGE'],
+  NASDAQ: ['NDAQ100','NASDAQ_100','NASDAQ','US100','NDX'],
 };
 function positionMatchesMkt(pos, mkt){
-  const inst=(pos.instrument||'').toUpperCase();
-  if(inst===mkt) return true;
+  // Collect every string identifier stored on the position
+  const candidates=[
+    pos.instrument,
+    pos.epic,
+    capitalEpicToKey(pos.epic||''),   // resolve raw Capital.com epic → key
+  ].filter(Boolean).map(s=>s.toUpperCase());
+
+  // 1. Exact key match against any candidate
+  if(candidates.includes(mkt)) return true;
+
+  // 2. Alias substring match
   const terms=ASSET_ALIASES[mkt]||[mkt];
-  return terms.some(t=>inst.includes(t));
+  return terms.some(term=>candidates.some(c=>c.includes(term)||term.includes(c)&&c.length>=3));
 }
 
 function renderTradeOverlay(){
@@ -1733,8 +1742,16 @@ function renderTradeOverlay(){
   labels.innerHTML='';
   addOverlayToggle(labels);
 
-  const open=S.positions.filter(p=>p.status==='open'&&positionMatchesMkt(p,S.mkt));
-  if(!open.length||!OV.visible) return;
+  const allOpen=S.positions.filter(p=>p.status==='open');
+  const open=allOpen.filter(p=>positionMatchesMkt(p,S.mkt));
+  console.log(`[Overlay] asset=${S.mkt} matched=${open.length}/${allOpen.length} total`);
+  if(allOpen.length) allOpen.forEach(p=>
+    console.log(`  pos id=${p.id} instrument="${p.instrument}" epic="${p.epic||''}" → match=${positionMatchesMkt(p,S.mkt)}`)
+  );
+  if(!open.length||!OV.visible){
+    ctx.clearRect(0,0,W,H);
+    return;
+  }
 
   const audRate=getAudRate();
   const livePrice=S.prices[S.mkt];
@@ -2364,11 +2381,13 @@ async function refreshCapitalPositions(){
       data.positions.forEach(cp=>{
         const existing=S.positions.find(p=>p.dealRef===cp.position.dealId);
         if(!existing){
-          const k=Object.keys(M).find(k=>M[k].epic===cp.market.epic)||cp.market.epic;
+          const rawEpic=cp.market.epic||'';
+          const k=capitalEpicToKey(rawEpic)||Object.keys(M).find(k=>M[k].epic===rawEpic)||rawEpic;
           S.positions.push({
             id:'CAP'+cp.position.dealId,
             dealRef:cp.position.dealId,
             instrument:k,
+            epic:rawEpic,
             direction:cp.position.direction,
             lot:cp.position.size||0,
             usdValue:isFinite(cp.position.size*cp.position.openLevel)?cp.position.size*cp.position.openLevel:0,
@@ -2380,7 +2399,8 @@ async function refreshCapitalPositions(){
             tp:cp.position.limitLevel||null,
             pnl:cp.position.upl||0,
             status:'open',
-            autoTrade:false
+            autoTrade:false,
+            fromCapital:true,
           });
         } else {
           // Update P&L from Capital.com
@@ -3895,6 +3915,7 @@ async function syncCapitalPositions(){
       return {
         id:       pos.dealId||('C'+Date.now()),
         instrument: k||mkt.instrumentName,
+        epic:       mkt.epic||'',
         direction:  pos.direction==='BUY'?'BUY':'SELL',
         lot:        pos.size||0,
         usdValue:   isFinite(pos.size*(mkt.bid||mkt.offer||0))?pos.size*(mkt.bid||mkt.offer||0):0,
@@ -3923,15 +3944,26 @@ async function syncCapitalPositions(){
 
 // Map Capital.com epic codes to Jimmy instrument keys
 function capitalEpicToKey(epic){
+  if(!epic) return '';
   const map={
-    'GOLD':'GOLD','SILVER':'SILVER','OIL_CRUDE':'OIL',
-    'NATURALGAS':'OIL','BITCOIN':'BTC','ETHEREUM':'ETH',
-    'SOLANA':'SOL','RIPPLE':'XRP','DOGECOIN':'DOGE',
-    'NASDAQ_100':'NASDAQ','US100':'NASDAQ',
-    'XAUUSD':'GOLD','XAGUSD':'SILVER','XBRUSD':'OIL',
-    'BTCUSD':'BTC','ETHUSD':'ETH','SOLUSD':'SOL',
+    'GOLD':'GOLD','XAUUSD':'GOLD','XAU':'GOLD',
+    'SILVER':'SILVER','XAGUSD':'SILVER','XAG':'SILVER',
+    'OIL_CRUDE':'OIL','XBRUSD':'OIL','CRUDE':'OIL','OIL':'OIL',
+    'NATURALGAS':'OIL',
+    'BITCOIN':'BTC','BTCUSD':'BTC','BTC':'BTC',
+    'ETHEREUM':'ETH','ETHUSD':'ETH','ETH':'ETH',
+    'SOLANA':'SOL','SOLUSD':'SOL','SOL':'SOL',
+    'RIPPLE':'XRP','XRPUSD':'XRP','XRP':'XRP',
+    'DOGECOIN':'DOGE','DOGEUSD':'DOGE','DOGE':'DOGE',
+    'NDAQ100':'NASDAQ','NASDAQ_100':'NASDAQ','US100':'NASDAQ','NDX':'NASDAQ',
   };
-  return map[epic.toUpperCase()]||epic;
+  const u=epic.toUpperCase();
+  if(map[u]) return map[u];
+  // Partial match for compound epics like CC.D.SOLUSD.CFD.IP
+  for(const [k,v] of Object.entries(map)){
+    if(u.includes(k)) return v;
+  }
+  return epic;
 }
 
 // ── READ-ONLY MODE — disable all trading UI ──
