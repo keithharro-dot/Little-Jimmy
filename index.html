@@ -1742,14 +1742,27 @@ function renderTradeOverlay(){
   labels.innerHTML='';
   addOverlayToggle(labels);
 
-  const allOpen=S.positions.filter(p=>p.status==='open');
-  const open=allOpen.filter(p=>positionMatchesMkt(p,S.mkt));
-  console.log(`[Overlay] asset=${S.mkt} matched=${open.length}/${allOpen.length} total`);
-  if(allOpen.length) allOpen.forEach(p=>
-    console.log(`  pos id=${p.id} instrument="${p.instrument}" epic="${p.epic||''}" → match=${positionMatchesMkt(p,S.mkt)}`)
-  );
-  if(!open.length||!OV.visible){
-    ctx.clearRect(0,0,W,H);
+  const currentAsset = (S.mkt || S.asset || S.selectedAsset || '').toUpperCase();
+  const epicPatterns = {
+    'GOLD':   ['GOLD','XAU'],
+    'SILVER': ['SILVER','XAG'],
+    'OIL':    ['OIL','WTI','BRENT'],
+    'BTC':    ['BTC','BITCOIN'],
+    'ETH':    ['ETH','ETHEREUM'],
+    'SOL':    ['SOL','SOLANA'],
+    'XRP':    ['XRP','RIPPLE'],
+    'DOGE':   ['DOGE'],
+    'NASDAQ': ['NAS','NDX','NASDAQ','US100'],
+  };
+  const patterns = epicPatterns[currentAsset] || [currentAsset];
+  const matchedTrades = (S.positions || []).filter(p => {
+    if(p.status !== 'open') return false;
+    const epic = (p.epic || p.instrument || p.instrumentName || p.symbol || '').toUpperCase();
+    return patterns.some(pat => epic.includes(pat));
+  });
+  console.log('Overlay draw: asset=' + currentAsset + ' matched=' + matchedTrades.length + '/' + (S.positions||[]).length);
+  if(matchedTrades.length === 0 || !OV.visible){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     return;
   }
 
@@ -1777,7 +1790,7 @@ function renderTradeOverlay(){
   const clamp=y=>Math.max(TOP+1, Math.min(TOP+chartH-1, y));
   const lineEnd=W-150;
 
-  open.forEach(pos=>{
+  matchedTrades.forEach(pos=>{
     const m=M[pos.instrument]||M.GOLD;
     const cur=S.prices[pos.instrument]||pos.openPrice;
     const isBuy=pos.direction==='BUY';
