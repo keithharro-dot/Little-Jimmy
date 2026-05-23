@@ -694,14 +694,8 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
     <div class="chart-wrap" id="chart-panel">
       <div id="tv-container"></div>
 
-      <!-- TRADE OVERLAY — drawn on top of chart like Capital.com -->
-      <canvas id="trade-overlay"
-        style="position:absolute;inset:0;width:100%;height:100%;
-               pointer-events:none;z-index:5;">
-      </canvas>
-
-      <!-- TRADE LABELS — positioned absolutely over chart -->
-      <div id="trade-labels" style="position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden;"></div>
+      <!-- PRICE LEVEL SIDEBAR — trade level badges on right edge of chart -->
+      <div id="price-sidebar" style="position:absolute;top:0;right:0;width:148px;height:100%;pointer-events:none;z-index:6;overflow:hidden;"></div>
       <!-- Mobile fallback shown when TV iframe can't load -->
       <div id="tv-fallback" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--bg);padding:20px;">
         <div style="text-align:center;">
@@ -1703,7 +1697,7 @@ function startFeed(){
       updateTicker();
       updateLP();
       updatePosPnL();
-      renderTradeOverlay();
+      renderPriceSidebar();
       if(AE.running){ AE.tickCount++; updateEngCd(); }
     }catch(e){ console.error('Feed tick error:',e); }
   }, 3000);
@@ -1715,7 +1709,7 @@ function startFeed(){
       renderTrades();
       checkPendingTriggers();
       updateInds();
-      renderTradeOverlay();
+      renderPriceSidebar();
       if(isMobile()) updateMiniPriceDisplay();
     }catch(e){ console.error('Slow tick error:',e); }
   }, 8000);
@@ -1723,280 +1717,95 @@ function startFeed(){
 
 
 // ══ TRADE CHART OVERLAY — draws positions on chart like Capital.com ══
-const OV={visible:true, chartHigh:null, chartLow:null, redrawInterval:null, resizeObserver:null};
+// ── PRICE LEVEL SIDEBAR ──
+const OV={visible:true};
 
-// ── Overlay tracking: ResizeObserver + 5-second periodic redraw ──
-// Called every time a new TV widget is created so old intervals/observers are cleared.
-function startOverlayTracking(){
-  if(OV.redrawInterval) clearInterval(OV.redrawInterval);
-  if(OV.resizeObserver) OV.resizeObserver.disconnect();
-
-  // Redraw every 5 s to stay in sync with user panning/zooming inside the iframe
-  OV.redrawInterval=setInterval(()=>{ if(OV.visible) renderTradeOverlay(); }, 5000);
-
-  // Redraw whenever the chart container is resized (window resize, panel drag, etc.)
-  const panel=$('chart-panel');
-  if(panel && window.ResizeObserver){
-    OV.resizeObserver=new ResizeObserver(()=>renderTradeOverlay());
-    OV.resizeObserver.observe(panel);
-  }
-}
-
-// Attempt to read TradingView's visible price range from DOM elements outside the iframe.
-// TradingView renders entirely inside a sandboxed iframe — nothing leaks to the host DOM,
-// so this always returns null. OV.chartHigh/Low (manual calibration) is the real path.
-function readTVPriceRange(){
-  const panel=$('chart-panel');
-  if(!panel) return null;
-  // Scan direct children (not the iframe itself) for price-like text
-  const texts=[];
-  panel.querySelectorAll(':scope > *:not(#tv-container)').forEach(el=>{
-    const t=(el.innerText||el.textContent||'').trim();
-    if(t) texts.push(t);
-  });
-  const combined=texts.join(' ');
-  // Look for two distinct numeric values that could be hi/lo (crude heuristic)
-  const nums=[...combined.matchAll(/([\d]{1,8}(?:\.\d+)?)/g)]
-    .map(m=>parseFloat(m[1])).filter(n=>n>0).sort((a,b)=>b-a);
-  if(nums.length>=2){
-    const h=nums[0], l=nums[nums.length-1];
-    if(h>l&&h/l<10){ // sanity: ratio < 10x
-      OV.chartHigh=h; OV.chartLow=l;
-      return {hi:h,lo:l};
-    }
-  }
-  return null;
-}
-
-// Does a position's instrument/epic match the given market key?
-const ASSET_ALIASES={
-  GOLD:   ['GOLD','XAU','XAUUSD'],
-  SILVER: ['SILVER','XAG','XAGUSD'],
-  OIL:    ['OIL_CRUDE','OIL','CRUDE','XBR','XBRUSD'],
-  BTC:    ['BITCOIN','BTCUSD','BTC'],
-  ETH:    ['ETHEREUM','ETHUSD','ETH'],
-  SOL:    ['SOLANA','SOLUSD','SOL'],
-  XRP:    ['RIPPLE','XRPUSD','XRP'],
-  DOGE:   ['DOGECOIN','DOGEUSD','DOGE'],
-  NASDAQ: ['NDAQ100','NASDAQ_100','NASDAQ','US100','NDX'],
+const _EPIC_PATTERNS={
+  GOLD:['GOLD','XAU'], SILVER:['SILVER','XAG'], OIL:['OIL','WTI','BRENT'],
+  BTC:['BTC','BITCOIN'], ETH:['ETH','ETHEREUM'], SOL:['SOL','SOLANA'],
+  XRP:['XRP','RIPPLE'], DOGE:['DOGE'], NASDAQ:['NAS','NDX','NASDAQ','US100'],
 };
-function positionMatchesMkt(pos, mkt){
-  // Collect every string identifier stored on the position
-  const candidates=[
-    pos.instrument,
-    pos.epic,
-    capitalEpicToKey(pos.epic||''),   // resolve raw Capital.com epic → key
-  ].filter(Boolean).map(s=>s.toUpperCase());
 
-  // 1. Exact key match against any candidate
-  if(candidates.includes(mkt)) return true;
+function renderPriceSidebar(){
+  const sidebar=$('price-sidebar'), panel=$('chart-panel');
+  if(!sidebar||!panel) return;
+  sidebar.innerHTML='';
 
-  // 2. Alias substring match
-  const terms=ASSET_ALIASES[mkt]||[mkt];
-  return terms.some(term=>candidates.some(c=>c.includes(term)||term.includes(c)&&c.length>=3));
-}
+  // Toggle button — always rendered so user can turn sidebar back on
+  const tog=document.createElement('div');
+  tog.style.cssText='position:absolute;top:4px;right:2px;pointer-events:auto;cursor:pointer;'+
+    'background:rgba(14,17,23,0.88);border:1px solid var(--border2);'+
+    'color:var(--muted);font-family:"Bebas Neue",sans-serif;'+
+    'font-size:8px;letter-spacing:1px;padding:2px 6px;border-radius:3px;user-select:none;';
+  tog.textContent=OV.visible?'👁 ON':'👁 OFF';
+  tog.onclick=()=>{OV.visible=!OV.visible;renderPriceSidebar();};
+  sidebar.appendChild(tog);
 
-function renderTradeOverlay(){
-  const canvas=$('trade-overlay'),labels=$('trade-labels'),panel=$('chart-panel');
-  if(!canvas||!labels||!panel)return;
-  const W=panel.clientWidth,H=panel.clientHeight;
-  if(!W||!H)return;
-  canvas.width=W; canvas.height=H;
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-  labels.innerHTML='';
-  addOverlayToggle(labels);
+  if(!OV.visible) return;
 
-  // Always read from the dropdown — S.mkt can be stale (e.g. after restoreState without syncing the dropdown)
-  const dropdownAsset = $('sel-instrument')?.value || '';
-  const currentAsset = (dropdownAsset || S.mkt || '').toUpperCase();
-  console.log('Overlay check: S.mkt=' + S.mkt + ' dropdown=' + dropdownAsset + ' using=' + currentAsset);
-  const epicPatterns = {
-    'GOLD':   ['GOLD','XAU'],
-    'SILVER': ['SILVER','XAG'],
-    'OIL':    ['OIL','WTI','BRENT'],
-    'BTC':    ['BTC','BITCOIN'],
-    'ETH':    ['ETH','ETHEREUM'],
-    'SOL':    ['SOL','SOLANA'],
-    'XRP':    ['XRP','RIPPLE'],
-    'DOGE':   ['DOGE'],
-    'NASDAQ': ['NAS','NDX','NASDAQ','US100'],
-  };
-  const patterns = epicPatterns[currentAsset] || [currentAsset];
-  const matchedTrades = (S.positions || []).filter(p => {
-    if(p.status !== 'open') return false;
-    const epic = (p.epic || p.instrument || p.instrumentName || p.symbol || '').toUpperCase();
-    return patterns.some(pat => epic.includes(pat));
+  const H=panel.clientHeight;
+  if(!H) return;
+
+  const currentAsset=($('sel-instrument')?.value||S.mkt||'').toUpperCase();
+  const patterns=_EPIC_PATTERNS[currentAsset]||[currentAsset];
+  const matched=(S.positions||[]).filter(p=>{
+    if(p.status!=='open') return false;
+    const epic=(p.epic||p.instrument||p.instrumentName||p.symbol||'').toUpperCase();
+    return patterns.some(pat=>epic.includes(pat));
   });
-  console.log('Overlay draw: asset=' + currentAsset + ' matched=' + matchedTrades.length + '/' + (S.positions||[]).length);
-  if(matchedTrades.length === 0 || !OV.visible){
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    return;
-  }
+  if(!matched.length) return;
 
-  const audRate=getAudRate();
   const livePrice=S.prices[S.mkt];
   if(!livePrice) return;
 
-  // ── Visible price range ──
-  // Priority: 1) manual HI/LO calibration inputs  2) ±25% around live price
-  // ±25% covers most common zoom levels without breaking; user can refine with HI/LO inputs.
-  let visibleHigh, visibleLow;
-  if(OV.chartHigh && OV.chartLow && OV.chartHigh > OV.chartLow){
-    visibleHigh = OV.chartHigh;
-    visibleLow  = OV.chartLow;
-  } else {
-    visibleHigh = livePrice * 1.25;
-    visibleLow  = livePrice * 0.75;
-  }
-  const priceSpan = visibleHigh - visibleLow;
+  // ±25% visible range — covers most common zoom levels
+  const visibleHigh=livePrice*1.25, visibleLow=livePrice*0.75;
+  const priceSpan=visibleHigh-visibleLow;
 
-  // TradingView top toolbar ≈60px, bottom time axis ≈40px
-  const TOP_PX=60, BOT_PX=40, chartAreaH=H-TOP_PX-BOT_PX;
-  const lineEnd=W-150;
+  // TradingView toolbar/axis offsets as percentages of container height
+  const topPc=60/H*100, botPc=40/H*100, chartPc=100-topPc-botPc;
+  // Higher price → smaller top% (nearer top); clamp to keep badges fully visible
+  const toTop=price=>Math.max(2,Math.min(97,topPc+chartPc*(1-(price-visibleLow)/priceSpan)));
 
-  // pixelY = TOP_PX + chartAreaH * (1 - (price - visibleLow) / priceSpan)
-  const toY = price => Math.round(TOP_PX + chartAreaH * (1 - (price - visibleLow) / priceSpan));
-  // Only draw a line if its price falls within the visible range
-  const inRange = price => isFinite(price) && price >= visibleLow && price <= visibleHigh;
+  const audRate=getAudRate();
 
-  console.log(`[Overlay] visibleLow=${visibleLow.toFixed(2)} visibleHigh=${visibleHigh.toFixed(2)} live=${livePrice.toFixed(2)}`);
+  const mkBadge=(topPct,text,color,dashed,bold)=>{
+    const d=document.createElement('div');
+    d.style.cssText=
+      `position:absolute;right:2px;top:${topPct.toFixed(1)}%;transform:translateY(-50%);`+
+      `background:rgba(10,12,15,0.9);`+
+      `border:1px ${dashed?'dashed':'solid'} ${color};color:${color};`+
+      `font-family:"DM Mono",monospace;font-size:10px;`+
+      `${bold?'font-weight:700;':''}padding:2px 5px;border-radius:3px;`+
+      `white-space:nowrap;line-height:1.3;`;
+    d.textContent=text;
+    sidebar.appendChild(d);
+  };
 
-  matchedTrades.forEach(pos=>{
+  matched.forEach(pos=>{
     const m=M[pos.instrument]||M[S.mkt]||M.GOLD;
     const cur=S.prices[pos.instrument]||S.prices[S.mkt]||pos.openPrice;
     const isBuy=pos.direction==='BUY';
     const pnl=pos.pnl||0;
-    const isProfit=pnl>=0;
     const entryCol=isBuy?'#00c851':'#ff4444';
-    const cCol=isProfit?'#00c851':'#ff4444';
+    const pnlCol=pnl>=0?'#00c851':'#ff4444';
 
-    // ── TP LINE — dashed green, 1px — only if in visible range ──
-    if(pos.tp && inRange(pos.tp)){
-      const tY=toY(pos.tp);
-      ctx.save();
-      ctx.strokeStyle='#00c851'; ctx.lineWidth=1; ctx.globalAlpha=0.7;
-      ctx.setLineDash([6,4]);
-      ctx.beginPath(); ctx.moveTo(0,tY); ctx.lineTo(lineEnd,tY); ctx.stroke();
-      ctx.restore();
-      drawOvLabel(ctx,lineEnd,tY,'TP: '+pos.tp.toFixed(m.dec),'#00c851');
-    }
+    // TP — dashed green
+    if(pos.tp!=null&&isFinite(pos.tp))
+      mkBadge(toTop(pos.tp),'TP $'+pos.tp.toFixed(m.dec),'#00c851',true,false);
 
-    // ── SL LINE — dashed red, 1px — only if in visible range ──
-    if(pos.sl && inRange(pos.sl)){
-      const sY=toY(pos.sl);
-      ctx.save();
-      ctx.strokeStyle='#ff4444'; ctx.lineWidth=1; ctx.globalAlpha=0.7;
-      ctx.setLineDash([6,4]);
-      ctx.beginPath(); ctx.moveTo(0,sY); ctx.lineTo(lineEnd,sY); ctx.stroke();
-      ctx.restore();
-      drawOvLabel(ctx,lineEnd,sY,'SL: '+pos.sl.toFixed(m.dec),'#ff4444');
-    }
+    // Entry — solid, direction coloured
+    mkBadge(toTop(pos.openPrice),(isBuy?'▶ BUY':'▶ SELL')+' $'+pos.openPrice.toFixed(m.dec),entryCol,false,false);
 
-    // ── ENTRY LINE — solid, 2px — skip if price no longer in view ──
-    if(inRange(pos.openPrice)){
-      const eY=toY(pos.openPrice);
-      ctx.save();
-      ctx.strokeStyle=entryCol; ctx.lineWidth=2; ctx.globalAlpha=0.9;
-      ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(0,eY); ctx.lineTo(lineEnd,eY); ctx.stroke();
-      ctx.restore();
-      drawOvLabel(ctx,lineEnd,eY,(isBuy?'▲ ':'▼ ')+pos.openPrice.toFixed(m.dec),entryCol);
-    }
+    // SL — dashed red
+    if(pos.sl!=null&&isFinite(pos.sl))
+      mkBadge(toTop(pos.sl),'SL $'+pos.sl.toFixed(m.dec),'#ff4444',true,false);
 
-    // ── CURRENT PRICE MARKER — always in range (range is centred on live price) ──
-    if(inRange(cur)){
-      const cY=toY(cur);
-      ctx.save();
-      ctx.strokeStyle=cCol; ctx.lineWidth=1; ctx.globalAlpha=0.45;
-      ctx.setLineDash([2,5]);
-      ctx.beginPath(); ctx.moveTo(0,cY); ctx.lineTo(lineEnd,cY); ctx.stroke();
-      ctx.restore();
-
-      // P&L badge — anchor to current price marker
-      const d=document.createElement('div');
-      d.style.cssText='position:absolute;left:8px;top:'+(cY-11)+'px;'+
-        'background:#1a1a2e;'+
-        'border:1px solid '+(isProfit?'rgba(0,200,81,0.4)':'rgba(255,68,68,0.4)')+';'+
-        'color:'+cCol+';font-family:DM Mono,monospace;font-size:10px;font-weight:700;'+
-        'padding:2px 8px;border-radius:3px;white-space:nowrap;pointer-events:none;';
-      d.textContent=(isProfit?'+$':'-$')+Math.abs(pnl).toFixed(2)+
-                   '  /  '+(isProfit?'+A$':'-A$')+Math.abs(pnl*audRate).toFixed(2);
-      labels.appendChild(d);
-
-      // Current price pill (right edge)
-      const pill=document.createElement('div');
-      pill.style.cssText='position:absolute;right:4px;top:'+(cY-11)+'px;'+
-        'background:#1a1a2e;'+
-        'border:1px solid '+cCol+';color:'+cCol+';'+
-        'font-family:Bebas Neue,sans-serif;font-size:12px;letter-spacing:1px;'+
-        'padding:2px 10px;border-radius:2px;white-space:nowrap;pointer-events:none;';
-      pill.textContent='$'+cur.toFixed(m.dec);
-      labels.appendChild(pill);
-    }
+    // Current price + P&L — bold, at live price
+    const pnlStr=(pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);
+    const audStr=' / '+(pnl>=0?'+A$':'-A$')+Math.abs(pnl*audRate).toFixed(2);
+    mkBadge(toTop(cur),'$'+cur.toFixed(m.dec)+'  '+pnlStr+audStr,pnlCol,false,true);
   });
-
-  if(OV.debug){
-    ctx.fillStyle='rgba(245,200,66,0.6)';
-    ctx.font='9px DM Mono';
-    ctx.fillText('Range: $'+visibleLow.toFixed(2)+' — $'+visibleHigh.toFixed(2)+
-                 ' | Live: $'+livePrice.toFixed(2), 8, TOP_PX-4);
-  }
-}
-
-function drawOvLabel(ctx,x,y,text,color){
-  const pad=4,fh=11;
-  ctx.save();
-  ctx.globalAlpha=1;
-  ctx.font=`${fh}px "DM Mono",monospace`;
-  const tw=ctx.measureText(text).width;
-  const bw=tw+pad*2+2,bh=fh+pad*2,bx=x+3,by=y-Math.round(bh/2);
-  ctx.beginPath();
-  ctx.roundRect?ctx.roundRect(bx,by,bw,bh,3):ctx.rect(bx,by,bw,bh);
-  ctx.fillStyle='#1a1a2e';
-  ctx.fill();
-  ctx.strokeStyle=color; ctx.lineWidth=1;
-  ctx.stroke();
-  ctx.fillStyle='#ffffff';
-  ctx.fillText(text,bx+pad+1,by+pad+fh-1);
-  ctx.restore();
-}
-
-function addOverlayToggle(labels){
-  // Main toggle
-  const btn=document.createElement('div');
-  btn.style.cssText='position:absolute;top:8px;right:8px;z-index:10;'+
-    'background:rgba(14,17,23,0.85);border:1px solid var(--border2);'+
-    'color:var(--muted);font-family:Bebas Neue,sans-serif;'+
-    'font-size:9px;letter-spacing:1px;padding:3px 9px;border-radius:3px;'+
-    'cursor:pointer;pointer-events:all;user-select:none;display:flex;gap:6px;align-items:center;';
-  btn.innerHTML=(OV.visible?'<span style="color:var(--green)">👁</span>':'👁')+' TRADES '+(OV.visible?'ON':'OFF');
-  btn.onclick=()=>{OV.visible=!OV.visible;renderTradeOverlay();};
-  labels.appendChild(btn);
-
-  // Chart scale calibration row
-  const cal=document.createElement('div');
-  cal.style.cssText='position:absolute;top:8px;left:8px;z-index:10;'+
-    'background:rgba(14,17,23,0.85);border:1px solid var(--border2);'+
-    'border-radius:3px;padding:3px 8px;display:flex;align-items:center;gap:6px;pointer-events:all;';
-  cal.innerHTML=
-    '<span style="font-family:Bebas Neue;font-size:8px;color:var(--muted);letter-spacing:1px;">CHART HI</span>'+
-    '<input id="ov-hi" type="number" placeholder="e.g. 92" step="0.01" '+
-      'style="width:65px;background:var(--bg);border:1px solid var(--border);color:var(--gold);'+
-      'font-family:DM Mono;font-size:9px;padding:2px 4px;border-radius:2px;outline:none;" '+
-      'onchange="OV.chartHigh=parseFloat(this.value)||null;renderTradeOverlay();">'+
-    '<span style="font-family:Bebas Neue;font-size:8px;color:var(--muted);letter-spacing:1px;">LO</span>'+
-    '<input id="ov-lo" type="number" placeholder="e.g. 80" step="0.01" '+
-      'style="width:65px;background:var(--bg);border:1px solid var(--border);color:var(--gold);'+
-      'font-family:DM Mono;font-size:9px;padding:2px 4px;border-radius:2px;outline:none;" '+
-      'onchange="OV.chartLow=parseFloat(this.value)||null;renderTradeOverlay();">'+
-    '<span style="font-family:Bebas Neue;font-size:7px;color:var(--muted);">← match chart scale</span>';
-  labels.appendChild(cal);
-
-  // Restore previous values if set
-  const hi=$('ov-hi'), lo=$('ov-lo');
-  if(hi&&OV.chartHigh) hi.value=OV.chartHigh;
-  if(lo&&OV.chartLow)  lo.value=OV.chartLow;
 }
 
 function updateTicker(){
@@ -2131,17 +1940,13 @@ function onInstrChange(){
   const levSel=$('exec-leverage');
   if(levSel && M[k].defaultLev) levSel.value=M[k].defaultLev;
   updateLeverageVisibility();
-  // Clear per-asset manual price calibration
-  OV.chartHigh=null; OV.chartLow=null;
-  const hi=$('ov-hi'),lo=$('ov-lo');
-  if(hi) hi.value=''; if(lo) lo.value='';
   // Refresh all data-layer displays for the new asset
   updateLP();      // price display — reads dropdown to catch any remaining S.mkt skew
   updateInds();    // EMA / signal calculations
   calcM();
   initTVChart(TV_SYMBOLS[k] || TV.sym); // destroy + recreate widget with new symbol
-  renderTradeOverlay();                // immediate canvas clear + redraw for new asset
-  setTimeout(renderTradeOverlay, 500); // second pass after TradingView iframe loads
+  renderPriceSidebar();
+  setTimeout(renderPriceSidebar, 500);
   console.log('[Jimmy] onInstrChange done: S.mkt="'+S.mkt+'" price=$'+S.prices[k]);
 }
 
@@ -3358,9 +3163,6 @@ function initTVChart(symbol){
   iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
   iframe.allow='autoplay;fullscreen;clipboard-write';
   c.appendChild(iframe);
-
-  // Start ResizeObserver + 5-second redraw interval for this widget instance
-  startOverlayTracking();
 
   const fallback=$('tv-fallback');
   if(fallback){
