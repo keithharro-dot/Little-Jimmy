@@ -1508,11 +1508,11 @@ const M={
   GOLD:  {color:'#f5c842',dec:2,  pv:0.1,   spread:0.35,  epic:'GOLD',      tv:'TVC:GOLD',        type:'CFD',  maxLev:500, spot:false, bothModes:false, defaultLev:'1:20'},
   SILVER:{color:'#b0b8c8',dec:3,  pv:0.01,  spread:0.02,  epic:'SILVER',    tv:'TVC:SILVER',      type:'CFD',  maxLev:200, spot:false, bothModes:false, defaultLev:'1:20'},
   OIL:   {color:'#4af0b0',dec:3,  pv:0.1,   spread:0.03,  epic:'OIL_CRUDE', tv:'TVC:USOIL',       type:'CFD',  maxLev:100, spot:false, bothModes:false, defaultLev:'1:20'},
-  BTC:   {color:'#f7931a',dec:2,  pv:1,     spread:15,    epic:'BITCOIN',   tv:'BITSTAMP:BTCUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
-  ETH:   {color:'#627eea',dec:2,  pv:0.1,   spread:1.5,   epic:'ETHEREUM',  tv:'BITSTAMP:ETHUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
+  BTC:   {color:'#f7931a',dec:2,  pv:1,     spread:15,    epic:'BITCOIN',   tv:'COINBASE:BTCUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
+  ETH:   {color:'#627eea',dec:2,  pv:0.1,   spread:1.5,   epic:'ETHEREUM',  tv:'COINBASE:ETHUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
   SOL:   {color:'#9945ff',dec:3,  pv:0.01,  spread:0.08,  epic:'SOLANA',    tv:'COINBASE:SOLUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
-  XRP:   {color:'#346aa9',dec:4,  pv:0.001, spread:0.001, epic:'RIPPLE',    tv:'BITSTAMP:XRPUSD', type:'SPOT', maxLev:10,  spot:true,  bothModes:true,  defaultLev:'1:2'},
-  DOGE:  {color:'#c2a633',dec:5,  pv:0.0001,spread:0.0002,epic:'DOGECOIN',  tv:'BINANCE:DOGEUSD', type:'SPOT', maxLev:5,   spot:true,  bothModes:true,  defaultLev:'1:2'},
+  XRP:   {color:'#346aa9',dec:4,  pv:0.001, spread:0.001, epic:'RIPPLE',    tv:'COINBASE:XRPUSD', type:'SPOT', maxLev:10,  spot:true,  bothModes:true,  defaultLev:'1:2'},
+  DOGE:  {color:'#c2a633',dec:5,  pv:0.0001,spread:0.0002,epic:'DOGECOIN',  tv:'COINBASE:DOGEUSD',type:'SPOT', maxLev:5,   spot:true,  bothModes:true,  defaultLev:'1:2'},
   NASDAQ:{color:'#00b4d8',dec:2,  pv:1,     spread:2.5,   epic:'NDAQ100',   tv:'NASDAQ:NDX',      type:'CFD',  maxLev:100, spot:false, bothModes:false, defaultLev:'1:20'},
 };
 
@@ -3217,8 +3217,10 @@ function updateClock(){
 function loadTV(){
   const c=$('tv-container');if(!c)return;c.innerHTML='';
   c.style.cssText='position:absolute;inset:0;';
-  const sym=encodeURIComponent(TV.sym||'TVC:GOLD');
+  const resolvedSym = TV.sym || M[S.mkt]?.tv || 'TVC:GOLD';
+  const sym=encodeURIComponent(resolvedSym);
   const style=$('chart-style')?.value||'1';
+  console.log('[Jimmy] loadTV: S.mkt='+S.mkt+' TV.sym='+TV.sym+' → loading "'+resolvedSym+'"');
   const src=`https://s.tradingview.com/widgetembed/?frameElementId=tv&symbol=${sym}&interval=${TV.interval||'60'}&theme=dark&style=${style}&locale=en&toolbar_bg=%230a0c0f&hide_top_toolbar=0&save_image=0&studies=RSI%40tv-scriptstd%1FMACD%40tv-scriptstd`;
   const iframe=document.createElement('iframe');
   iframe.id='tv-iframe';
@@ -4652,14 +4654,16 @@ function initMobileLayout(){
 document.addEventListener('DOMContentLoaded',()=>{
   restoreState();
 
-  // Sync the asset dropdown to the restored S.mkt so the UI matches state.
-  // Without this, the dropdown shows GOLD (HTML default) while S.mkt is 'SOL' from localStorage.
+  // Sync dropdown, TV symbol, and label to the restored S.mkt.
+  // restoreState() sets S.mkt but never touches TV.sym (init value 'TVC:GOLD'),
+  // so without this loadTV() always loads GOLD regardless of last-selected asset.
   const instrSel=$('sel-instrument');
   if(instrSel && S.mkt && M[S.mkt]){
-    instrSel.value=S.mkt;
+    instrSel.value = S.mkt;
+    TV.sym = M[S.mkt].tv;           // ← critical: sync chart symbol before loadTV()
     const lbl=$('tv-sym-lbl');
-    if(lbl){lbl.textContent=S.mkt;lbl.style.color=M[S.mkt].color;}
-    console.log('[Jimmy] Restored asset dropdown to S.mkt='+S.mkt);
+    if(lbl){lbl.textContent=S.mkt; lbl.style.color=M[S.mkt].color;}
+    console.log('[Jimmy] DOMContentLoaded: S.mkt='+S.mkt+' TV.sym='+TV.sym);
   }
 
   loadSaved();loadTV();loadCalendar();startFeed();
