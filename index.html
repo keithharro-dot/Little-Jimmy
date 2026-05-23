@@ -1508,11 +1508,11 @@ const M={
   GOLD:  {color:'#f5c842',dec:2,  pv:0.1,   spread:0.35,  epic:'GOLD',      tv:'TVC:GOLD',        type:'CFD',  maxLev:500, spot:false, bothModes:false, defaultLev:'1:20'},
   SILVER:{color:'#b0b8c8',dec:3,  pv:0.01,  spread:0.02,  epic:'SILVER',    tv:'TVC:SILVER',      type:'CFD',  maxLev:200, spot:false, bothModes:false, defaultLev:'1:20'},
   OIL:   {color:'#4af0b0',dec:3,  pv:0.1,   spread:0.03,  epic:'OIL_CRUDE', tv:'TVC:USOIL',       type:'CFD',  maxLev:100, spot:false, bothModes:false, defaultLev:'1:20'},
-  BTC:   {color:'#f7931a',dec:2,  pv:1,     spread:15,    epic:'BITCOIN',   tv:'COINBASE:BTCUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
-  ETH:   {color:'#627eea',dec:2,  pv:0.1,   spread:1.5,   epic:'ETHEREUM',  tv:'COINBASE:ETHUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
+  BTC:   {color:'#f7931a',dec:2,  pv:1,     spread:15,    epic:'BITCOIN',   tv:'BITSTAMP:BTCUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
+  ETH:   {color:'#627eea',dec:2,  pv:0.1,   spread:1.5,   epic:'ETHEREUM',  tv:'BITSTAMP:ETHUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
   SOL:   {color:'#9945ff',dec:3,  pv:0.01,  spread:0.08,  epic:'SOLANA',    tv:'COINBASE:SOLUSD', type:'SPOT', maxLev:20,  spot:true,  bothModes:true,  defaultLev:'1:2'},
-  XRP:   {color:'#346aa9',dec:4,  pv:0.001, spread:0.001, epic:'RIPPLE',    tv:'COINBASE:XRPUSD', type:'SPOT', maxLev:10,  spot:true,  bothModes:true,  defaultLev:'1:2'},
-  DOGE:  {color:'#c2a633',dec:5,  pv:0.0001,spread:0.0002,epic:'DOGECOIN',  tv:'COINBASE:DOGEUSD',type:'SPOT', maxLev:5,   spot:true,  bothModes:true,  defaultLev:'1:2'},
+  XRP:   {color:'#346aa9',dec:4,  pv:0.001, spread:0.001, epic:'RIPPLE',    tv:'BITSTAMP:XRPUSD', type:'SPOT', maxLev:10,  spot:true,  bothModes:true,  defaultLev:'1:2'},
+  DOGE:  {color:'#c2a633',dec:5,  pv:0.0001,spread:0.0002,epic:'DOGECOIN',  tv:'BITSTAMP:DOGEUSD',type:'SPOT', maxLev:5,   spot:true,  bothModes:true,  defaultLev:'1:2'},
   NASDAQ:{color:'#00b4d8',dec:2,  pv:1,     spread:2.5,   epic:'NDAQ100',   tv:'NASDAQ:NDX',      type:'CFD',  maxLev:100, spot:false, bothModes:false, defaultLev:'1:20'},
 };
 
@@ -2082,7 +2082,7 @@ function onInstrChange(){
   updateLP();      // price display — reads dropdown to catch any remaining S.mkt skew
   updateInds();    // EMA / signal calculations
   calcM();
-  loadTV();        // TradingView chart symbol
+  initTVChart(TV_SYMBOLS[k] || TV.sym); // destroy + recreate widget with new symbol
   renderTradeOverlay();                // immediate canvas clear + redraw for new asset
   setTimeout(renderTradeOverlay, 500); // second pass after TradingView iframe loads
   console.log('[Jimmy] onInstrChange done: S.mkt="'+S.mkt+'" price=$'+S.prices[k]);
@@ -3214,43 +3214,70 @@ function updateClock(){
 }
 
 // ══ TRADINGVIEW ══
-function loadTV(){
-  const c=$('tv-container');if(!c)return;c.innerHTML='';
+
+// Authoritative symbol map — single source of truth for chart symbols
+const TV_SYMBOLS={
+  GOLD:   'TVC:GOLD',
+  SILVER: 'TVC:SILVER',
+  OIL:    'TVC:USOIL',
+  BTC:    'BITSTAMP:BTCUSD',
+  ETH:    'BITSTAMP:ETHUSD',
+  SOL:    'COINBASE:SOLUSD',
+  XRP:    'BITSTAMP:XRPUSD',
+  DOGE:   'BITSTAMP:DOGEUSD',
+  NASDAQ: 'NASDAQ:NDX',
+};
+
+// Fully destroy and recreate the TradingView widget with the given symbol.
+// A unique frameElementId is used on every call so TradingView cannot serve
+// a cached widget — this is required for symbol switching to take effect.
+function initTVChart(symbol){
+  const c=$('tv-container');if(!c)return;
+
+  // Completely clear any existing widget
+  c.innerHTML='';
   c.style.cssText='position:absolute;inset:0;';
-  const resolvedSym = TV.sym || M[S.mkt]?.tv || 'TVC:GOLD';
-  const sym=encodeURIComponent(resolvedSym);
+
+  const resolvedSym = symbol || TV_SYMBOLS[S.mkt] || 'TVC:GOLD';
+  TV.sym = resolvedSym; // keep TV state in sync
   const style=$('chart-style')?.value||'1';
-  console.log('[Jimmy] loadTV: S.mkt='+S.mkt+' TV.sym='+TV.sym+' → loading "'+resolvedSym+'"');
-  const src=`https://s.tradingview.com/widgetembed/?frameElementId=tv&symbol=${sym}&interval=${TV.interval||'60'}&theme=dark&style=${style}&locale=en&toolbar_bg=%230a0c0f&hide_top_toolbar=0&save_image=0&studies=RSI%40tv-scriptstd%1FMACD%40tv-scriptstd`;
+  // Unique ID prevents TradingView from reusing the previous widget instance
+  const frameId='tv_'+Date.now();
+  console.log('[Jimmy] initTVChart: symbol="'+resolvedSym+'" frameId='+frameId+' S.mkt='+S.mkt);
+
+  const src='https://s.tradingview.com/widgetembed/?frameElementId='+frameId+
+    '&symbol='+encodeURIComponent(resolvedSym)+
+    '&interval='+(TV.interval||'60')+
+    '&theme=dark&style='+style+
+    '&locale=en&toolbar_bg=%230a0c0f&hide_top_toolbar=0&save_image=0'+
+    '&studies=RSI%40tv-scriptstd%1FMACD%40tv-scriptstd';
+
   const iframe=document.createElement('iframe');
-  iframe.id='tv-iframe';
-  iframe.src=src;iframe.frameBorder='0';iframe.allowFullscreen=true;iframe.scrolling='no';
+  iframe.id=frameId;
+  iframe.src=src;
+  iframe.frameBorder='0';
+  iframe.allowFullscreen=true;
+  iframe.scrolling='no';
   iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
   iframe.allow='autoplay;fullscreen;clipboard-write';
   c.appendChild(iframe);
 
-  // Show fallback immediately, hide it once TV iframe confirms it loaded
   const fallback=$('tv-fallback');
   if(fallback){
-    // Always show fallback initially
     fallback.style.display='flex';
     updateMiniPriceDisplay();
     const link=$('tv-open-link');
-    if(link) link.href=`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(TV.sym||'XAUUSD')}`;
-    // Hide fallback if TV iframe loads successfully (only works on HTTPS)
+    if(link) link.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(resolvedSym);
     iframe.onload=()=>{
-      try{
-        // Try to access iframe — will throw on file:// (cross-origin)
-        const test = iframe.contentWindow.location.href;
-        fallback.style.display='none';
-      } catch(e){
-        // Cross-origin = iframe loaded fine from HTTPS, hide fallback
-        fallback.style.display='none';
-      }
+      try{ const _=iframe.contentWindow.location.href; fallback.style.display='none'; }
+      catch(e){ fallback.style.display='none'; }
     };
     iframe.onerror=()=>{ fallback.style.display='flex'; updateMiniPriceDisplay(); };
   }
 }
+
+// Convenience wrapper — all existing callers (setTF, reloadTV, chart-style onchange) use this
+function loadTV(){ initTVChart(TV.sym||TV_SYMBOLS[S.mkt]); }
 
 function updateMiniPriceDisplay(){
   const el=$('mini-price-display');if(!el)return;
@@ -4660,13 +4687,13 @@ document.addEventListener('DOMContentLoaded',()=>{
   const instrSel=$('sel-instrument');
   if(instrSel && S.mkt && M[S.mkt]){
     instrSel.value = S.mkt;
-    TV.sym = M[S.mkt].tv;           // ← critical: sync chart symbol before loadTV()
+    TV.sym = TV_SYMBOLS[S.mkt] || M[S.mkt].tv;
     const lbl=$('tv-sym-lbl');
     if(lbl){lbl.textContent=S.mkt; lbl.style.color=M[S.mkt].color;}
     console.log('[Jimmy] DOMContentLoaded: S.mkt='+S.mkt+' TV.sym='+TV.sym);
   }
 
-  loadSaved();loadTV();loadCalendar();startFeed();
+  loadSaved();initTVChart(TV.sym);loadCalendar();startFeed();
   initMacro();
   // Fetch live USD→AUD rate (frankfurter.app primary, open.er-api fallback, 1.55 hardcoded last resort)
   fetchAudRate();
