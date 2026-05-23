@@ -1664,6 +1664,7 @@ function startFeed(){
       updateTicker();
       updateLP();
       updatePosPnL();
+      renderTradeOverlay();
       if(AE.running){ AE.tickCount++; updateEngCd(); }
     }catch(e){ console.error('Feed tick error:',e); }
   }, 3000);
@@ -1685,17 +1686,25 @@ function startFeed(){
 // ══ TRADE CHART OVERLAY — draws positions on chart like Capital.com ══
 const OV={visible:true, chartHigh:null, chartLow:null};
 
-// Read TradingView's visible price range from the chart header OHLC text
+// Attempt to read TradingView's visible price range from DOM elements outside the iframe.
+// TradingView renders inside a sandboxed iframe so this returns null in practice —
+// the ±8% fallback in renderTradeOverlay() is the real working path.
 function readTVPriceRange(){
   const panel=$('chart-panel');
   if(!panel) return null;
-  // TradingView shows H: and L: values in the chart header
-  const allText = panel.innerText||'';
-  const high = allText.match(/H[\s:]*([\d.]+)/);
-  const low  = allText.match(/L[\s:]*([\d.]+)/);
-  if(high&&low){
-    const h=parseFloat(high[1]), l=parseFloat(low[1]);
-    if(h>0&&l>0&&h>l){
+  // Scan direct children (not the iframe itself) for price-like text
+  const texts=[];
+  panel.querySelectorAll(':scope > *:not(#tv-container)').forEach(el=>{
+    const t=(el.innerText||el.textContent||'').trim();
+    if(t) texts.push(t);
+  });
+  const combined=texts.join(' ');
+  // Look for two distinct numeric values that could be hi/lo (crude heuristic)
+  const nums=[...combined.matchAll(/([\d]{1,8}(?:\.\d+)?)/g)]
+    .map(m=>parseFloat(m[1])).filter(n=>n>0).sort((a,b)=>b-a);
+  if(nums.length>=2){
+    const h=nums[0], l=nums[nums.length-1];
+    if(h>l&&h/l<10){ // sanity: ratio < 10x
       OV.chartHigh=h; OV.chartLow=l;
       return {hi:h,lo:l};
     }
@@ -1770,40 +1779,41 @@ function renderTradeOverlay(){
   const livePrice=S.prices[S.mkt];
   if(!livePrice) return;
 
-  let chartHi, chartLo;
+  // ── Visible price range ──
+  // Priority: 1) manual HI/LO calibration inputs  2) ±8% around live price
+  let visibleHigh, visibleLow;
   if(OV.chartHigh && OV.chartLow && OV.chartHigh > OV.chartLow){
-    chartHi = OV.chartHigh;
-    chartLo = OV.chartLow;
+    visibleHigh = OV.chartHigh;
+    visibleLow  = OV.chartLow;
   } else {
-    const tvRange = readTVPriceRange();
-    if(tvRange){ chartHi=tvRange.hi; chartLo=tvRange.lo; }
-    else { chartHi=livePrice*1.08; chartLo=livePrice*0.92; }
+    visibleHigh = livePrice * 1.08;
+    visibleLow  = livePrice * 0.92;
   }
+  const priceSpan = visibleHigh - visibleLow;
 
-  const span = chartHi - chartLo;
-  const pMin = chartLo - span*0.05;
-  const pMax = chartHi + span*0.05;
-  const pRange = pMax - pMin;
-
-  const TOP=95, BOT=80, chartH=H-TOP-BOT;
-  const toY=p=>Math.round(TOP + chartH*(1-(p-pMin)/pRange));
-  const clamp=y=>Math.max(TOP+1, Math.min(TOP+chartH-1, y));
+  // TradingView top toolbar ≈60px, bottom time axis ≈40px
+  const TOP_PX=60, BOT_PX=40, chartAreaH=H-TOP_PX-BOT_PX;
   const lineEnd=W-150;
 
+  // pixelY = TOP_PX + chartAreaH * (1 - (price - visibleLow) / priceSpan)
+  const toY = price => Math.round(TOP_PX + chartAreaH * (1 - (price - visibleLow) / priceSpan));
+  // Only draw a line if its price falls within the visible range
+  const inRange = price => isFinite(price) && price >= visibleLow && price <= visibleHigh;
+
+  console.log(`[Overlay] visibleLow=${visibleLow.toFixed(2)} visibleHigh=${visibleHigh.toFixed(2)} live=${livePrice.toFixed(2)}`);
+
   matchedTrades.forEach(pos=>{
-    const m=M[pos.instrument]||M.GOLD;
-    const cur=S.prices[pos.instrument]||pos.openPrice;
+    const m=M[pos.instrument]||M[S.mkt]||M.GOLD;
+    const cur=S.prices[pos.instrument]||S.prices[S.mkt]||pos.openPrice;
     const isBuy=pos.direction==='BUY';
     const pnl=pos.pnl||0;
     const isProfit=pnl>=0;
-    const eY=clamp(toY(pos.openPrice));
-    const cY=clamp(toY(cur));
     const entryCol=isBuy?'#00c851':'#ff4444';
     const cCol=isProfit?'#00c851':'#ff4444';
 
-    // ── TP LINE — dashed green, 1px ──
-    if(pos.tp && isFinite(pos.tp)){
-      const tY=clamp(toY(pos.tp));
+    // ── TP LINE — dashed green, 1px — only if in visible range ──
+    if(pos.tp && inRange(pos.tp)){
+      const tY=toY(pos.tp);
       ctx.save();
       ctx.strokeStyle='#00c851'; ctx.lineWidth=1; ctx.globalAlpha=0.7;
       ctx.setLineDash([6,4]);
@@ -1812,9 +1822,9 @@ function renderTradeOverlay(){
       drawOvLabel(ctx,lineEnd,tY,'TP: '+pos.tp.toFixed(m.dec),'#00c851');
     }
 
-    // ── SL LINE — dashed red, 1px ──
-    if(pos.sl && isFinite(pos.sl)){
-      const sY=clamp(toY(pos.sl));
+    // ── SL LINE — dashed red, 1px — only if in visible range ──
+    if(pos.sl && inRange(pos.sl)){
+      const sY=toY(pos.sl);
       ctx.save();
       ctx.strokeStyle='#ff4444'; ctx.lineWidth=1; ctx.globalAlpha=0.7;
       ctx.setLineDash([6,4]);
@@ -1823,49 +1833,54 @@ function renderTradeOverlay(){
       drawOvLabel(ctx,lineEnd,sY,'SL: '+pos.sl.toFixed(m.dec),'#ff4444');
     }
 
-    // ── ENTRY LINE — solid, 2px ──
-    ctx.save();
-    ctx.strokeStyle=entryCol; ctx.lineWidth=2; ctx.globalAlpha=0.9;
-    ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(0,eY); ctx.lineTo(lineEnd,eY); ctx.stroke();
-    ctx.restore();
-    drawOvLabel(ctx,lineEnd,eY,(isBuy?'▲ ':'▼ ')+pos.openPrice.toFixed(m.dec),entryCol);
+    // ── ENTRY LINE — solid, 2px — skip if price no longer in view ──
+    if(inRange(pos.openPrice)){
+      const eY=toY(pos.openPrice);
+      ctx.save();
+      ctx.strokeStyle=entryCol; ctx.lineWidth=2; ctx.globalAlpha=0.9;
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(0,eY); ctx.lineTo(lineEnd,eY); ctx.stroke();
+      ctx.restore();
+      drawOvLabel(ctx,lineEnd,eY,(isBuy?'▲ ':'▼ ')+pos.openPrice.toFixed(m.dec),entryCol);
+    }
 
-    // ── CURRENT PRICE MARKER — thin dotted, very subtle ──
-    ctx.save();
-    ctx.strokeStyle=cCol; ctx.lineWidth=1; ctx.globalAlpha=0.45;
-    ctx.setLineDash([2,5]);
-    ctx.beginPath(); ctx.moveTo(0,cY); ctx.lineTo(lineEnd,cY); ctx.stroke();
-    ctx.restore();
+    // ── CURRENT PRICE MARKER — always in range (range is centred on live price) ──
+    if(inRange(cur)){
+      const cY=toY(cur);
+      ctx.save();
+      ctx.strokeStyle=cCol; ctx.lineWidth=1; ctx.globalAlpha=0.45;
+      ctx.setLineDash([2,5]);
+      ctx.beginPath(); ctx.moveTo(0,cY); ctx.lineTo(lineEnd,cY); ctx.stroke();
+      ctx.restore();
 
-    // ── P&L BADGE (left side, midpoint between entry and current) ──
-    const midY=Math.round((eY+cY)/2);
-    const d=document.createElement('div');
-    d.style.cssText='position:absolute;left:8px;top:'+(midY-11)+'px;'+
-      'background:#1a1a2e;'+
-      'border:1px solid '+(isProfit?'rgba(0,200,81,0.4)':'rgba(255,68,68,0.4)')+';'+
-      'color:'+cCol+';font-family:DM Mono,monospace;font-size:10px;font-weight:700;'+
-      'padding:2px 8px;border-radius:3px;white-space:nowrap;pointer-events:none;';
-    d.textContent=(isProfit?'+$':'-$')+Math.abs(pnl).toFixed(2)+
-                 '  /  '+(isProfit?'+A$':'-A$')+Math.abs(pnl*audRate).toFixed(2);
-    labels.appendChild(d);
+      // P&L badge — anchor to current price marker
+      const d=document.createElement('div');
+      d.style.cssText='position:absolute;left:8px;top:'+(cY-11)+'px;'+
+        'background:#1a1a2e;'+
+        'border:1px solid '+(isProfit?'rgba(0,200,81,0.4)':'rgba(255,68,68,0.4)')+';'+
+        'color:'+cCol+';font-family:DM Mono,monospace;font-size:10px;font-weight:700;'+
+        'padding:2px 8px;border-radius:3px;white-space:nowrap;pointer-events:none;';
+      d.textContent=(isProfit?'+$':'-$')+Math.abs(pnl).toFixed(2)+
+                   '  /  '+(isProfit?'+A$':'-A$')+Math.abs(pnl*audRate).toFixed(2);
+      labels.appendChild(d);
 
-    // ── CURRENT PRICE PILL (right edge) ──
-    const pill=document.createElement('div');
-    pill.style.cssText='position:absolute;right:4px;top:'+(cY-11)+'px;'+
-      'background:#1a1a2e;'+
-      'border:1px solid '+cCol+';color:'+cCol+';'+
-      'font-family:Bebas Neue,sans-serif;font-size:12px;letter-spacing:1px;'+
-      'padding:2px 10px;border-radius:2px;white-space:nowrap;pointer-events:none;';
-    pill.textContent='$'+cur.toFixed(m.dec);
-    labels.appendChild(pill);
+      // Current price pill (right edge)
+      const pill=document.createElement('div');
+      pill.style.cssText='position:absolute;right:4px;top:'+(cY-11)+'px;'+
+        'background:#1a1a2e;'+
+        'border:1px solid '+cCol+';color:'+cCol+';'+
+        'font-family:Bebas Neue,sans-serif;font-size:12px;letter-spacing:1px;'+
+        'padding:2px 10px;border-radius:2px;white-space:nowrap;pointer-events:none;';
+      pill.textContent='$'+cur.toFixed(m.dec);
+      labels.appendChild(pill);
+    }
   });
 
   if(OV.debug){
     ctx.fillStyle='rgba(245,200,66,0.6)';
     ctx.font='9px DM Mono';
-    ctx.fillText('Chart: $'+pMax.toFixed(2)+' — $'+pMin.toFixed(2)+
-                 ' | Live: $'+livePrice.toFixed(2), 8, TOP-4);
+    ctx.fillText('Range: $'+visibleLow.toFixed(2)+' — $'+visibleHigh.toFixed(2)+
+                 ' | Live: $'+livePrice.toFixed(2), 8, TOP_PX-4);
   }
 }
 
@@ -2048,9 +2063,13 @@ function onInstrChange(){
     levSel.value=M[k].defaultLev;
   }
   updateLeverageVisibility();
+  // Clear manual price calibration — range differs per asset
+  OV.chartHigh=null; OV.chartLow=null;
+  const hi=$('ov-hi'),lo=$('ov-lo');
+  if(hi) hi.value=''; if(lo) lo.value='';
   loadTV(); updateLP(); calcM();
-  renderTradeOverlay();               // immediate redraw for new asset (clears wrong-asset lines)
-  setTimeout(renderTradeOverlay, 500); // redraw again after TradingView loads
+  renderTradeOverlay();               // immediate redraw — clears stale lines for old asset
+  setTimeout(renderTradeOverlay, 500); // redraw after TradingView finishes loading
 }
 
 // ══ ACCOUNT ══
