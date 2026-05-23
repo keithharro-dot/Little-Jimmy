@@ -321,6 +321,20 @@ thead th { font-size: 13px !important; }
 /* Chart height — .bottom-split contains only the TradingView chart (was 220px, -40% = 132px) */
 .bottom-split { min-height: 280px !important; }
 #tv-chart-container, #tradingview_chart { height: 132px !important; }
+
+/* ── GLOBAL FONT STANDARDISATION — 13px matches .reg-title (LIVE TRADES REGISTRY) ── */
+body * { font-size: 13px !important; line-height: 1.4 !important; }
+
+/* Restore large stat values in right panel */
+.stat-val,
+#s-bal, #s-eq, #s-pnl, #s-pnlc { font-size: 26px !important; line-height: 1 !important; }
+#s-bal { font-size: 38px !important; }
+
+/* Restore current-price display in left panel */
+#lp-price { font-size: 16px !important; }
+
+/* Restore logo and Bebas Neue display headings — these are intentionally large */
+.logo-name { font-size: 15px !important; }
 </style>
 </head>
 <body>
