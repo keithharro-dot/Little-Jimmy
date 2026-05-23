@@ -1703,6 +1703,25 @@ function readTVPriceRange(){
   return null;
 }
 
+// Does a position's instrument/epic match the given market key?
+const ASSET_ALIASES={
+  GOLD:   ['GOLD','XAU'],
+  SILVER: ['SILVER','XAG'],
+  OIL:    ['OIL','CRUDE','XBR'],
+  BTC:    ['BITCOIN','BTC'],
+  ETH:    ['ETHEREUM','ETH'],
+  SOL:    ['SOLANA','SOL'],
+  XRP:    ['RIPPLE','XRP'],
+  DOGE:   ['DOGECOIN','DOGE'],
+  NASDAQ: ['NASDAQ','US100','NDX'],
+};
+function positionMatchesMkt(pos, mkt){
+  const inst=(pos.instrument||'').toUpperCase();
+  if(inst===mkt) return true;
+  const terms=ASSET_ALIASES[mkt]||[mkt];
+  return terms.some(t=>inst.includes(t));
+}
+
 function renderTradeOverlay(){
   const canvas=$('trade-overlay'),labels=$('trade-labels'),panel=$('chart-panel');
   if(!canvas||!labels||!panel)return;
@@ -1714,7 +1733,7 @@ function renderTradeOverlay(){
   labels.innerHTML='';
   addOverlayToggle(labels);
 
-  const open=S.positions.filter(p=>p.status==='open'&&p.instrument===S.mkt);
+  const open=S.positions.filter(p=>p.status==='open'&&positionMatchesMkt(p,S.mkt));
   if(!open.length||!OV.visible) return;
 
   const audRate=getAudRate();
@@ -2000,7 +2019,8 @@ function onInstrChange(){
   }
   updateLeverageVisibility();
   loadTV(); updateLP(); calcM();
-  setTimeout(renderTradeOverlay, 500);
+  renderTradeOverlay();               // immediate redraw for new asset (clears wrong-asset lines)
+  setTimeout(renderTradeOverlay, 500); // redraw again after TradingView loads
 }
 
 // ══ ACCOUNT ══
