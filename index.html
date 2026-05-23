@@ -1924,7 +1924,20 @@ function updateExecPrice(){
 }
 
 // Called when user types in USD field — updates qty
-function getAudRate(){ const r=S.audRate; return (r&&isFinite(r)&&r>0)?r:0.645; }
+function getAudRate(){ const r=S.audRate; return (r&&isFinite(r)&&r>0)?r:1.55; }
+
+async function fetchAudRate(){
+  const ok=r=>r&&isFinite(r)&&r>0;
+  try{
+    const d=await(await fetch('https://api.frankfurter.app/latest?from=USD&to=AUD')).json();
+    if(ok(d?.rates?.AUD)){ S.audRate=d.rates.AUD; return; }
+  }catch(_){}
+  try{
+    const d=await(await fetch('https://open.er-api.com/v6/latest/USD')).json();
+    if(ok(d?.rates?.AUD)){ S.audRate=d.rates.AUD; return; }
+  }catch(_){}
+  if(!ok(S.audRate)) S.audRate=1.55;
+}
 
 function onCurrencyToggle(){
   const cur=$('size-currency')?.value||'USD';
@@ -4740,10 +4753,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   updateHighRiskBanner();
   loadSaved();loadTV();loadCalendar();startFeed();
   initMacro();
-  // Fetch live AUD/USD rate
-  fetch('https://api.allorigins.win/get?url='+encodeURIComponent('https://api.exchangerate-api.com/v4/latest/USD'))
-    .then(r=>r.json()).then(d=>{ const data=JSON.parse(d.contents); if(data.rates?.AUD) S.audRate=1/data.rates.AUD*data.rates.AUD; S.audRate=data.rates?.AUD||1.55; })
-    .catch(()=>{ S.audRate=1.55; }); // fallback rate
+  // Fetch live USD→AUD rate (frankfurter.app primary, open.er-api fallback, 1.55 hardcoded last resort)
+  fetchAudRate();
+  setInterval(fetchAudRate, 5*60*1000);
   fetchRealPrices();
   setInterval(fetchRealPrices,60000);
   setInterval(refreshCapitalPositions,30000);
