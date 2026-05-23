@@ -44,9 +44,6 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .tbtn:hover{ color:var(--text); border-color:var(--border2); }
 .conn-btn{ background:var(--gold); color:#000; border:none; padding:4px 12px; font-family:"Bebas Neue"; font-size:11px; letter-spacing:1px; cursor:pointer; border-radius:3px; }
 .conn-dot{ width:6px; height:6px; border-radius:50%; background:var(--muted); display:inline-block; margin-right:4px; }
-.acct-switch{ background:var(--bg3); border:1px solid var(--border); color:var(--gold); font-family:"Bebas Neue"; font-size:10px; letter-spacing:1px; padding:4px 8px; cursor:pointer; border-radius:3px; outline:none; max-width:160px; }
-.acct-switch:hover{ border-color:var(--border2); }
-.acct-switch option{ background:var(--bg2); color:var(--text); }
 
 /* ── MAIN WRAPPER ── */
 .main{ flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; height:0; }
@@ -322,11 +319,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
     <button class="tbtn" onclick="openTRYT()">▶ TR</button>
     <button class="tbtn" onclick="openTax()">📊 TAX</button>
     <button class="tbtn" id="auto-hdr-btn" onclick="toggleAutoSB()">🤖 AUTO</button>
-    <select id="acct-switcher" class="acct-switch" onchange="switchAccount(this.value)" title="Switch Trading Account">
-      <option value="demo">⬡ DEMO — PRACTICE</option>
-      <option value="swing">◈ SWING TRADES — LIVE</option>
-      <option value="highrisk">⚠ HIGH RISK — LIVE</option>
-    </select>
+    <span id="acct-switcher" style="font-family:'Bebas Neue';font-size:10px;letter-spacing:1px;color:var(--muted);padding:4px 10px;border:1px solid var(--border);border-radius:3px;background:var(--bg3);">DEMO</span>
     <button class="conn-btn" onclick="openConn()">⚙ CONNECT</button>
   </div>
 </div>
@@ -3873,7 +3866,7 @@ async function connectAPI(){
     // Switch active account to whatever was selected in the modal
     S.activeAccount=modalAcct;
     localStorage.setItem('ljtc-activeAccount',modalAcct);
-    const sw=$('acct-switcher');if(sw)sw.value=modalAcct;
+    const sw=$('acct-switcher');if(sw)sw.textContent=(ACCT_PROFILES[modalAcct]||ACCT_PROFILES.demo).label;
     updateHighRiskBanner();
 
     S.apiBase   = base;
@@ -4229,7 +4222,7 @@ async function switchAccount(acctKey){
   if(!ACCT_PROFILES[acctKey]||acctKey===S.activeAccount) return;
   S.activeAccount=acctKey;
   localStorage.setItem('ljtc-activeAccount',acctKey);
-  const sw=$('acct-switcher'); if(sw) sw.value=acctKey;
+  const sw=$('acct-switcher'); if(sw) sw.textContent=(ACCT_PROFILES[acctKey]||ACCT_PROFILES.demo).label;
   updateHighRiskBanner();
   disconnectSession();
 
@@ -4803,7 +4796,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Restore active account selection
   const savedAcct=localStorage.getItem('ljtc-activeAccount')||'demo';
   S.activeAccount=ACCT_PROFILES[savedAcct]?savedAcct:'demo';
-  const sw=$('acct-switcher'); if(sw) sw.value=S.activeAccount;
+  const sw=$('acct-switcher'); if(sw) sw.textContent=(ACCT_PROFILES[S.activeAccount]||ACCT_PROFILES.demo).label;
   updateHighRiskBanner();
   loadSaved();loadTV();loadCalendar();startFeed();
   initMacro();
