@@ -590,6 +590,7 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
         <div class="reg-header">
           <span class="reg-title">LIVE TRADES REGISTRY</span>
           <span id="reg-count" style="font-size:11px;color:var(--muted);margin-left:12px;">0 ACTIVE</span>
+          <button id="trade-ccy-btn" onclick="toggleTradeCcy()" style="font-family:'Bebas Neue';font-size:10px;letter-spacing:1px;border:1px solid var(--gold);color:var(--gold);background:none;padding:1px 7px;border-radius:10px;cursor:pointer;margin-left:8px;line-height:1.6;">USD</button>
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
             <span style="font-size:11px;color:var(--muted);">PENDING: <b id="pend-cnt2" style="color:var(--gold);">0</b></span>
           </div>
@@ -602,11 +603,11 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
                 <th>ASSET</th>
                 <th>DIR</th>
                 <th>#</th>
-                <th>AVG ENTRY</th>
+                <th id="th-entry">AVG ENTRY</th>
                 <th>TOTAL QTY</th>
-                <th>CURRENT</th>
-                <th style="min-width:110px;">P&amp;L</th>
-                <th>MARGIN</th>
+                <th id="th-current">CURRENT</th>
+                <th id="th-pnl" style="min-width:110px;">P&amp;L</th>
+                <th id="th-margin">MARGIN</th>
                 <th></th>
                 <th>ACTION</th>
               </tr>
@@ -2795,6 +2796,28 @@ function startEditing(id){
   if(pos) pos._editing=true;
 }
 
+let _tradeCcy=localStorage.getItem('ljtc-currency')||'USD';
+
+function toggleTradeCcy(){
+  _tradeCcy=_tradeCcy==='USD'?'AUD':'USD';
+  localStorage.setItem('ljtc-currency',_tradeCcy);
+  const btn=$('trade-ccy-btn');
+  if(btn) btn.textContent=_tradeCcy;
+  _updateCurrencyHeaders();
+  renderTrades();
+}
+
+function _updateCurrencyHeaders(){
+  const c=_tradeCcy;
+  const s=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
+  s('th-entry',`AVG ENTRY (${c})`);
+  s('th-current',`CURRENT (${c})`);
+  s('th-pnl',`P&L (${c})`);
+  s('th-margin',`MARGIN (${c})`);
+  const btn=$('trade-ccy-btn');
+  if(btn) btn.textContent=c;
+}
+
 function renderTrades(){
   const tbody=$('trades-body'), cnt=$('reg-count');
   if(!tbody) return;
@@ -2825,20 +2848,21 @@ function renderTrades(){
     groupKeys.every(k=>existingKeys.includes(k));
 
   if(canUpdate){
+    const _isAud=_tradeCcy==='AUD'; const _rate=_isAud?getAudRate():1; const _sym=_isAud?'A$':'$';
     groupKeys.forEach(k=>{
       const grp=groups[k]; const m=M[k]||M.GOLD; const cur=S.prices[k];
       const totalPnl=grp.positions.reduce((s,p)=>s+(p.pnl||0),0);
       const pc=totalPnl>=0?'var(--green)':'var(--red)';
       const grpPnlEl=document.getElementById('grp-pnl-'+k);
       const grpCurEl=document.getElementById('grp-cur-'+k);
-      if(grpPnlEl){grpPnlEl.textContent=(totalPnl>=0?'+$':'-$')+Math.abs(totalPnl).toFixed(2);grpPnlEl.style.color=pc;}
-      if(grpCurEl&&cur!=null){grpCurEl.textContent='$'+Number(cur).toFixed(m.dec);}
+      if(grpPnlEl){grpPnlEl.textContent=(totalPnl>=0?'+':'-')+_sym+Math.abs(totalPnl*_rate).toFixed(2);grpPnlEl.style.color=pc;}
+      if(grpCurEl&&cur!=null){grpCurEl.textContent=_sym+Number(cur*_rate).toFixed(m.dec);}
       grp.positions.forEach(pos=>{
         const pnl=pos.pnl??0; const pc2=pnl>=0?'var(--green)':'var(--red)';
         const pnlEl=document.getElementById('pnl-'+pos.id);
         const prEl=document.getElementById('curprice-'+pos.id);
-        if(pnlEl){pnlEl.textContent=(pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);pnlEl.style.color=pc2;}
-        if(prEl&&cur!=null){prEl.textContent='$'+Number(cur).toFixed(m.dec);}
+        if(pnlEl){pnlEl.textContent=(pnl>=0?'+':'-')+_sym+Math.abs(pnl*_rate).toFixed(2);pnlEl.style.color=pc2;}
+        if(prEl&&cur!=null){prEl.textContent=_sym+Number(cur*_rate).toFixed(m.dec);}
       });
     });
     return;
@@ -2856,7 +2880,8 @@ function renderTrades(){
     const totalMargin=ps.reduce((s,p)=>s+(p.margin||getMargin(k,(p.usdValue||(p.openPrice||0)*(p.lot||0)),p.leverage||'1:100')),0);
     const weightedEntry=totalQty>0?ps.reduce((s,p)=>s+(p.openPrice||0)*(p.lot||0),0)/totalQty:0;
     const pc=totalPnl>=0?'var(--green)':'var(--red)';
-    const pnlStr=(totalPnl>=0?'+$':'-$')+Math.abs(totalPnl).toFixed(2);
+    const isAud=_tradeCcy==='AUD'; const rate=isAud?getAudRate():1; const sym=isAud?'A$':'$';
+    const pnlStr=(totalPnl>=0?'+':'-')+sym+Math.abs(totalPnl*rate).toFixed(2);
     const multi=ps.length>1;
     const isExp=S._expandedGroups.has(k);
     const arrow=multi
@@ -2869,11 +2894,11 @@ function renderTrades(){
       <td style="font-size:14px;padding:9px 8px;color:${m.color};font-weight:700;white-space:nowrap;">${arrow}${k}<span style="font-size:11px;color:var(--muted);margin-left:5px;font-weight:400;">${ps.length>1?ps.length+'×':''}</span></td>
       <td style="font-size:13px;padding:9px 6px;"><span style="color:${dirCol};font-family:'Bebas Neue';letter-spacing:1px;">${dir}</span></td>
       <td style="font-size:13px;padding:9px 6px;color:var(--muted);">${ps.length}</td>
-      <td style="font-size:13px;padding:9px 6px;">$${weightedEntry.toFixed(m.dec)}</td>
+      <td style="font-size:13px;padding:9px 6px;">${sym}${(weightedEntry*rate).toFixed(m.dec)}</td>
       <td style="font-size:13px;padding:9px 6px;">${totalQty.toFixed(4)}</td>
-      <td style="font-size:13px;padding:9px 6px;color:${m.color};" id="grp-cur-${k}">${cur!=null?'$'+Number(cur).toFixed(m.dec):'—'}</td>
+      <td style="font-size:13px;padding:9px 6px;color:${m.color};" id="grp-cur-${k}">${cur!=null?sym+Number(cur*rate).toFixed(m.dec):'—'}</td>
       <td style="font-size:14px;padding:9px 6px;font-weight:700;color:${pc};" id="grp-pnl-${k}">${pnlStr}</td>
-      <td style="font-size:12px;padding:9px 6px;color:var(--muted);">$${totalMargin.toFixed(2)}</td>
+      <td style="font-size:12px;padding:9px 6px;color:var(--muted);">${sym}${(totalMargin*rate).toFixed(2)}</td>
       <td></td>
       <td style="padding:9px 6px;"><button onclick="event.stopPropagation();closeAllGroup('${k}')" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);color:var(--red);font-size:12px;padding:3px 8px;border-radius:2px;cursor:pointer;font-family:'DM Mono';white-space:nowrap;">✕ ALL</button></td>
     </tr>`;
@@ -2883,7 +2908,8 @@ function renderTrades(){
     const gk=pos._grpKey||pos.instrument;
     const m=M[gk]||M.GOLD; const cur=S.prices[gk];
     const pnl=pos.pnl??0; const pc=pnl>=0?'var(--green)':'var(--red)';
-    const pnlStr=(pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);
+    const isAud=_tradeCcy==='AUD'; const rate=isAud?getAudRate():1; const sym=isAud?'A$':'$';
+    const pnlStr=(pnl>=0?'+':'-')+sym+Math.abs(pnl*rate).toFixed(2);
     const tpVal=pos.tp!=null&&isFinite(pos.tp)?Number(pos.tp).toFixed(m.dec):'';
     const slVal=pos.sl!=null&&isFinite(pos.sl)?Number(pos.sl).toFixed(m.dec):'';
     const dt=pos.openTime?new Date(pos.openTime).toLocaleString('en-AU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
@@ -2894,9 +2920,9 @@ function renderTrades(){
       <td style="font-size:12px;padding:5px 8px 5px 28px;color:var(--muted);">${pos.autoTrade?'🤖 ':''}${dt}</td>
       <td style="font-size:12px;padding:5px 6px;"><span style="color:${dirCol};font-family:'Bebas Neue';font-size:12px;">${pos.direction}</span></td>
       <td style="font-size:12px;padding:5px 6px;color:var(--muted);">${pos.leverage||'—'}</td>
-      <td style="font-size:12px;padding:5px 6px;">$${fv(pos.openPrice,m.dec)}</td>
+      <td style="font-size:12px;padding:5px 6px;">${pos.openPrice!=null&&isFinite(pos.openPrice)?sym+(pos.openPrice*rate).toFixed(m.dec):'—'}</td>
       <td style="font-size:12px;padding:5px 6px;">${fv(pos.lot,4)}</td>
-      <td style="font-size:12px;padding:5px 6px;color:${m.color};" id="curprice-${pos.id}">${cur!=null?'$'+Number(cur).toFixed(m.dec):'—'}</td>
+      <td style="font-size:12px;padding:5px 6px;color:${m.color};" id="curprice-${pos.id}">${cur!=null?sym+Number(cur*rate).toFixed(m.dec):'—'}</td>
       <td style="font-size:12px;padding:5px 6px;font-weight:600;color:${pc};" id="pnl-${pos.id}">${pnlStr}</td>
       <td style="padding:5px 6px;"><input type="number" value="${slVal}" placeholder="SL" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setSL(this.dataset.id,this.value)" style="${ins}background:rgba(231,76,60,0.08);border-bottom:1px solid rgba(231,76,60,0.4);color:var(--red);"></td>
       <td style="padding:5px 6px;"><input type="number" value="${tpVal}" placeholder="TP" step="${Math.pow(10,-m.dec)}" data-id="${pos.id}" onfocus="startEditing(this.dataset.id)" onchange="setTP(this.dataset.id,this.value)" style="${ins}background:rgba(46,204,113,0.08);border-bottom:1px solid rgba(46,204,113,0.35);color:var(--green);"></td>
@@ -4720,7 +4746,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Position sync runs from connectAPI() via S.positionSync — no second interval needed here
   updateLeverageVisibility(); calcM(); updateSizeEquiv();
   setInterval(updateClock,1000);updateClock();
-  updateAccount();renderTrades();
+  updateAccount();renderTrades();_updateCurrencyHeaders();
   updateAutoButtons();
   initMobileLayout(); // mobile tab nav — detects iPhone automatically
   setTimeout(()=>toast('🚀','Jimmys Trading Co','Click CONNECT or DEMO MODE to start'),800);
