@@ -568,9 +568,9 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
         <span style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-right:2px;">LAYERS:</span>
         <button class="ind-tog on" id="tog-pvsra"    onclick="toggleLwInd('pvsra',this)"    title="PVSRA Vector Candles">PVSRA</button>
         <button class="ind-tog on" id="tog-cloud"    onclick="toggleLwInd('cloud',this)"    title="EMA Cloud + EMA lines">CLOUD</button>
-        <button class="ind-tog on" id="tog-zones"    onclick="toggleLwInd('zones',this)"    title="Vector Candle Zones">ZONES</button>
-        <button class="ind-tog on" id="tog-sessions" onclick="toggleLwInd('sessions',this)" title="Market Sessions (≤H4)">SESSIONS</button>
-        <button class="ind-tog on" id="tog-pivots"   onclick="toggleLwInd('pivots',this)"   title="Pivot Points + M Levels">PIVOTS</button>
+        <button class="ind-tog" id="tog-zones"    onclick="toggleLwInd('zones',this)"    title="Vector Candle Zones">ZONES</button>
+        <button class="ind-tog" id="tog-sessions" onclick="toggleLwInd('sessions',this)" title="Market Sessions (≤H4)">SESSIONS</button>
+        <button class="ind-tog" id="tog-pivots"   onclick="toggleLwInd('pivots',this)"   title="Pivot Points + M Levels">PIVOTS</button>
         <button class="ind-tog on" id="tog-adr"      onclick="toggleLwInd('adr',this)"      title="ADR 14-day Range">ADR</button>
         <button class="ind-tog on" id="tog-macd"     onclick="toggleLwInd('macd',this)"     title="MACD 12/26/9">MACD</button>
         <button class="ind-tog on" id="tog-vol"      onclick="toggleLwInd('vol',this)"      title="Volume Histogram">VOL</button>
@@ -1796,6 +1796,8 @@ function renderPriceSidebar(){
   matched.forEach(pos=>{
     const m=M[pos.instrument]||M[S.mkt]||M.GOLD;
     const cur=S.prices[pos.instrument]||S.prices[S.mkt]||pos.openPrice;
+    if(!pos.openPrice||!isFinite(pos.openPrice)) return;
+    if(!cur||!isFinite(cur)) return;
     const isBuy=pos.direction==='BUY';
     const pnl=pos.pnl||0;
     const entryCol=isBuy?'#00c851':'#ff4444';
@@ -3196,7 +3198,7 @@ const LWC={
 };
 
 // ── INDICATOR TOGGLE STATE ──
-let _lwInds={pvsra:true,cloud:true,zones:true,sessions:true,pivots:true,adr:true,macd:true,vol:true};
+let _lwInds={pvsra:true,cloud:true,zones:false,sessions:false,pivots:false,adr:true,macd:true,vol:true};
 try{const _s=JSON.parse(localStorage.getItem('ljtc-indicators'));if(_s&&typeof _s==='object')Object.assign(_lwInds,_s);}catch(e){}
 
 function toggleLwInd(key,el){
@@ -3269,9 +3271,9 @@ function initLWChart(){
   const mkEL=(c,w=1)=>LWC.chart.addLineSeries({color:c,lineWidth:w,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
   LWC.ema5  =mkEL('#FEEA4A');
   LWC.ema13 =mkEL('#FD5457');
-  LWC.ema50 =mkEL('#1FBCD3',2);
+  LWC.ema50 =mkEL('#1FBCD3');
   LWC.ema200=mkEL('#FFFFFF');
-  LWC.ema800=mkEL('#7B52EB',2);
+  LWC.ema800=mkEL('#7B52EB');
   // ── Volume (15% at bottom) ──
   LWC.volSeries=LWC.chart.addHistogramSeries({
     priceFormat:{type:'volume'},priceScaleId:'vol',
@@ -3626,7 +3628,7 @@ function _lwDrawCanvas(){
       try{const x=ts.timeToCoordinate(pt.time),y=cs.priceToCoordinate(pt.value);
       if(x==null||y==null)return;ctx.lineTo(x,y);}catch(e){}
     });
-    ctx.closePath();ctx.fillStyle='rgba(155,47,174,0.4)';ctx.fill();
+    ctx.closePath();ctx.fillStyle='rgba(155,47,174,0.15)';ctx.fill();
   }
 
   // ── Vector Candle Zones ──
@@ -3827,16 +3829,14 @@ function _onFSChange(){
   },120);
 }
 
-// ══ CHART POP-OUT (blob URL) ══
+// ══ CHART POP-OUT ══
 function openChartPopout(){
   window._lwPopupAsset=S.mkt||'GOLD';
   window._lwPopupTf=TV.interval||'60';
-  const html=_buildPopupBlobHTML();
-  const blob=new Blob([html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  const popup=window.open(url,'_blank','width=1440,height=900,menubar=no,toolbar=no,location=no,status=no');
-  if(!popup){URL.revokeObjectURL(url);toast('⚠️','Pop-up blocked','Allow pop-ups for this site in browser settings');return;}
-  setTimeout(()=>URL.revokeObjectURL(url),15000);
+  const popup=window.open('about:blank','_blank','width=1440,height=900,menubar=no,toolbar=no,location=no,status=no');
+  if(!popup){toast('⚠️','Pop-up blocked','Allow pop-ups for this site in browser settings');return;}
+  popup.document.write(_buildPopupBlobHTML());
+  popup.document.close();
 }
 
 function _buildPopupBlobHTML(){
@@ -4062,7 +4062,7 @@ function _drawCanvas(){
     ctx.beginPath();var first=true;
     _cloudUpper.forEach(function(pt){try{var x=ts.timeToCoordinate(pt.time),y=cs.priceToCoordinate(pt.value);if(x==null||y==null)return;if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);}catch(e){}});
     [].concat(_cloudLower).reverse().forEach(function(pt){try{var x=ts.timeToCoordinate(pt.time),y=cs.priceToCoordinate(pt.value);if(x==null||y==null)return;ctx.lineTo(x,y);}catch(e){}});
-    ctx.closePath();ctx.fillStyle='rgba(155,47,174,0.4)';ctx.fill();
+    ctx.closePath();ctx.fillStyle='rgba(155,47,174,0.15)';ctx.fill();
   }
   _zones.forEach(function(z){try{var x1=ts.timeToCoordinate(z.time);if(x1==null)return;var y1=cs.priceToCoordinate(z.top),y2=cs.priceToCoordinate(z.bot);if(y1==null||y2==null)return;ctx.fillStyle=z.color==='#00ff00'?'rgba(0,255,0,0.08)':z.color==='#ff0000'?'rgba(255,0,0,0.08)':z.color==='#0000ff'?'rgba(0,0,255,0.1)':'rgba(255,0,255,0.1)';ctx.fillRect(x1,Math.min(y1,y2),W-x1,Math.abs(y2-y1));}catch(e){}});
   if(['1','5','15','60','240'].indexOf(_tf)>=0&&_lastBars.length){
