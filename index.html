@@ -115,6 +115,7 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 #centre-panel:fullscreen,#centre-panel:-webkit-full-screen{background:#0a0c0f;display:flex;flex-direction:column;width:100%;height:100%;}
 #centre-panel:fullscreen .chart-wrap,#centre-panel:-webkit-full-screen .chart-wrap{flex:1;min-height:0;}
 #centre-panel:fullscreen .reg-header,#centre-panel:fullscreen .reg-body,#centre-panel:-webkit-full-screen .reg-header,#centre-panel:-webkit-full-screen .reg-body{display:none!important;}
+#chart-panel:fullscreen,#chart-panel:-webkit-full-screen{width:100%;height:100%;background:#0a0c0f;position:fixed;inset:0;}
 #btn-fullscreen,#btn-popout{ background:rgba(245,200,66,0.08); border:1px solid rgba(245,200,66,0.45); color:var(--gold); padding:2px 8px; border-radius:3px; cursor:pointer; font-size:14px; line-height:1; transition:all 0.15s; font-weight:700; }
 #btn-fullscreen:hover,#btn-popout:hover{ background:rgba(245,200,66,0.18); border-color:var(--gold); }
 
@@ -713,7 +714,7 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
   <div class="bottom-split" id="bottom-split">
 
     <!-- LIGHTWEIGHT CHARTS — full width dominant -->
-    <div class="chart-wrap" id="chart-panel">
+    <div class="chart-wrap" id="chart-panel" style="min-height:400px;">
       <div id="lw-chart" style="position:absolute;inset:0;"></div>
 
       <!-- PRICE LEVEL SIDEBAR — trade level badges on right edge of chart -->
@@ -3233,10 +3234,15 @@ function _lwInitToggles(){
 const _LW_BNC={BTC:'BTC',ETH:'ETH',SOL:'SOL',XRP:'XRP',DOGE:'DOGE'};
 const _LW_BNC_INT={'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d','W':'1w'};
 const _LW_CAP_RES={'1':'MINUTE','5':'MINUTE_5','15':'MINUTE_15','60':'HOUR','240':'HOUR_4','D':'DAY','W':'WEEK'};
+// Yahoo Finance fallback for commodities/indices (via allorigins CORS proxy)
+const _LW_YF={GOLD:'GC%3DF',SILVER:'SI%3DF',OIL:'CL%3DF',NASDAQ:'%5EIXIC'};
+const _LW_YF_INT={'1':'1m','5':'5m','15':'15m','60':'60m','240':'60m','D':'1d','W':'1wk'};
+const _LW_YF_RANGE={'1':'7d','5':'60d','15':'60d','60':'90d','240':'90d','D':'5y','W':'10y'};
 
 function initLWChart(){
   const container=$('lw-chart');
   if(!container) return;
+  console.log('[Jimmy] initLWChart — LWC lib:',typeof LightweightCharts,'container px:',container.clientWidth,'x',container.clientHeight);
   // ── Cleanup ──
   if(LWC.chart){try{LWC.chart.remove();}catch(e){} LWC.chart=null;}
   if(LWC.refreshTimer){clearInterval(LWC.refreshTimer);LWC.refreshTimer=null;}
@@ -3357,6 +3363,26 @@ async function _lwFetch(asset,interval){
         return d.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4],volume:+k[5]})).filter(b=>isFinite(b.time)&&b.time>0);
       }
     }catch(e){console.warn('[LWC] Binance fetch:',e.message);}
+  }
+  // Yahoo Finance fallback — commodities & indices (GOLD, SILVER, OIL, NASDAQ)
+  const yfSym=_LW_YF[asset];
+  if(yfSym){
+    try{
+      const yfInt=_LW_YF_INT[interval]||'60m';
+      const yfRange=_LW_YF_RANGE[interval]||'90d';
+      const yfUrl='https://query1.finance.yahoo.com/v8/finance/chart/'+yfSym+'?interval='+yfInt+'&range='+yfRange;
+      const r=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(yfUrl));
+      if(r.ok){
+        const d=await r.json();
+        const res=d?.chart?.result?.[0];
+        if(res){
+          const ts=res.timestamp,q=res.indicators.quote[0];
+          const bars=ts.map((t,i)=>({time:t,open:q.open[i],high:q.high[i],low:q.low[i],close:q.close[i],volume:q.volume[i]||0}))
+            .filter(b=>b.open!=null&&b.close!=null&&isFinite(b.time)&&b.time>0&&isFinite(b.open)&&isFinite(b.close));
+          if(bars.length>5){console.log('[LWC] Yahoo Finance bars:',bars.length);return bars;}
+        }
+      }
+    }catch(e){console.warn('[LWC] Yahoo Finance fetch:',e.message);}
   }
   return null;
 }
@@ -3805,7 +3831,7 @@ function openTRScript(){window.open(`https://www.tradingview.com/chart/?symbol=$
 
 // ══ FULLSCREEN ══
 function openChartFullscreen(){
-  const panel=$('centre-panel');
+  const panel=$('chart-panel')||($('lw-chart')&&$('lw-chart').parentElement);
   if(!panel) return;
   if(document.fullscreenElement||document.webkitFullscreenElement){
     (document.exitFullscreen||document.webkitExitFullscreen).call(document);
