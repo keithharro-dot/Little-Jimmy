@@ -109,6 +109,9 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .ind{ display:flex; flex-direction:column; align-items:center; }
 .ind-lbl{ font-size:11px; color:var(--muted); letter-spacing:1px; }
 .ind-v{ font-family:"Bebas Neue"; font-size:13px; }
+.ind-tog-bar{ display:flex; align-items:center; gap:5px; padding:2px 10px; background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0; }
+.ind-tog{ background:none; border:1px solid var(--border); color:var(--muted); padding:1px 8px; font-family:"DM Mono"; font-size:10px; cursor:pointer; border-radius:10px; transition:all 0.12s; letter-spacing:0.5px; }
+.ind-tog.on{ border-color:var(--gold); color:var(--gold); }
 
 /* ── RIGHT: account stats ── */
 .right-panel{ overflow-y:auto; overflow-x:visible; }
@@ -553,6 +556,18 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
           </span>
           <button onclick="openChartPopout()" title="Open full screen chart" style="background:none;border:1px solid var(--border2);color:var(--muted);padding:2px 7px;border-radius:2px;cursor:pointer;font-size:13px;line-height:1;transition:all 0.15s;" onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--gold)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border2)'">⤢</button>
         </div>
+      </div>
+      <!-- INDICATOR LAYER TOGGLES -->
+      <div class="ind-tog-bar">
+        <span style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-right:2px;">LAYERS:</span>
+        <button class="ind-tog on" id="tog-pvsra"    onclick="toggleLwInd('pvsra',this)"    title="PVSRA Vector Candles">PVSRA</button>
+        <button class="ind-tog on" id="tog-cloud"    onclick="toggleLwInd('cloud',this)"    title="EMA Cloud + EMA lines">CLOUD</button>
+        <button class="ind-tog on" id="tog-zones"    onclick="toggleLwInd('zones',this)"    title="Vector Candle Zones">ZONES</button>
+        <button class="ind-tog on" id="tog-sessions" onclick="toggleLwInd('sessions',this)" title="Market Sessions (≤H4)">SESSIONS</button>
+        <button class="ind-tog on" id="tog-pivots"   onclick="toggleLwInd('pivots',this)"   title="Pivot Points + M Levels">PIVOTS</button>
+        <button class="ind-tog on" id="tog-adr"      onclick="toggleLwInd('adr',this)"      title="ADR 14-day Range">ADR</button>
+        <button class="ind-tog on" id="tog-macd"     onclick="toggleLwInd('macd',this)"     title="MACD 12/26/9">MACD</button>
+        <button class="ind-tog on" id="tog-vol"      onclick="toggleLwInd('vol',this)"      title="Volume Histogram">VOL</button>
       </div>
       <!-- Indicators bar -->
       <!-- TR HYBRID INDICATORS BAR -->
@@ -3161,7 +3176,50 @@ const TV_SYMBOLS={
   XRP:'BITSTAMP:XRPUSD',DOGE:'BITSTAMP:DOGEUSD',NASDAQ:'NASDAQ:NDX',
 };
 
-const LWC={chart:null,candleSeries:null,volSeries:null,ema5:null,ema13:null,ema50:null,ema200:null,priceLine:null,tradeLines:[],asset:null,interval:null,refreshTimer:null,_resizeObs:null};
+const LWC={
+  chart:null,candleSeries:null,volSeries:null,
+  ema5:null,ema13:null,ema50:null,ema200:null,ema800:null,
+  macdHist:null,macdLine:null,signalLine:null,
+  priceLine:null,tradeLines:[],_auxLines:[],_adrLines:[],_dailyOpenLine:null,
+  asset:null,interval:null,refreshTimer:null,_resizeObs:null,
+  cloudCanvas:null,_unsubPanZoom:null,
+  _vectorMarkers:[],_zones:[],_lastBars:[],
+  _cloudUpper:[],_cloudLower:[],
+  _pivots:{p:0,r1:0,r2:0,r3:0,s1:0,s2:0,s3:0,m:[]},
+  _adr:{hi:0,lo:0,pct:0},
+};
+
+// ── INDICATOR TOGGLE STATE ──
+let _lwInds={pvsra:true,cloud:true,zones:true,sessions:true,pivots:true,adr:true,macd:true,vol:true};
+try{const _s=JSON.parse(localStorage.getItem('ljtc-indicators'));if(_s&&typeof _s==='object')Object.assign(_lwInds,_s);}catch(e){}
+
+function toggleLwInd(key,el){
+  _lwInds[key]=!_lwInds[key];
+  localStorage.setItem('ljtc-indicators',JSON.stringify(_lwInds));
+  el.classList.toggle('on',_lwInds[key]);
+  _lwApplyIndVisibility();
+  _lwDrawCanvas();
+}
+function _lwApplyIndVisibility(){
+  if(LWC.volSeries) LWC.volSeries.applyOptions({visible:_lwInds.vol});
+  [LWC.macdHist,LWC.macdLine,LWC.signalLine].forEach(s=>s&&s.applyOptions({visible:_lwInds.macd}));
+  [LWC.ema5,LWC.ema13,LWC.ema50,LWC.ema200,LWC.ema800].forEach(s=>s&&s.applyOptions({visible:!!_lwInds.cloud}));
+  if(LWC._lastBars&&LWC._lastBars.length){
+    if(_lwInds.pvsra){
+      const col=LWC._lastBars.map((c,i)=>{const cc=_lwCalcPvsraColor(LWC._lastBars,i);return{...c,color:cc,borderColor:cc,wickColor:cc};});
+      try{LWC.candleSeries.setData(col);}catch(e){}
+      try{LWC.candleSeries.setMarkers(LWC._vectorMarkers);}catch(e){}
+    } else {
+      try{LWC.candleSeries.setData(LWC._lastBars);}catch(e){}
+      try{LWC.candleSeries.setMarkers([]);}catch(e){}
+    }
+  }
+  _lwApplyPivotLines();
+  _lwApplyADRLines();
+}
+function _lwInitToggles(){
+  Object.keys(_lwInds).forEach(k=>{const e=$('tog-'+k);if(e)e.classList.toggle('on',!!_lwInds[k]);});
+}
 
 const _LW_BNC={BTC:'BTC',ETH:'ETH',SOL:'SOL',XRP:'XRP',DOGE:'DOGE'};
 const _LW_BNC_INT={'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d','W':'1w'};
@@ -3170,33 +3228,75 @@ const _LW_CAP_RES={'1':'MINUTE','5':'MINUTE_5','15':'MINUTE_15','60':'HOUR','240
 function initLWChart(){
   const container=$('lw-chart');
   if(!container) return;
-  if(LWC.chart){try{LWC.chart.remove();}catch(e){} LWC.chart=null;LWC.candleSeries=null;LWC.volSeries=null;LWC.ema5=LWC.ema13=LWC.ema50=LWC.ema200=null;LWC.priceLine=null;LWC.tradeLines=[];}
+  // ── Cleanup ──
+  if(LWC.chart){try{LWC.chart.remove();}catch(e){} LWC.chart=null;}
   if(LWC.refreshTimer){clearInterval(LWC.refreshTimer);LWC.refreshTimer=null;}
   if(LWC._resizeObs){LWC._resizeObs.disconnect();LWC._resizeObs=null;}
+  if(LWC._unsubPanZoom){try{LWC._unsubPanZoom();}catch(e){} LWC._unsubPanZoom=null;}
+  if(LWC.cloudCanvas){try{LWC.cloudCanvas.remove();}catch(e){} LWC.cloudCanvas=null;}
+  Object.assign(LWC,{
+    candleSeries:null,ema5:null,ema13:null,ema50:null,ema200:null,ema800:null,
+    macdHist:null,macdLine:null,signalLine:null,volSeries:null,
+    priceLine:null,tradeLines:[],_auxLines:[],_adrLines:[],_dailyOpenLine:null,
+    _zones:[],_lastBars:[],_vectorMarkers:[],_cloudUpper:[],_cloudLower:[],
+    _pivots:{p:0,r1:0,r2:0,r3:0,s1:0,s2:0,s3:0,m:[]},_adr:{hi:0,lo:0,pct:0},
+  });
   if(typeof LightweightCharts==='undefined'){console.warn('[LWC] library not loaded');return;}
   LWC.asset=S.mkt||'GOLD';
   LWC.interval=TV.interval||'60';
+  // ── Chart ──
   LWC.chart=LightweightCharts.createChart(container,{
-    width:container.clientWidth||600,
-    height:container.clientHeight||300,
+    width:container.clientWidth||600,height:container.clientHeight||300,
     layout:{background:{color:'#0a0c0f'},textColor:'#5a6878'},
     grid:{vertLines:{color:'#1a1f28'},horzLines:{color:'#1a1f28'}},
     crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
-    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878'},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878',scaleMargins:{top:0.02,bottom:0.38}},
     timeScale:{borderColor:'#2a2f38',textColor:'#5a6878',timeVisible:true,secondsVisible:false},
   });
-  LWC.candleSeries=LWC.chart.addCandlestickSeries({upColor:'#2ecc71',downColor:'#e74c3c',borderUpColor:'#2ecc71',borderDownColor:'#e74c3c',wickUpColor:'#2ecc71',wickDownColor:'#e74c3c'});
-  LWC.volSeries=LWC.chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'',scaleMargins:{top:0.82,bottom:0}});
-  const mkLine=c=>LWC.chart.addLineSeries({color:c,lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
-  LWC.ema5=mkLine('rgba(255,255,80,0.75)');
-  LWC.ema13=mkLine('rgba(41,182,246,0.75)');
-  LWC.ema50=mkLine('rgba(255,165,0,0.85)');
-  LWC.ema200=mkLine('rgba(231,76,60,0.85)');
+  // ── Candlesticks ──
+  LWC.candleSeries=LWC.chart.addCandlestickSeries({
+    upColor:'#2ecc71',downColor:'#e74c3c',
+    borderUpColor:'#2ecc71',borderDownColor:'#e74c3c',
+    wickUpColor:'#2ecc71',wickDownColor:'#e74c3c',
+  });
+  // ── EMAs — Pine Script colors ──
+  const mkEL=(c,w=1)=>LWC.chart.addLineSeries({color:c,lineWidth:w,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  LWC.ema5  =mkEL('#FEEA4A');
+  LWC.ema13 =mkEL('#FD5457');
+  LWC.ema50 =mkEL('#1FBCD3',2);
+  LWC.ema200=mkEL('#FFFFFF');
+  LWC.ema800=mkEL('#7B52EB',2);
+  // ── Volume (15% at bottom) ──
+  LWC.volSeries=LWC.chart.addHistogramSeries({
+    priceFormat:{type:'volume'},priceScaleId:'vol',
+    scaleMargins:{top:0.85,bottom:0.01},
+  });
+  // ── MACD (20% above volume) ──
+  LWC.macdHist=LWC.chart.addHistogramSeries({
+    priceScaleId:'macd',scaleMargins:{top:0.62,bottom:0.17},
+    color:'rgba(38,166,154,0.8)',lastValueVisible:false,priceLineVisible:false,
+  });
+  LWC.macdLine=LWC.chart.addLineSeries({
+    priceScaleId:'macd',scaleMargins:{top:0.62,bottom:0.17},
+    color:'#2196F3',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
+  });
+  LWC.signalLine=LWC.chart.addLineSeries({
+    priceScaleId:'macd',scaleMargins:{top:0.62,bottom:0.17},
+    color:'#FF6D00',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
+  });
+  // ── Canvas overlay (cloud fill, zones, sessions) ──
+  _lwCreateCanvas();
+  // ── Resize observer ──
   LWC._resizeObs=new ResizeObserver(()=>{
-    if(LWC.chart&&container.clientWidth>0&&container.clientHeight>0)
+    if(LWC.chart&&container.clientWidth>0&&container.clientHeight>0){
       LWC.chart.resize(container.clientWidth,container.clientHeight);
+      if(LWC.cloudCanvas){LWC.cloudCanvas.width=container.clientWidth;LWC.cloudCanvas.height=container.clientHeight;}
+      _lwDrawCanvas();
+    }
   });
   LWC._resizeObs.observe(container);
+  _lwInitToggles();
+  _lwApplyIndVisibility();
   loadLWChart();
 }
 
@@ -3213,9 +3313,7 @@ async function loadLWChart(){
   LWC.refreshTimer=setInterval(async()=>{
     if(!LWC.chart||!LWC.candleSeries) return;
     const fresh=await _lwFetch(LWC.asset,LWC.interval);
-    if(fresh&&fresh.length){
-      try{LWC.candleSeries.update(fresh[fresh.length-1]);}catch(e){}
-    }
+    if(fresh&&fresh.length) _lwApply(fresh);
     updateLivePriceLine();
     drawTradeOverlays();
   },30000);
@@ -3258,18 +3356,382 @@ function _lwApply(bars){
   const seen=new Map();
   bars.forEach(b=>seen.set(b.time,b));
   const candles=Array.from(seen.values()).sort((a,b)=>a.time-b.time);
-  LWC.candleSeries.setData(candles);
-  if(LWC.volSeries) LWC.volSeries.setData(candles.map(b=>({time:b.time,value:b.volume||0,color:b.close>=b.open?'rgba(46,204,113,0.25)':'rgba(231,76,60,0.25)'})));
+  LWC._lastBars=candles;
+
+  // ── PVSRA Vector Candle coloring ──
+  if(_lwInds.pvsra){
+    const markers=[];
+    const colored=candles.map((c,i)=>{
+      const cc=_lwCalcPvsraColor(candles,i);
+      if(cc==='#00ff00'||cc==='#ff0000')
+        markers.push({time:c.time,position:cc==='#00ff00'?'belowBar':'aboveBar',color:cc,shape:'arrowUp',text:''});
+      else if(cc==='#0000ff'||cc==='#ff00ff')
+        markers.push({time:c.time,position:cc==='#0000ff'?'belowBar':'aboveBar',color:cc,shape:'circle',text:''});
+      return{...c,color:cc,borderColor:cc,wickColor:cc};
+    });
+    LWC._vectorMarkers=markers;
+    LWC.candleSeries.setData(colored);
+    try{LWC.candleSeries.setMarkers(markers);}catch(e){}
+  } else {
+    LWC.candleSeries.setData(candles);
+    try{LWC.candleSeries.setMarkers([]);}catch(e){}
+  }
+
+  // ── Volume ──
+  if(LWC.volSeries)
+    LWC.volSeries.setData(candles.map(b=>({time:b.time,value:b.volume||0,color:b.close>=b.open?'rgba(46,204,113,0.35)':'rgba(231,76,60,0.35)'})));
+
+  // ── EMAs ──
   const closes=candles.map(b=>b.close);
-  const setEMA=(series,period)=>{
-    if(!series||closes.length<period) return;
-    const k=2/(period+1);
-    let ema=closes.slice(0,period).reduce((a,b)=>a+b,0)/period;
-    const out=[{time:candles[period-1].time,value:ema}];
-    for(let i=period;i<closes.length;i++){ema=closes[i]*k+ema*(1-k);out.push({time:candles[i].time,value:ema});}
-    series.setData(out);
+  const e5=_lwCalcEMAArr(closes,5);
+  const e13=_lwCalcEMAArr(closes,13);
+  const e50=_lwCalcEMAArr(closes,50);
+  const e200=_lwCalcEMAArr(closes,200);
+  const e800=_lwCalcEMAArr(closes,800);
+  const mkED=(arr)=>{const off=closes.length-arr.length;return arr.map((v,i)=>({time:candles[off+i].time,value:v}));};
+  if(LWC.ema5&&e5.length)   LWC.ema5.setData(mkED(e5));
+  if(LWC.ema13&&e13.length) LWC.ema13.setData(mkED(e13));
+  if(LWC.ema50&&e50.length) LWC.ema50.setData(mkED(e50));
+  if(LWC.ema200&&e200.length) LWC.ema200.setData(mkED(e200));
+  if(LWC.ema800&&e800.length) LWC.ema800.setData(mkED(e800));
+
+  // ── EMA Cloud bands (stdDev(closes,100)/4 around EMA50) ──
+  if(e50.length>=100){
+    const upper=[],lower=[];
+    for(let i=0;i<e50.length;i++){
+      const gi=closes.length-e50.length+i;
+      if(gi<100) continue;
+      const sl=closes.slice(gi-100,gi);
+      const mn=sl.reduce((a,b)=>a+b,0)/100;
+      const sd=Math.sqrt(sl.reduce((a,b)=>a+(b-mn)**2,0)/100)/4;
+      upper.push({time:candles[gi].time,value:e50[i]+sd});
+      lower.push({time:candles[gi].time,value:e50[i]-sd});
+    }
+    LWC._cloudUpper=upper; LWC._cloudLower=lower;
+  }
+
+  // ── Vector Candle Zones ──
+  if(_lwInds.zones) _lwUpdateZones(candles);
+
+  // ── MACD 12/26/9 ──
+  if(LWC.macdHist&&LWC.macdLine&&LWC.signalLine){
+    const {hist,macdVals,sigVals,startI}=_lwCalcMACD(closes,12,26,9);
+    if(hist.length){
+      LWC.macdHist.setData(hist.map((v,i)=>({time:candles[startI+i].time,value:v,color:v>=0?'rgba(38,166,154,0.8)':'rgba(239,83,80,0.8)'})));
+      LWC.macdLine.setData(macdVals.map((v,i)=>({time:candles[startI+i].time,value:v})));
+      LWC.signalLine.setData(sigVals.map((v,i)=>({time:candles[startI+i].time,value:v})));
+    }
+  }
+
+  // ── Pivots + ADR ──
+  const {pivots,adr}=_lwCalcPivotsADR(candles);
+  LWC._pivots=pivots; LWC._adr=adr;
+  _lwApplyPivotLines();
+  _lwApplyADRLines();
+  _lwApplyDailyOpen(candles);
+
+  // ── Canvas (cloud, zones, sessions) ──
+  _lwDrawCanvas();
+
+  // ── Data row ──
+  _lwUpdateDataRow(candles,e5,e13,e50,e200,e800,pivots,adr);
+}
+
+// ── EMA array: returns array aligned to closes end, length = closes.length - period + 1 ──
+function _lwCalcEMAArr(closes,period){
+  if(closes.length<period) return[];
+  const k=2/(period+1);
+  let ema=closes.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  const out=[ema];
+  for(let i=period;i<closes.length;i++){ema=closes[i]*k+ema*(1-k);out.push(ema);}
+  return out;
+}
+
+// ── PVSRA per-bar color (exact Traders Reality Pine Script logic) ──
+function _lwCalcPvsraColor(candles,i){
+  const lookback=10;
+  if(i<lookback) return candles[i].close>=candles[i].open?'#999999':'#4d4d4d';
+  let avgVol=0,highestVS=0;
+  for(let j=i-lookback;j<i;j++){
+    avgVol+=candles[j].volume;
+    const vs=(candles[j].high-candles[j].low)*candles[j].volume;
+    if(vs>highestVS) highestVS=vs;
+  }
+  avgVol/=lookback;
+  const spread=candles[i].high-candles[i].low;
+  const vs=spread*candles[i].volume;
+  const isBull=candles[i].close>=candles[i].open;
+  if(candles[i].volume>=avgVol*2||vs>=highestVS) return isBull?'#00ff00':'#ff0000';
+  if(candles[i].volume>=avgVol*1.5) return isBull?'#0000ff':'#ff00ff';
+  return isBull?'#999999':'#4d4d4d';
+}
+
+// ── MACD 12/26/9 ──
+function _lwCalcMACD(closes,fast,slow,sig){
+  const f=_lwCalcEMAArr(closes,fast);
+  const s=_lwCalcEMAArr(closes,slow);
+  const off=slow-fast;
+  const macd=s.map((v,i)=>f[i+off]-v);
+  const sigArr=_lwCalcEMAArr(macd,sig);
+  const sigOff=macd.length-sigArr.length;
+  const hist=sigArr.map((v,i)=>macd[sigOff+i]-v);
+  const macdVals=sigArr.map((v,i)=>macd[sigOff+i]);
+  const startI=closes.length-hist.length;
+  return{hist,macdVals,sigVals:sigArr,startI};
+}
+
+// ── Pivot Points (classic) + ADR 14-day ──
+function _lwCalcPivotsADR(candles){
+  const SDAY=86400;
+  const now=candles[candles.length-1]?.time||0;
+  const todayStart=Math.floor(now/SDAY)*SDAY;
+  const ydayStart=todayStart-SDAY;
+  const ydayBars=candles.filter(b=>b.time>=ydayStart&&b.time<todayStart);
+  let pdH=0,pdL=Infinity,pdC=0;
+  if(ydayBars.length){
+    pdH=Math.max(...ydayBars.map(b=>b.high));
+    pdL=Math.min(...ydayBars.map(b=>b.low));
+    pdC=ydayBars[ydayBars.length-1].close;
+  } else {
+    const fb=candles.slice(-Math.min(30,candles.length-1));
+    if(fb.length){pdH=Math.max(...fb.map(b=>b.high));pdL=Math.min(...fb.map(b=>b.low));pdC=fb[fb.length-1].close;}
+  }
+  const pp=(pdH+pdL+pdC)/3;
+  const r1=2*pp-pdL,s1=2*pp-pdH;
+  const r2=pp+(pdH-pdL),s2=pp-(pdH-pdL);
+  const r3=pdH+2*(pp-pdL),s3=pdL-2*(pdH-pp);
+  const m=[(pp+r1)/2,(pp+s1)/2,(r1+r2)/2,(s1+s2)/2];
+  const pivots={p:pp,r1,r2,r3,s1,s2,s3,m};
+
+  // ADR 14
+  let adr={hi:0,lo:0,pct:0};
+  const dayBuckets={};
+  candles.forEach(b=>{
+    const d=Math.floor(b.time/SDAY);
+    if(!dayBuckets[d]) dayBuckets[d]={h:b.high,l:b.low,open:b.open};
+    else{dayBuckets[d].h=Math.max(dayBuckets[d].h,b.high);dayBuckets[d].l=Math.min(dayBuckets[d].l,b.low);}
+  });
+  const dayKeys=Object.keys(dayBuckets).map(Number).sort((a,b)=>a-b);
+  const completeDays=dayKeys.slice(0,-1).slice(-14);
+  if(completeDays.length>=3){
+    const avgR=completeDays.reduce((a,d)=>a+(dayBuckets[d].h-dayBuckets[d].l),0)/completeDays.length;
+    const todayBars=candles.filter(b=>b.time>=todayStart);
+    const open=todayBars.length?todayBars[0].open:candles[candles.length-1].close;
+    const todH=todayBars.length?Math.max(...todayBars.map(b=>b.high)):open;
+    const todL=todayBars.length?Math.min(...todayBars.map(b=>b.low)):open;
+    adr.hi=open+avgR; adr.lo=open-avgR;
+    adr.pct=avgR>0?Math.round((todH-todL)/avgR*100):0;
+  }
+  return{pivots,adr};
+}
+
+// ── Pivot price lines ──
+function _lwApplyPivotLines(){
+  LWC._auxLines.forEach(l=>{try{LWC.candleSeries.removePriceLine(l);}catch(e){}});
+  LWC._auxLines=[];
+  if(!_lwInds.pivots||!LWC.candleSeries) return;
+  const p=LWC._pivots;const LS=LightweightCharts.LineStyle;
+  const mk=(price,color,title,style=LS.Dashed)=>{
+    if(!price||!isFinite(price)) return;
+    try{LWC._auxLines.push(LWC.candleSeries.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title}));}catch(e){}
   };
-  setEMA(LWC.ema5,5);setEMA(LWC.ema13,13);setEMA(LWC.ema50,50);setEMA(LWC.ema200,200);
+  mk(p.p,'#c084fc','PP',LS.Solid);
+  mk(p.r1,'#93c5fd','R1');mk(p.r2,'#60a5fa','R2');mk(p.r3,'#3b82f6','R3');
+  mk(p.s1,'#fca5a5','S1');mk(p.s2,'#f87171','S2');mk(p.s3,'#ef4444','S3');
+  (p.m||[]).forEach((mv,i)=>mk(mv,'rgba(148,163,184,0.55)',`M${i+1}`,LS.LargeDashed));
+}
+
+// ── ADR price lines ──
+function _lwApplyADRLines(){
+  if(!LWC._adrLines) LWC._adrLines=[];
+  LWC._adrLines.forEach(l=>{try{LWC.candleSeries.removePriceLine(l);}catch(e){}});
+  LWC._adrLines=[];
+  if(!_lwInds.adr||!LWC.candleSeries) return;
+  const a=LWC._adr;const LS=LightweightCharts.LineStyle;
+  const mk=(price,color,title)=>{
+    if(!price||!isFinite(price)) return;
+    try{LWC._adrLines.push(LWC.candleSeries.createPriceLine({price,color,lineWidth:1,lineStyle:LS.Dotted,axisLabelVisible:true,title}));}catch(e){}
+  };
+  mk(a.hi,'#60a5fa','ADR HI');
+  mk(a.lo,'#f87171','ADR LO');
+}
+
+// ── Daily Open price line ──
+function _lwApplyDailyOpen(candles){
+  if(LWC._dailyOpenLine){try{LWC.candleSeries.removePriceLine(LWC._dailyOpenLine);}catch(e){} LWC._dailyOpenLine=null;}
+  if(!candles.length) return;
+  const todayStart=Math.floor(candles[candles.length-1].time/86400)*86400;
+  const todayBars=candles.filter(b=>b.time>=todayStart);
+  const open=todayBars.length?todayBars[0].open:null;
+  if(!open) return;
+  try{LWC._dailyOpenLine=LWC.candleSeries.createPriceLine({price:open,color:'rgba(255,255,255,0.35)',lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dotted,axisLabelVisible:true,title:'DO'});}catch(e){}
+}
+
+// ── Update vector candle zones (max 500, closed when price passes through body) ──
+function _lwUpdateZones(candles){
+  const existing=new Set(LWC._zones.map(z=>z.time));
+  candles.forEach((c,i)=>{
+    if(existing.has(c.time)) return;
+    const cc=_lwCalcPvsraColor(candles,i);
+    if(cc==='#00ff00'||cc==='#ff0000'||cc==='#0000ff'||cc==='#ff00ff'){
+      LWC._zones.push({time:c.time,top:Math.max(c.open,c.close),bot:Math.min(c.open,c.close),color:cc});
+    }
+  });
+  const lastClose=candles[candles.length-1]?.close||0;
+  LWC._zones=LWC._zones.filter(z=>{
+    const isBull=z.color==='#00ff00'||z.color==='#0000ff';
+    return isBull?lastClose>=z.bot:lastClose<=z.top;
+  });
+  if(LWC._zones.length>500) LWC._zones=LWC._zones.slice(-500);
+}
+
+// ── Create canvas overlay for fills ──
+function _lwCreateCanvas(){
+  const container=$('lw-chart');if(!container) return;
+  if(LWC.cloudCanvas){try{LWC.cloudCanvas.remove();}catch(e){}}
+  const cvs=document.createElement('canvas');
+  cvs.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:2;';
+  cvs.width=container.clientWidth;cvs.height=container.clientHeight;
+  container.appendChild(cvs);LWC.cloudCanvas=cvs;
+  if(LWC._unsubPanZoom){try{LWC._unsubPanZoom();}catch(e){}}
+  if(LWC.chart){
+    const cb=()=>_lwDrawCanvas();
+    LWC.chart.timeScale().subscribeVisibleLogicalRangeChange(cb);
+    LWC._unsubPanZoom=()=>{try{LWC.chart.timeScale().unsubscribeVisibleLogicalRangeChange(cb);}catch(e){}};
+  }
+}
+
+// ── Draw canvas: cloud fill, zones, sessions ──
+function _lwDrawCanvas(){
+  if(!LWC.cloudCanvas||!LWC.chart||!LWC.candleSeries) return;
+  const cvs=LWC.cloudCanvas,ctx=cvs.getContext('2d');
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  const W=cvs.width,H=cvs.height;
+  const ts=LWC.chart.timeScale(),cs=LWC.candleSeries;
+
+  // ── EMA Cloud ──
+  if(_lwInds.cloud&&LWC._cloudUpper.length&&LWC._cloudLower.length){
+    ctx.beginPath();let first=true;
+    LWC._cloudUpper.forEach(pt=>{
+      try{const x=ts.timeToCoordinate(pt.time),y=cs.priceToCoordinate(pt.value);
+      if(x==null||y==null)return;if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);}catch(e){}
+    });
+    [...LWC._cloudLower].reverse().forEach(pt=>{
+      try{const x=ts.timeToCoordinate(pt.time),y=cs.priceToCoordinate(pt.value);
+      if(x==null||y==null)return;ctx.lineTo(x,y);}catch(e){}
+    });
+    ctx.closePath();ctx.fillStyle='rgba(155,47,174,0.4)';ctx.fill();
+  }
+
+  // ── Vector Candle Zones ──
+  if(_lwInds.zones&&LWC._zones.length){
+    LWC._zones.forEach(z=>{
+      try{
+        const x1=ts.timeToCoordinate(z.time);if(x1==null)return;
+        const y1=cs.priceToCoordinate(z.top),y2=cs.priceToCoordinate(z.bot);if(y1==null||y2==null)return;
+        ctx.fillStyle=z.color==='#00ff00'?'rgba(0,255,0,0.08)':z.color==='#ff0000'?'rgba(255,0,0,0.08)':z.color==='#0000ff'?'rgba(0,0,255,0.10)':'rgba(255,0,255,0.10)';
+        ctx.fillRect(x1,Math.min(y1,y2),W-x1,Math.abs(y2-y1));
+      }catch(e){}
+    });
+  }
+
+  // ── Market Sessions (TF ≤ 4H only) ──
+  if(_lwInds.sessions&&['1','5','15','60','240'].includes(LWC.interval)){
+    const bars=LWC._lastBars;if(!bars.length) return;
+    const SESS=[
+      {name:'SYDNEY', s:22,e:6,  color:'rgba(0,100,255,0.055)'},
+      {name:'TOKYO',  s:0, e:9,  color:'rgba(255,150,0,0.055)'},
+      {name:'LONDON', s:7, e:16, color:'rgba(100,220,100,0.055)'},
+      {name:'NY',     s:13,e:22, color:'rgba(255,80,80,0.055)'},
+    ];
+    const getS=(t)=>{const h=(new Date(t*1000)).getUTCHours();return SESS.find(s=>s.e>s.s?(h>=s.s&&h<s.e):(h>=s.s||h<s.e));};
+    let curS=null,segStart=0;
+    for(let i=0;i<=bars.length;i++){
+      const ss=i<bars.length?getS(bars[i].time):null;
+      const sn=ss?ss.name:null;
+      if(sn!==curS){
+        if(curS&&i>segStart){
+          const prev=SESS.find(s=>s.name===curS);
+          try{
+            const x1=ts.timeToCoordinate(bars[segStart].time);
+            const x2=i<bars.length?ts.timeToCoordinate(bars[i].time):W;
+            if(x1!=null&&x2!=null&&prev){ctx.fillStyle=prev.color;ctx.fillRect(x1,0,x2-x1,H);}
+          }catch(e){}
+        }
+        curS=sn;segStart=i;
+      }
+    }
+  }
+}
+
+// ── Update indicator data row ──
+function _lwUpdateDataRow(candles,e5,e13,e50,e200,e800,pivots,adr){
+  const last=candles[candles.length-1];if(!last) return;
+  const price=last.close;
+  const dec=M[LWC.asset]?.dec||2;
+  const fmt=v=>v&&isFinite(v)?v.toFixed(dec):'—';
+  // PVSRA
+  const pCol=_lwCalcPvsraColor(candles,candles.length-1);
+  const pLbl=pCol==='#00ff00'?'CLIMAX BUY':pCol==='#ff0000'?'CLIMAX SELL':pCol==='#0000ff'?'RISING BUY':pCol==='#ff00ff'?'RISING SELL':'NEUTRAL';
+  const pClr=pCol==='#00ff00'||pCol==='#0000ff'?'#00dd66':pCol==='#ff0000'||pCol==='#ff00ff'?'#ff4444':'#5a6878';
+  // Last EMA values
+  const lE5=e5.length?e5[e5.length-1]:0, lE13=e13.length?e13[e13.length-1]:0;
+  const lE50=e50.length?e50[e50.length-1]:0, lE200=e200.length?e200[e200.length-1]:0;
+  const lE800=e800.length?e800[e800.length-1]:0;
+  // Trend bias
+  let trend='NEUTRAL',tColor='#5a6878';
+  if(price>lE5&&lE5>lE13&&lE13>lE50){trend='BULL';tColor='#2ecc71';}
+  else if(price<lE5&&lE5<lE13&&lE13<lE50){trend='BEAR';tColor='#e74c3c';}
+  // EMA cross signal
+  let cross='—';
+  if(e5.length>=2&&e13.length>=2){
+    const p5=e5[e5.length-2],p13=e13[e13.length-2];
+    if(p5<=p13&&lE5>lE13) cross='▲ BULL X';
+    else if(p5>=p13&&lE5<lE13) cross='▼ BEAR X';
+  }
+  // M levels nearest above/below
+  const mLvls=(pivots.m||[]).filter(v=>isFinite(v));
+  const mHi=mLvls.filter(m=>m>price).sort((a,b)=>a-b)[0];
+  const mLo=mLvls.filter(m=>m<=price).sort((a,b)=>b-a)[0];
+  const s=(id,v,c)=>{const el=$(id);if(el){el.textContent=v;if(c)el.style.color=c;}};
+  s('i-e5',fmt(lE5));s('i-e13',fmt(lE13));s('i-e50',fmt(lE50));s('i-e200',fmt(lE200));s('i-e800',lE800?fmt(lE800):'—');
+  s('i-ecross',cross);
+  s('i-pvsra',pLbl,pClr);
+  s('i-pivot',fmt(pivots.p));
+  s('i-mhi',mHi?fmt(mHi):'—');s('i-mlo',mLo?fmt(mLo):'—');
+  s('i-adrhi',fmt(adr.hi));s('i-adrlo',fmt(adr.lo));s('i-adrpct',adr.pct?(adr.pct+'%'):'—');
+  s('i-trend',trend,tColor);
+  // AWR/AMR — compute from day buckets
+  const SDAY=86400;
+  const dayBuckets={};
+  candles.forEach(b=>{const d=Math.floor(b.time/SDAY);if(!dayBuckets[d])dayBuckets[d]={h:b.high,l:b.low};else{dayBuckets[d].h=Math.max(dayBuckets[d].h,b.high);dayBuckets[d].l=Math.min(dayBuckets[d].l,b.low);}});
+  const dayKeys=Object.keys(dayBuckets).map(Number).sort((a,b)=>a-b).slice(0,-1);
+  if(dayKeys.length>=5){
+    const todayStart=Math.floor(candles[candles.length-1].time/SDAY)*SDAY;
+    const todayBars=candles.filter(b=>b.time>=todayStart);
+    const openToday=todayBars.length?todayBars[0].open:price;
+    // AWR 5-week (~5 weeks of daily data)
+    const awrDays=dayKeys.slice(-35);
+    if(awrDays.length>=5){
+      const awrR=awrDays.reduce((a,d)=>a+(dayBuckets[d].h-dayBuckets[d].l),0)/awrDays.length;
+      s('i-awrhi',fmt(openToday+awrR));s('i-awrlo',fmt(openToday-awrR));
+    }
+    // AMR ~20 days
+    const amrDays=dayKeys.slice(-20);
+    if(amrDays.length>=10){
+      const amrR=amrDays.reduce((a,d)=>a+(dayBuckets[d].h-dayBuckets[d].l),0)/amrDays.length;
+      s('i-amrhi',fmt(openToday+amrR));s('i-amrlo',fmt(openToday-amrR));
+    }
+  }
+  // ATR 14
+  if(candles.length>=15){
+    let atrSum=0;
+    for(let i=candles.length-14;i<candles.length;i++){
+      const prev=candles[i-1],c=candles[i];
+      atrSum+=Math.max(c.high-c.low,Math.abs(c.high-prev.close),Math.abs(c.low-prev.close));
+    }
+    s('i-atr',(atrSum/14).toFixed(dec));
+  }
 }
 
 function drawTradeOverlays(){
@@ -4971,7 +5433,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     console.log('[Jimmy] DOMContentLoaded: S.mkt='+S.mkt+' TV.sym='+TV.sym);
   }
 
-  loadSaved();initTVChart(TV.sym);loadCalendar();startFeed();
+  loadSaved();_lwInitToggles();initTVChart(TV.sym);loadCalendar();startFeed();
   initMacro();
   // Fetch live USD→AUD rate (frankfurter.app primary, open.er-api fallback, 1.55 hardcoded last resort)
   fetchAudRate();
