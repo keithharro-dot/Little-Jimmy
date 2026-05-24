@@ -2682,6 +2682,26 @@ function closePos(id){
   toast('✓','Closed',`${pos.direction} ${pos.instrument}: ${pnl>=0?'+$':'-$'}${Math.abs(pnl).toFixed(2)}`);
 }
 
+function _normInstr(raw){
+  if(!raw) return '';
+  const s=(raw+'').toUpperCase().trim();
+  const MAP={
+    XAUUSD:'GOLD',XAGUSD:'SILVER',
+    OIL_CRUDE:'OIL',OILUSD:'OIL',WTI:'OIL',BRENT:'OIL',
+    BITCOIN:'BTC',BTCUSD:'BTC',
+    ETHEREUM:'ETH',ETHUSD:'ETH',
+    SOLANA:'SOL',SOLUSD:'SOL',
+    RIPPLE:'XRP',XRPUSD:'XRP',
+    DOGECOIN:'DOGE',DOGEUSD:'DOGE',
+    NDAQ100:'NASDAQ',US100:'NASDAQ',NDX:'NASDAQ',NAS100:'NASDAQ',
+  };
+  if(MAP[s]) return MAP[s];
+  if(M[s]) return s;
+  const stripped=s.endsWith('USD')?s.slice(0,-3):s;
+  if(M[stripped]) return stripped;
+  return s;
+}
+
 function toggleTradeGroup(instrument){
   if(!S._expandedGroups) S._expandedGroups=new Set();
   const isOpen=S._expandedGroups.has(instrument);
@@ -2698,7 +2718,7 @@ function toggleTradeGroup(instrument){
 }
 
 function closeAllGroup(instrument){
-  const ids=S.positions.filter(p=>p.instrument===instrument&&p.status==='open').map(p=>p.id);
+  const ids=S.positions.filter(p=>_normInstr(p.instrument||p.epic||p.symbol||'')===instrument&&p.status==='open').map(p=>p.id);
   ids.slice().reverse().forEach(id=>closePos(id));
 }
 
@@ -2786,20 +2806,22 @@ function renderTrades(){
     return;
   }
 
-  // Group by instrument
+  // Filter out zero/missing price positions and group by normalised instrument key
   const groups={};
-  active.forEach(pos=>{
-    if(!groups[pos.instrument]) groups[pos.instrument]={instrument:pos.instrument,positions:[]};
-    groups[pos.instrument].positions.push(pos);
+  active.filter(p=>p.openPrice&&p.openPrice>0).forEach(pos=>{
+    pos._grpKey=_normInstr(pos.instrument||pos.epic||pos.symbol||'');
+    if(!groups[pos._grpKey]) groups[pos._grpKey]={instrument:pos._grpKey,positions:[]};
+    groups[pos._grpKey].positions.push(pos);
   });
   const groupKeys=Object.keys(groups);
 
   // In-place update when groups and position counts are unchanged
+  const validActive=active.filter(p=>p.openPrice&&p.openPrice>0);
   const existingGroups=tbody.querySelectorAll('tr[data-group-id]');
   const existingKeys=[...existingGroups].map(r=>r.dataset.groupId);
   const existingTrades=tbody.querySelectorAll('tr[data-trade-id]').length;
   const canUpdate=existingGroups.length===groupKeys.length &&
-    existingTrades===active.length &&
+    existingTrades===validActive.length &&
     groupKeys.every(k=>existingKeys.includes(k));
 
   if(canUpdate){
@@ -2858,16 +2880,17 @@ function renderTrades(){
   }
 
   function detailRow(pos){
-    const m=M[pos.instrument]||M.GOLD; const cur=S.prices[pos.instrument];
+    const gk=pos._grpKey||pos.instrument;
+    const m=M[gk]||M.GOLD; const cur=S.prices[gk];
     const pnl=pos.pnl??0; const pc=pnl>=0?'var(--green)':'var(--red)';
     const pnlStr=(pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2);
     const tpVal=pos.tp!=null&&isFinite(pos.tp)?Number(pos.tp).toFixed(m.dec):'';
     const slVal=pos.sl!=null&&isFinite(pos.sl)?Number(pos.sl).toFixed(m.dec):'';
     const dt=pos.openTime?new Date(pos.openTime).toLocaleString('en-AU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
     const dirCol=pos.direction==='BUY'?'var(--green)':'var(--red)';
-    const vis=S._expandedGroups.has(pos.instrument);
+    const vis=S._expandedGroups.has(gk);
     const ins='font-family:DM Mono,monospace;font-size:11px;outline:none;text-align:center;width:76px;border:none;border-radius:2px 2px 0 0;padding:2px 3px;cursor:text;';
-    return `<tr data-trade-id="${pos.id}" class="grp-detail-${pos.instrument}" style="display:${vis?'table-row':'none'};background:rgba(255,255,255,0.015);border-bottom:1px solid var(--border);">
+    return `<tr data-trade-id="${pos.id}" class="grp-detail-${gk}" style="display:${vis?'table-row':'none'};background:rgba(255,255,255,0.015);border-bottom:1px solid var(--border);">
       <td style="font-size:12px;padding:5px 8px 5px 28px;color:var(--muted);">${pos.autoTrade?'🤖 ':''}${dt}</td>
       <td style="font-size:12px;padding:5px 6px;"><span style="color:${dirCol};font-family:'Bebas Neue';font-size:12px;">${pos.direction}</span></td>
       <td style="font-size:12px;padding:5px 6px;color:var(--muted);">${pos.leverage||'—'}</td>
