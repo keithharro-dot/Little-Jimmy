@@ -559,8 +559,6 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
           <span style="font-size:11px;color:var(--muted);border-left:1px solid var(--border);padding-left:8px;">
             SIGNAL <b id="sig-pct" style="color:var(--green);">—</b>
           </span>
-          <button id="btn-fullscreen" onclick="openChartFullscreen()" title="Fullscreen chart (Esc to exit)">⛶</button>
-          <button id="btn-popout" onclick="openChartPopout()" title="Pop out chart in new tab">↗</button>
         </div>
       </div>
       <!-- INDICATOR LAYER TOGGLES -->
@@ -723,6 +721,9 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
       <!-- Mini price display (mobile / loading state) -->
       <div id="mini-price-display" style="display:none;"></div>
       <div id="tv-fallback" style="display:none;"></div>
+      <!-- Chart overlay buttons — top-right corner -->
+      <button id="btn-popout" onclick="openChartPopout()" title="Pop out chart in new tab" style="position:absolute;top:8px;right:8px;z-index:10;background:rgba(0,0,0,0.6);border:1px solid var(--gold);color:var(--gold);padding:4px 8px;border-radius:3px;cursor:pointer;font-size:14px;line-height:1;font-weight:700;">↗</button>
+      <button id="btn-fullscreen" onclick="openChartFullscreen()" title="Fullscreen chart (Esc to exit)" style="position:absolute;top:8px;right:44px;z-index:10;background:rgba(0,0,0,0.6);border:1px solid var(--gold);color:var(--gold);padding:4px 8px;border-radius:3px;cursor:pointer;font-size:14px;line-height:1;font-weight:700;">⛶</button>
     </div>
 
   </div><!-- end bottom-split -->
@@ -5734,6 +5735,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
   loadSaved();_lwInitToggles();initTVChart(TV.sym);loadCalendar();startFeed();
+  // Deferred resize — flexbox layout may not resolve before DOMContentLoaded fires,
+  // leaving the chart initialized at 0×0. Force correct dimensions after layout settles.
+  setTimeout(()=>{const c=$('lw-chart');if(LWC.chart&&c&&c.clientWidth>0&&c.clientHeight>0){LWC.chart.resize(c.clientWidth,c.clientHeight);if(LWC.cloudCanvas){LWC.cloudCanvas.width=c.clientWidth;LWC.cloudCanvas.height=c.clientHeight;}_lwDrawCanvas();}},250);
   initMacro();
   // Fetch live USD→AUD rate (frankfurter.app primary, open.er-api fallback, 1.55 hardcoded last resort)
   fetchAudRate();
