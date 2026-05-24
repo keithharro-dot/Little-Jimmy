@@ -3840,8 +3840,8 @@ function openChartPopout(){
 }
 
 function _buildPopupBlobHTML(){
-// Note: <\/script> evaluates to </script> at runtime; the backslash prevents the HTML parser
-// from closing THIS page's <script> block when it scans for </script>.
+// Note: <\/script> in a JS string evaluates to the real closing tag at runtime,
+// but the backslash prevents the HTML tokeniser from ending this page's script block early.
 return `<!DOCTYPE html>
 <html lang="en">
 <head>
