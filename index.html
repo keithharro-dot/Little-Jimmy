@@ -295,6 +295,19 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 .start-btn{ background:var(--green); color:#000; border:none; padding:5px 13px; font-family:"Bebas Neue"; font-size:12px; letter-spacing:1px; cursor:pointer; border-radius:3px; }
 .stop-btn{ background:var(--red); color:#fff; border:none; padding:5px 13px; font-family:"Bebas Neue"; font-size:12px; letter-spacing:1px; cursor:pointer; border-radius:3px; }
 
+/* ── SIGNAL SIDEBAR ── */
+.sig-sb{ position:fixed; top:38px; left:0; bottom:0; width:0; background:var(--bg2); border-right:1px solid rgba(245,200,66,0.3); z-index:50; overflow:hidden; transition:width 0.28s; display:flex; flex-direction:column; }
+.sig-sb.open{ width:340px; }
+.sig-sb-inner{ width:340px; height:100%; display:flex; flex-direction:column; overflow:hidden; }
+.sig-sb-hdr{ display:flex; align-items:center; justify-content:space-between; padding:9px 13px; background:var(--bg3); border-bottom:1px solid rgba(245,200,66,0.2); flex-shrink:0; }
+.sig-sb-body{ flex:1; overflow-y:auto; padding:11px 13px; }
+.sig-row{ display:flex; align-items:center; gap:8px; padding:7px 9px; background:var(--bg3); border:1px solid var(--border); border-radius:4px; margin-bottom:5px; cursor:pointer; transition:border-color 0.15s; }
+.sig-row:hover{ border-color:var(--border2); }
+.sig-conf-bar{ height:3px; border-radius:2px; background:rgba(255,255,255,0.06); margin-top:3px; overflow:hidden; }
+.sig-conf-fill{ height:100%; border-radius:2px; transition:width 0.5s; }
+.sig-badge{ font-family:"Bebas Neue"; font-size:10px; letter-spacing:1px; padding:2px 6px; border-radius:2px; white-space:nowrap; }
+.sig-log-entry{ font-size:9px; color:var(--muted); padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+
 /* ── QUICK ORDER POPUP ── */
 #qop{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:300; background:var(--bg2); border-radius:7px; padding:16px; width:270px; box-shadow:0 8px 30px rgba(0,0,0,0.6); }
 
@@ -361,6 +374,7 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
     </div>
     <button class="tbtn" onclick="openTRYT()">▶ TR</button>
     <button class="tbtn" onclick="openTax()">📊 TAX</button>
+    <button class="tbtn" id="sig-hdr-btn" onclick="toggleSignalSB()">📊 SIGNALS</button>
     <button class="tbtn" id="auto-hdr-btn" onclick="toggleAutoSB()">🤖 AUTO</button>
     <button class="conn-btn" onclick="openConn()">⚙ CONNECT</button>
   </div>
@@ -1154,6 +1168,42 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
   </div>
 </div>
 
+<!-- ── SIGNAL SIDEBAR — HYBRID SIGNAL ENGINE ── -->
+<div class="sig-sb" id="sig-sb">
+  <div class="sig-sb-inner">
+    <div class="sig-sb-hdr">
+      <div>
+        <div style="font-family:'Bebas Neue';font-size:13px;letter-spacing:2px;color:var(--gold);">📊 HYBRID SIGNAL ENGINE</div>
+        <div style="font-size:7px;color:var(--muted);margin-top:1px;" id="hse-last-scan">LAST SCAN: —</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button id="hse-scan-btn" onclick="hseStartScan()" style="background:var(--gold);color:#000;border:none;padding:4px 10px;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:3px;">⟳ SCAN</button>
+        <button onclick="closeSignalSB()" style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;">✕</button>
+      </div>
+    </div>
+    <div class="sig-sb-body">
+      <!-- AUTO SCAN STATUS -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;margin-bottom:9px;">
+        <div>
+          <div style="font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;" id="hse-status-txt">STOPPED</div>
+          <div style="font-size:7px;color:var(--muted);">NEXT SCAN: <b id="hse-cd" style="color:var(--gold);">—</b></div>
+        </div>
+        <button id="hse-toggle-btn" onclick="hseToggle()" class="start-btn">▶ START</button>
+      </div>
+      <!-- SIGNAL ROWS -->
+      <div style="font-size:11px;color:var(--muted);letter-spacing:2px;margin:0 0 5px;">SIGNALS — ALL INSTRUMENTS</div>
+      <div id="hse-rows"><div style="color:var(--muted);font-size:11px;text-align:center;padding:20px 0;">No data yet — click SCAN</div></div>
+      <!-- DECISION LOG -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 4px;">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:2px;">DECISION LOG</div>
+        <button onclick="localStorage.removeItem('ljtc-signal-log');document.getElementById('hse-log').innerHTML='<div style=\'color:var(--muted)\'>— Cleared —</div>'" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:7px;padding:2px 7px;cursor:pointer;border-radius:2px;">CLEAR</button>
+      </div>
+      <div id="hse-log" style="font-family:'DM Mono';font-size:9px;height:130px;overflow-y:auto;padding:7px;background:var(--bg3);border-radius:3px;border:1px solid var(--border);line-height:1.7;">
+        <div style="color:var(--muted);">— No log entries yet —</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ── CONNECT MODAL ── -->
 <div class="overlay" id="conn-overlay" onclick="if(event.target===this)closeConn()">
@@ -4926,6 +4976,367 @@ function buildEngInstrs(){
       </select>
     </div>`).join('');
 }
+
+// ══ HYBRID SIGNAL ENGINE (HSE) ══════════════════════════════════════════════
+
+const HSE={
+  running:false,timer:null,countdown:0,cdTimer:null,
+  scanning:false,lastScan:0,interval:60,
+  results:{}, // asset → analyzeAsset result
+  prevRecs:{}, // asset → last recommendation (for change detection)
+};
+const HSE_LOG_KEY='ljtc-signal-log';
+
+// ── Analyze a single asset using real candle data ──
+function analyzeAsset(candles,asset){
+  if(!candles||candles.length<20) return null;
+  const closes=candles.map(b=>b.close);
+  const price=closes[closes.length-1];
+  let buyScore=0,sellScore=0;
+  const signals=[];
+
+  // 1. Vector Detection (20 pts) — PVSRA vectors in last 3 candles
+  {
+    let bullV=0,bearV=0;
+    const start=Math.max(0,candles.length-3);
+    for(let i=start;i<candles.length;i++){
+      const cc=_lwCalcPvsraColor(candles,i);
+      if(cc==='#00ff00'||cc==='#0000ff') bullV++;
+      else if(cc==='#ff0000'||cc==='#ff00ff') bearV++;
+    }
+    if(bullV>0&&bullV>=bearV){
+      const pts=bullV===3?20:bullV===2?14:8;
+      buyScore+=pts;
+      signals.push({name:'Vector Detection',dir:'BUY',pts,reason:bullV+'× bull vector candle'+(bullV>1?'s':'')});
+    } else if(bearV>0&&bearV>bullV){
+      const pts=bearV===3?20:bearV===2?14:8;
+      sellScore+=pts;
+      signals.push({name:'Vector Detection',dir:'SELL',pts,reason:bearV+'× bear vector candle'+(bearV>1?'s':'')});
+    }
+  }
+
+  // 2. EMA Environment (20 pts) — price/EMA5/EMA13/EMA50 stack
+  {
+    const e5a=_lwCalcEMAArr(closes,5);
+    const e13a=_lwCalcEMAArr(closes,13);
+    const e50a=_lwCalcEMAArr(closes,50);
+    if(e5a.length&&e13a.length&&e50a.length){
+      const e5=e5a[e5a.length-1],e13=e13a[e13a.length-1],e50=e50a[e50a.length-1];
+      if(price>e5&&e5>e13&&e13>e50){
+        buyScore+=20;
+        signals.push({name:'EMA Environment',dir:'BUY',pts:20,reason:'Full bull stack P>E5>E13>E50'});
+      } else if(price<e5&&e5<e13&&e13<e50){
+        sellScore+=20;
+        signals.push({name:'EMA Environment',dir:'SELL',pts:20,reason:'Full bear stack P<E5<E13<E50'});
+      } else if(price>e50){
+        buyScore+=10;
+        signals.push({name:'EMA Environment',dir:'BUY',pts:10,reason:'Price above EMA50'});
+      } else {
+        sellScore+=10;
+        signals.push({name:'EMA Environment',dir:'SELL',pts:10,reason:'Price below EMA50'});
+      }
+    }
+  }
+
+  // 3. EMA50 Deviation (15 pts) — reversion signal when >3% from EMA50
+  {
+    const e50a=_lwCalcEMAArr(closes,50);
+    if(e50a.length){
+      const e50=e50a[e50a.length-1];
+      const dev=(price-e50)/e50;
+      if(dev>0.03){
+        sellScore+=15;
+        signals.push({name:'EMA50 Deviation',dir:'SELL',pts:15,reason:'+'+(dev*100).toFixed(1)+'% above EMA50 — reversion'});
+      } else if(dev<-0.03){
+        buyScore+=15;
+        signals.push({name:'EMA50 Deviation',dir:'BUY',pts:15,reason:(dev*100).toFixed(1)+'% below EMA50 — reversion'});
+      }
+    }
+  }
+
+  // 4. Vector Unrecovered (20 pts) — open vector zones within 3% of price
+  {
+    const zones=[];
+    candles.forEach((c,i)=>{
+      const cc=_lwCalcPvsraColor(candles,i);
+      if(cc==='#00ff00'||cc==='#ff0000'||cc==='#0000ff'||cc==='#ff00ff'){
+        zones.push({top:Math.max(c.open,c.close),bot:Math.min(c.open,c.close),color:cc});
+      }
+    });
+    // Filter to unrecovered zones
+    const active=zones.filter(z=>{
+      const isBull=z.color==='#00ff00'||z.color==='#0000ff';
+      return isBull?price>=z.bot:price<=z.top;
+    });
+    const bullSupp=active.filter(z=>(z.color==='#00ff00'||z.color==='#0000ff')&&Math.abs(price-z.top)/price<0.03);
+    const bearRes=active.filter(z=>(z.color==='#ff0000'||z.color==='#ff00ff')&&Math.abs(price-z.bot)/price<0.03);
+    if(bullSupp.length>0){
+      buyScore+=20;
+      signals.push({name:'Vector Unrecovered',dir:'BUY',pts:20,reason:bullSupp.length+' bull zone'+(bullSupp.length>1?'s':'')+' within 3%'});
+    } else if(bearRes.length>0){
+      sellScore+=20;
+      signals.push({name:'Vector Unrecovered',dir:'SELL',pts:20,reason:bearRes.length+' bear zone'+(bearRes.length>1?'s':'')+' within 3%'});
+    }
+  }
+
+  // 5. Stopping Volume Candle (15 pts) — vol>150% avg, wick>60%, body<30%
+  {
+    const last=candles[candles.length-1];
+    const recent=candles.slice(-20);
+    const avgVol=recent.reduce((s,b)=>s+(b.volume||0),0)/recent.length;
+    if(avgVol>0&&(last.volume||0)>avgVol*1.5){
+      const range=last.high-last.low;
+      const body=Math.abs(last.close-last.open);
+      const upperWick=last.high-Math.max(last.open,last.close);
+      const lowerWick=Math.min(last.open,last.close)-last.low;
+      if(range>0&&body/range<0.3){
+        if(lowerWick/range>0.6){
+          buyScore+=15;
+          signals.push({name:'Stopping Volume',dir:'BUY',pts:15,reason:'Bull stop '+(last.volume/avgVol).toFixed(1)+'× vol, lower wick '+(lowerWick/range*100).toFixed(0)+'%'});
+        } else if(upperWick/range>0.6){
+          sellScore+=15;
+          signals.push({name:'Stopping Volume',dir:'SELL',pts:15,reason:'Bear stop '+(last.volume/avgVol).toFixed(1)+'× vol, upper wick '+(upperWick/range*100).toFixed(0)+'%'});
+        }
+      }
+    }
+  }
+
+  // 6. M/W Formation (10 pts) — double bottom/top in last 20 candles within 1%
+  {
+    const win=candles.slice(-20);
+    let lo1=0,lo2=1,hi1=0,hi2=1;
+    for(let i=2;i<win.length;i++){
+      if(win[i].low<win[lo1].low){lo2=lo1;lo1=i;}
+      else if(win[i].low<win[lo2].low&&i!==lo1){lo2=i;}
+      if(win[i].high>win[hi1].high){hi2=hi1;hi1=i;}
+      else if(win[i].high>win[hi2].high&&i!==hi1){hi2=i;}
+    }
+    const lowDiff=win[lo1].low>0?Math.abs(win[lo1].low-win[lo2].low)/win[lo1].low:1;
+    const hiDiff=win[hi1].high>0?Math.abs(win[hi1].high-win[hi2].high)/win[hi1].high:1;
+    if(lowDiff<0.01&&Math.abs(lo1-lo2)>=3){
+      buyScore+=10;
+      signals.push({name:'W Formation',dir:'BUY',pts:10,reason:'Double bottom '+(lowDiff*100).toFixed(2)+'% diff'});
+    }
+    if(hiDiff<0.01&&Math.abs(hi1-hi2)>=3){
+      sellScore+=10;
+      signals.push({name:'M Formation',dir:'SELL',pts:10,reason:'Double top '+(hiDiff*100).toFixed(2)+'% diff'});
+    }
+  }
+
+  const confidence=Math.max(buyScore,sellScore);
+  let recommendation='NEUTRAL';
+  if(buyScore>=30&&buyScore>sellScore+10) recommendation='BUY';
+  else if(sellScore>=30&&sellScore>buyScore+10) recommendation='SELL';
+  else if(confidence>=20) recommendation='WATCH';
+
+  const topSignals=signals.slice().sort((a,b)=>b.pts-a.pts).slice(0,2);
+  return{asset,buyScore,sellScore,signals:topSignals,recommendation,confidence,timestamp:Date.now()};
+}
+
+// ── Manual / auto scan trigger ──
+async function hseStartScan(){
+  const btn=$('hse-scan-btn');
+  if(btn){btn.textContent='⟳ SCANNING…';btn.disabled=true;}
+  await _hseDoScan();
+  if(btn){btn.textContent='⟳ SCAN';btn.disabled=false;}
+}
+
+async function _hseDoScan(){
+  if(HSE.scanning) return;
+  HSE.scanning=true;
+  const interval='60';
+  const assets=Object.keys(M);
+
+  await Promise.all(assets.map(async k=>{
+    try{
+      // Re-use cached bars if this is the currently-displayed asset
+      const bars=(k===LWC.asset&&LWC._lastBars&&LWC._lastBars.length>=20)
+        ?LWC._lastBars
+        :await _lwFetch(k,interval);
+      if(bars&&bars.length>=20){
+        const r=analyzeAsset(bars,k);
+        if(r){
+          // Log signal changes
+          const prev=HSE.prevRecs[k];
+          if(prev&&prev!==r.recommendation&&r.recommendation!=='NEUTRAL'){
+            hseLog('⚡ '+k+': '+prev+' → '+r.recommendation+' ('+r.confidence.toFixed(0)+'%)',k,r.recommendation);
+          } else if(!prev&&r.recommendation!=='NEUTRAL'){
+            hseLog('📡 '+k+': '+r.recommendation+' signal ('+r.confidence.toFixed(0)+'%)',k,r.recommendation);
+          }
+          HSE.prevRecs[k]=r.recommendation;
+          HSE.results[k]=r;
+        }
+      }
+    }catch(e){console.warn('[HSE]',k,e.message);}
+  }));
+
+  HSE.lastScan=Date.now();
+  HSE.scanning=false;
+  _hseCheckAutoTrade();
+  hseRenderPanel();
+}
+
+// ── Auto-trade integration ──
+function _hseCheckAutoTrade(){
+  if(!AE.running) return;
+  const max=parseInt($('e-mtrades')?.value||2);
+  const openAuto=S.positions.filter(p=>p.status==='open'&&p.autoTrade).length;
+  if(openAuto>=max) return;
+
+  const ranked=Object.values(HSE.results)
+    .filter(r=>r.confidence>=75&&(r.recommendation==='BUY'||r.recommendation==='SELL'))
+    .sort((a,b)=>b.confidence-a.confidence);
+
+  for(const r of ranked){
+    if(openAuto>=max) break;
+    if(!AE.instrs[r.asset]?.on) continue;
+    const hasPos=S.positions.some(p=>p.status==='open'&&p.instrument===r.asset);
+    if(hasPos) continue;
+    if(AE.blackout&&!AE.override) continue;
+    _hseExecuteTrade(r);
+  }
+}
+
+function _hseExecuteTrade(r){
+  const k=r.asset,p=S.prices[k];
+  if(!p) return;
+  const m=M[k];
+  const HC=getHybridCache();
+  const{sl,tp}=computeSlTp(k,r.recommendation,p,m,HC);
+  const usdSize=parseFloat($('e-trade-size')?.value||100);
+  const lev=$('e-auto-lev')?.value||'1:20';
+  const qty=parseFloat((usdSize/p).toFixed(6));
+  const margin=getMargin(k,usdSize,lev);
+  if(!S.connected){S.bal=10000;S.demo=true;S.connected=true;setConn(true,'DEMO');}
+  if(margin>S.bal*0.95) return;
+  const t={
+    id:'H'+(S.tid++),instrument:k,direction:r.recommendation,
+    lot:qty,usdValue:usdSize,leverage:lev,tradeType:'CFD',margin,
+    openPrice:p,openTime:Date.now(),
+    sl:parseFloat(sl.toFixed(m.dec)),tp:parseFloat(tp.toFixed(m.dec)),
+    pnl:0,status:'open',autoTrade:true,
+    hybridConditions:r.signals.map(s=>s.name).join(', ')
+  };
+  S.positions.push(t);AE.stats.total++;
+  if(S.demo) S.bal-=margin;
+  if(!S.demo&&S.apiBase&&S.CST) placeCapitalTrade(t);
+  renderTrades();updateAccount();syncEngStats();
+  hseLog('🚀 HSE '+r.recommendation+' '+k+' @ $'+p.toFixed(m.dec)+' conf:'+r.confidence.toFixed(0)+'%',k,r.recommendation);
+  autoLog('🤖 HSE '+r.recommendation+' '+k+' conf:'+r.confidence.toFixed(0)+'% | '+t.hybridConditions);
+  toast(r.recommendation==='BUY'?'🤖▲':'🤖▼','HSE '+r.recommendation+' '+k,r.confidence.toFixed(0)+'% | '+t.hybridConditions);
+}
+
+// ── Render panel rows ──
+function hseRenderPanel(){
+  const wrap=$('hse-rows');if(!wrap) return;
+  const sorted=Object.values(HSE.results).sort((a,b)=>b.confidence-a.confidence);
+  if(!sorted.length){
+    wrap.innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:20px 0;">No data yet — click SCAN</div>';
+    return;
+  }
+  wrap.innerHTML=sorted.map(r=>{
+    const col=r.recommendation==='BUY'?'var(--green)':r.recommendation==='SELL'?'var(--red)':r.recommendation==='WATCH'?'var(--gold)':'var(--muted)';
+    const barCol=r.recommendation==='BUY'?'#2ecc71':r.recommendation==='SELL'?'#e74c3c':r.recommendation==='WATCH'?'#f5c842':'#5a6878';
+    const barW=Math.min(100,r.confidence).toFixed(0);
+    const reasons=r.signals.map(s=>s.reason).join(' · ')||'No signals';
+    const ts=r.timestamp?new Date(r.timestamp).toLocaleTimeString('en-AU',{hour12:false,hour:'2-digit',minute:'2-digit'}):'';
+    return`<div class="sig-row" onclick="(function(){const sel=document.getElementById('sel-instrument');if(sel){sel.value='${r.asset}';onInstrChange();}})()">
+      <div style="width:44px;font-family:'Bebas Neue';font-size:13px;color:${M[r.asset].color};">${icon(r.asset)}&thinsp;${r.asset}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+          <span class="sig-badge" style="background:${col}22;color:${col};border:1px solid ${col}44;">${r.recommendation}</span>
+          <span style="font-size:9px;color:var(--muted);">${r.confidence.toFixed(0)}% · ${ts}</span>
+        </div>
+        <div class="sig-conf-bar"><div class="sig-conf-fill" style="width:${barW}%;background:${barCol};"></div></div>
+        <div style="font-size:8px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${reasons}">${reasons}</div>
+      </div>
+      <div style="text-align:right;font-size:8px;white-space:nowrap;">B:<b style="color:var(--green);">${r.buyScore}</b> S:<b style="color:var(--red);">${r.sellScore}</b></div>
+    </div>`;
+  }).join('');
+  const lsEl=$('hse-last-scan');
+  if(lsEl&&HSE.lastScan) lsEl.textContent='SCANNED: '+new Date(HSE.lastScan).toLocaleTimeString('en-AU',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ── Decision log ──
+function hseLog(msg,asset,dir){
+  const entry={ts:Date.now(),msg,asset:asset||'',dir:dir||''};
+  const logEl=$('hse-log');
+  if(logEl){
+    const t=new Date(entry.ts).toLocaleTimeString('en-AU',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const d=document.createElement('div');
+    d.className='sig-log-entry';
+    d.textContent='['+t+'] '+msg;
+    logEl.prepend(d);
+    while(logEl.children.length>50) logEl.removeChild(logEl.lastChild);
+  }
+  try{
+    const logs=JSON.parse(localStorage.getItem(HSE_LOG_KEY)||'[]');
+    logs.unshift(entry);
+    if(logs.length>50) logs.splice(50);
+    localStorage.setItem(HSE_LOG_KEY,JSON.stringify(logs));
+  }catch(e){}
+}
+
+function hseLoadLog(){
+  const logEl=$('hse-log');if(!logEl) return;
+  try{
+    const logs=JSON.parse(localStorage.getItem(HSE_LOG_KEY)||'[]');
+    if(!logs.length){logEl.innerHTML='<div style="color:var(--muted)">— No log entries yet —</div>';return;}
+    logEl.innerHTML=logs.map(e=>{
+      const t=new Date(e.ts).toLocaleTimeString('en-AU',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      return'<div class="sig-log-entry">['+t+'] '+e.msg+'</div>';
+    }).join('');
+  }catch(e){}
+}
+
+// ── Auto-scan loop ──
+function hseToggle(){
+  if(HSE.running) hseStop();else hseStartAuto();
+}
+
+function hseStartAuto(){
+  HSE.running=true;
+  const btn=$('hse-toggle-btn');
+  if(btn){btn.textContent='■ STOP';btn.className='stop-btn';}
+  set('hse-status-txt','SCANNING…');
+  hseStartScan();
+  _hseScheduleNext();
+}
+
+function _hseScheduleNext(){
+  if(!HSE.running) return;
+  clearInterval(HSE.cdTimer);
+  HSE.countdown=HSE.interval;
+  set('hse-cd',HSE.countdown+'s');
+  HSE.cdTimer=setInterval(()=>{
+    if(!HSE.running){clearInterval(HSE.cdTimer);return;}
+    HSE.countdown--;
+    set('hse-cd',HSE.countdown+'s');
+    if(HSE.countdown<=0){
+      clearInterval(HSE.cdTimer);
+      set('hse-status-txt','SCANNING…');
+      hseStartScan().then(()=>{if(HSE.running)_hseScheduleNext();});
+    }
+  },1000);
+  set('hse-status-txt','AUTO SCAN ON');
+}
+
+function hseStop(){
+  HSE.running=false;
+  clearInterval(HSE.cdTimer);
+  const btn=$('hse-toggle-btn');
+  if(btn){btn.textContent='▶ START';btn.className='start-btn';}
+  set('hse-status-txt','STOPPED');
+  set('hse-cd','—');
+}
+
+// ── Panel toggle ──
+function toggleSignalSB(){
+  const sb=$('sig-sb');if(!sb) return;
+  if(sb.classList.contains('open')){closeSignalSB();}
+  else{sb.classList.add('open');hseLoadLog();hseRenderPanel();}
+}
+function closeSignalSB(){$('sig-sb')?.classList.remove('open');}
 
 // ══ AUTO SIDEBAR ══
 function toggleAutoSB(){const sb=$('auto-sb');if(sb.classList.contains('open'))closeAutoSB();else{sb.classList.add('open');buildEngInstrs();syncEngStats();updateEngUI();}}
