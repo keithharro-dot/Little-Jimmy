@@ -247,7 +247,7 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
   .mobile-view{display:contents;}
 }
 
-#lw-chart{ position:absolute; inset:0; }
+#chart-wrapper{ position:absolute; inset:0; display:flex; flex-direction:column; }
 
 /* ── NEWS ── */
 .news-bar{ height:28px; min-height:28px; display:flex; align-items:center; background:var(--bg2); border-top:1px solid var(--border); overflow:hidden; flex-shrink:0; }
@@ -715,7 +715,11 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
 
     <!-- LIGHTWEIGHT CHARTS — full width dominant -->
     <div class="chart-wrap" id="chart-panel" style="min-height:400px;">
-      <div id="lw-chart" style="position:absolute;inset:0;"></div>
+      <div id="chart-wrapper">
+        <div id="chart-main" style="flex:0 0 65%;min-height:0;overflow:hidden;"></div>
+        <div id="chart-volume" style="flex:0 0 15%;min-height:0;overflow:hidden;border-top:1px solid #1a1f2e;"></div>
+        <div id="chart-macd" style="flex:0 0 20%;min-height:0;overflow:hidden;border-top:1px solid #1a1f2e;"></div>
+      </div>
 
       <!-- PRICE LEVEL SIDEBAR — trade level badges on right edge of chart -->
       <div id="price-sidebar" style="position:absolute;top:0;right:0;width:148px;height:100%;pointer-events:none;z-index:6;overflow:hidden;"></div>
@@ -3187,17 +3191,19 @@ const TV_SYMBOLS={
 };
 
 const LWC={
-  chart:null,candleSeries:null,volSeries:null,
+  chart:null,volChart:null,macdChart:null,
+  candleSeries:null,volSeries:null,
   ema5:null,ema13:null,ema50:null,ema200:null,ema800:null,
   macdHist:null,macdLine:null,signalLine:null,
   priceLine:null,tradeLines:[],_auxLines:[],_adrLines:[],_dailyOpenLine:null,
   asset:null,interval:null,refreshTimer:null,_resizeObs:null,
-  cloudCanvas:null,_unsubPanZoom:null,
+  cloudCanvas:null,_unsubPanZoom:null,_syncUnsubs:[],
   _vectorMarkers:[],_zones:[],_lastBars:[],
   _cloudUpper:[],_cloudLower:[],
   _pivots:{p:0,r1:0,r2:0,r3:0,s1:0,s2:0,s3:0,m:[]},
   _adr:{hi:0,lo:0,pct:0},
 };
+let _lwSyncBlock=false;
 
 // ── INDICATOR TOGGLE STATE ──
 let _lwInds={pvsra:true,cloud:true,zones:false,sessions:false,pivots:false,adr:true,macd:true,vol:true};
@@ -3211,6 +3217,10 @@ function toggleLwInd(key,el){
   _lwDrawCanvas();
 }
 function _lwApplyIndVisibility(){
+  // Show/hide vol and MACD panes; main chart expands to fill freed space via flex
+  const volEl=$('chart-volume'),macdEl=$('chart-macd');
+  if(volEl) volEl.style.display=_lwInds.vol?'':'none';
+  if(macdEl) macdEl.style.display=_lwInds.macd?'':'none';
   if(LWC.volSeries) LWC.volSeries.applyOptions({visible:_lwInds.vol});
   [LWC.macdHist,LWC.macdLine,LWC.signalLine].forEach(s=>s&&s.applyOptions({visible:_lwInds.macd}));
   [LWC.ema5,LWC.ema13,LWC.ema50,LWC.ema200,LWC.ema800].forEach(s=>s&&s.applyOptions({visible:!!_lwInds.cloud}));
@@ -3226,6 +3236,14 @@ function _lwApplyIndVisibility(){
   }
   _lwApplyPivotLines();
   _lwApplyADRLines();
+  // Re-fit panes after visibility change
+  setTimeout(()=>{
+    const mainEl=$('chart-main');
+    [[$('chart-main'),LWC.chart],[$('chart-volume'),LWC.volChart],[$('chart-macd'),LWC.macdChart]]
+      .forEach(([el,ch])=>{if(ch&&el&&el.clientWidth>0&&el.clientHeight>0) ch.resize(el.clientWidth,el.clientHeight);});
+    if(LWC.cloudCanvas&&mainEl){LWC.cloudCanvas.width=mainEl.clientWidth;LWC.cloudCanvas.height=mainEl.clientHeight;}
+    _lwDrawCanvas();
+  },50);
 }
 function _lwInitToggles(){
   Object.keys(_lwInds).forEach(k=>{const e=$('tog-'+k);if(e)e.classList.toggle('on',!!_lwInds[k]);});
@@ -3240,32 +3258,49 @@ const _LW_YF_INT={'1':'1m','5':'5m','15':'15m','60':'60m','240':'60m','D':'1d','
 const _LW_YF_RANGE={'1':'7d','5':'60d','15':'60d','60':'90d','240':'90d','D':'5y','W':'10y'};
 
 function initLWChart(){
-  const container=$('lw-chart');
-  if(!container) return;
-  console.log('[Jimmy] initLWChart — LWC lib:',typeof LightweightCharts,'container px:',container.clientWidth,'x',container.clientHeight);
+  const mainEl=$('chart-main'),volEl=$('chart-volume'),macdEl=$('chart-macd');
+  if(!mainEl){console.error('[LWC] chart pane divs missing');return;}
+  console.log('[Jimmy] initLWChart — LWC lib:',typeof LightweightCharts,'main px:',mainEl.clientWidth,'x',mainEl.clientHeight);
   // ── Cleanup ──
-  if(LWC.chart){try{LWC.chart.remove();}catch(e){} LWC.chart=null;}
+  if(LWC._syncUnsubs){LWC._syncUnsubs.forEach(f=>{try{f();}catch(e){}});LWC._syncUnsubs=[];}
+  [LWC.chart,LWC.volChart,LWC.macdChart].forEach(c=>{if(c){try{c.remove();}catch(e){}}});
   if(LWC.refreshTimer){clearInterval(LWC.refreshTimer);LWC.refreshTimer=null;}
   if(LWC._resizeObs){LWC._resizeObs.disconnect();LWC._resizeObs=null;}
   if(LWC._unsubPanZoom){try{LWC._unsubPanZoom();}catch(e){} LWC._unsubPanZoom=null;}
   if(LWC.cloudCanvas){try{LWC.cloudCanvas.remove();}catch(e){} LWC.cloudCanvas=null;}
   Object.assign(LWC,{
+    chart:null,volChart:null,macdChart:null,
     candleSeries:null,ema5:null,ema13:null,ema50:null,ema200:null,ema800:null,
     macdHist:null,macdLine:null,signalLine:null,volSeries:null,
     priceLine:null,tradeLines:[],_auxLines:[],_adrLines:[],_dailyOpenLine:null,
     _zones:[],_lastBars:[],_vectorMarkers:[],_cloudUpper:[],_cloudLower:[],
-    _pivots:{p:0,r1:0,r2:0,r3:0,s1:0,s2:0,s3:0,m:[]},_adr:{hi:0,lo:0,pct:0},
+    _pivots:{p:0,r1:0,r2:0,r3:0,s1:0,s2:0,s3:0,m:[]},_adr:{hi:0,lo:0,pct:0},_syncUnsubs:[],
   });
   if(typeof LightweightCharts==='undefined'){console.warn('[LWC] library not loaded');return;}
   LWC.asset=S.mkt||'GOLD';
   LWC.interval=TV.interval||'60';
-  // ── Chart ──
-  LWC.chart=LightweightCharts.createChart(container,{
-    width:container.clientWidth||600,height:container.clientHeight||300,
-    layout:{background:{color:'#0a0c0f'},textColor:'#5a6878'},
-    grid:{vertLines:{color:'#1a1f28'},horzLines:{color:'#1a1f28'}},
+  const layout={background:{color:'#0a0c0f'},textColor:'#5a6878'};
+  const grid={vertLines:{color:'#1a1f28'},horzLines:{color:'#1a1f28'}};
+  // ── Main chart: candles + EMAs + cloud + ADR ──
+  LWC.chart=LightweightCharts.createChart(mainEl,{
+    width:mainEl.clientWidth||600,height:mainEl.clientHeight||260,
+    layout,grid,crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878'},
+    timeScale:{visible:false},
+  });
+  // ── Volume chart ──
+  LWC.volChart=LightweightCharts.createChart(volEl,{
+    width:volEl.clientWidth||600,height:volEl.clientHeight||60,
+    layout,grid:{vertLines:{color:'#1a1f28'},horzLines:{visible:false}},
     crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
-    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878',scaleMargins:{top:0.02,bottom:0.38}},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878',scaleMargins:{top:0.1,bottom:0.05}},
+    timeScale:{visible:false},
+  });
+  // ── MACD chart (shows time axis at bottom) ──
+  LWC.macdChart=LightweightCharts.createChart(macdEl,{
+    width:macdEl.clientWidth||600,height:macdEl.clientHeight||80,
+    layout,grid,crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878'},
     timeScale:{borderColor:'#2a2f38',textColor:'#5a6878',timeVisible:true,secondsVisible:false},
   });
   // ── Candlesticks ──
@@ -3281,35 +3316,43 @@ function initLWChart(){
   LWC.ema50 =mkEL('#1FBCD3');
   LWC.ema200=mkEL('#FFFFFF');
   LWC.ema800=mkEL('#7B52EB');
-  // ── Volume (15% at bottom) ──
-  LWC.volSeries=LWC.chart.addHistogramSeries({
-    priceFormat:{type:'volume'},priceScaleId:'vol',
-    scaleMargins:{top:0.85,bottom:0.01},
+  // ── Volume series (own chart) ──
+  LWC.volSeries=LWC.volChart.addHistogramSeries({
+    priceFormat:{type:'volume'},lastValueVisible:false,priceLineVisible:false,
   });
-  // ── MACD (20% above volume) ──
-  LWC.macdHist=LWC.chart.addHistogramSeries({
-    priceScaleId:'macd',scaleMargins:{top:0.62,bottom:0.17},
+  // ── MACD series (own chart) ──
+  LWC.macdHist=LWC.macdChart.addHistogramSeries({
     color:'rgba(38,166,154,0.8)',lastValueVisible:false,priceLineVisible:false,
   });
-  LWC.macdLine=LWC.chart.addLineSeries({
-    priceScaleId:'macd',scaleMargins:{top:0.62,bottom:0.17},
+  LWC.macdLine=LWC.macdChart.addLineSeries({
     color:'#2196F3',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
   });
-  LWC.signalLine=LWC.chart.addLineSeries({
-    priceScaleId:'macd',scaleMargins:{top:0.62,bottom:0.17},
+  LWC.signalLine=LWC.macdChart.addLineSeries({
     color:'#FF6D00',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
   });
-  // ── Canvas overlay (cloud fill, zones, sessions) ──
+  // ── Sync all three time scales together ──
+  const syncMain=r=>{if(_lwSyncBlock||!r)return;_lwSyncBlock=true;try{LWC.volChart?.timeScale().setVisibleLogicalRange(r);LWC.macdChart?.timeScale().setVisibleLogicalRange(r);}finally{_lwSyncBlock=false;}};
+  const syncVol =r=>{if(_lwSyncBlock||!r)return;_lwSyncBlock=true;try{LWC.chart?.timeScale().setVisibleLogicalRange(r);LWC.macdChart?.timeScale().setVisibleLogicalRange(r);}finally{_lwSyncBlock=false;}};
+  const syncMacd=r=>{if(_lwSyncBlock||!r)return;_lwSyncBlock=true;try{LWC.chart?.timeScale().setVisibleLogicalRange(r);LWC.volChart?.timeScale().setVisibleLogicalRange(r);}finally{_lwSyncBlock=false;}};
+  LWC.chart.timeScale().subscribeVisibleLogicalRangeChange(syncMain);
+  LWC.volChart.timeScale().subscribeVisibleLogicalRangeChange(syncVol);
+  LWC.macdChart.timeScale().subscribeVisibleLogicalRangeChange(syncMacd);
+  LWC._syncUnsubs=[
+    ()=>LWC.chart?.timeScale().unsubscribeVisibleLogicalRangeChange(syncMain),
+    ()=>LWC.volChart?.timeScale().unsubscribeVisibleLogicalRangeChange(syncVol),
+    ()=>LWC.macdChart?.timeScale().unsubscribeVisibleLogicalRangeChange(syncMacd),
+  ];
+  // ── Canvas overlay (cloud fill, zones, sessions) on main chart ──
   _lwCreateCanvas();
-  // ── Resize observer ──
+  // ── Resize all three panes together ──
   LWC._resizeObs=new ResizeObserver(()=>{
-    if(LWC.chart&&container.clientWidth>0&&container.clientHeight>0){
-      LWC.chart.resize(container.clientWidth,container.clientHeight);
-      if(LWC.cloudCanvas){LWC.cloudCanvas.width=container.clientWidth;LWC.cloudCanvas.height=container.clientHeight;}
-      _lwDrawCanvas();
-    }
+    [[mainEl,LWC.chart],[volEl,LWC.volChart],[macdEl,LWC.macdChart]].forEach(([el,ch])=>{
+      if(ch&&el.clientWidth>0&&el.clientHeight>0) ch.resize(el.clientWidth,el.clientHeight);
+    });
+    if(LWC.cloudCanvas){LWC.cloudCanvas.width=mainEl.clientWidth;LWC.cloudCanvas.height=mainEl.clientHeight;}
+    _lwDrawCanvas();
   });
-  LWC._resizeObs.observe(container);
+  LWC._resizeObs.observe($('chart-panel'));
   _lwInitToggles();
   _lwApplyIndVisibility();
   loadLWChart();
@@ -3622,7 +3665,7 @@ function _lwUpdateZones(candles){
 
 // ── Create canvas overlay for fills ──
 function _lwCreateCanvas(){
-  const container=$('lw-chart');if(!container) return;
+  const container=$('chart-main');if(!container) return;
   if(LWC.cloudCanvas){try{LWC.cloudCanvas.remove();}catch(e){}}
   const cvs=document.createElement('canvas');
   cvs.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:2;';
@@ -3831,7 +3874,7 @@ function openTRScript(){window.open(`https://www.tradingview.com/chart/?symbol=$
 
 // ══ FULLSCREEN ══
 function openChartFullscreen(){
-  const panel=$('chart-panel')||($('lw-chart')&&$('lw-chart').parentElement);
+  const panel=$('chart-panel')||$('chart-wrapper');
   if(!panel) return;
   if(document.fullscreenElement||document.webkitFullscreenElement){
     (document.exitFullscreen||document.webkitExitFullscreen).call(document);
@@ -3845,14 +3888,13 @@ function _onFSChange(){
   const btn=$('btn-fullscreen');
   const inFS=!!(document.fullscreenElement||document.webkitFullscreenElement);
   if(btn) btn.textContent=inFS?'⊠':'⛶';
-  // Resize LWC chart to fit new dimensions
+  // Resize all three chart panes to fit new dimensions
   setTimeout(()=>{
-    const c=$('lw-chart');
-    if(LWC.chart&&c&&c.clientWidth>0&&c.clientHeight>0){
-      LWC.chart.resize(c.clientWidth,c.clientHeight);
-      if(LWC.cloudCanvas){LWC.cloudCanvas.width=c.clientWidth;LWC.cloudCanvas.height=c.clientHeight;}
-      _lwDrawCanvas();
-    }
+    const mainEl=$('chart-main');
+    [[$('chart-main'),LWC.chart],[$('chart-volume'),LWC.volChart],[$('chart-macd'),LWC.macdChart]]
+      .forEach(([el,ch])=>{if(ch&&el&&el.clientWidth>0&&el.clientHeight>0) ch.resize(el.clientWidth,el.clientHeight);});
+    if(LWC.cloudCanvas&&mainEl){LWC.cloudCanvas.width=mainEl.clientWidth;LWC.cloudCanvas.height=mainEl.clientHeight;}
+    _lwDrawCanvas();
   },120);
 }
 
@@ -3890,7 +3932,10 @@ html,body{width:100%;height:100%;background:#0e1117;color:#dde3ec;font-family:'D
 #live-price{font-family:'Bebas Neue',serif;font-size:22px;color:#f5c842}
 #data-row{display:flex;align-items:center;gap:12px;padding:2px 12px;background:#0d1117;border-bottom:1px solid #1a1f28;flex-shrink:0;overflow-x:auto;font-size:10px;color:#5a6878;min-height:22px;white-space:nowrap}
 #chart-wrap{flex:1;position:relative;overflow:hidden}
-#chart-el{position:absolute;inset:0}
+#chart-wrapper{position:absolute;inset:0;display:flex;flex-direction:column;}
+#chart-main{flex:1;min-height:0;overflow:hidden;}
+#chart-volume{flex:0 0 80px;overflow:hidden;border-top:1px solid #1a1f2e;}
+#chart-macd{flex:0 0 100px;overflow:hidden;border-top:1px solid #1a1f2e;}
 #pos-summary{position:absolute;top:8px;left:8px;z-index:10;background:rgba(0,0,0,0.72);border:1px solid #2a3040;border-radius:4px;padding:5px 10px;font-size:11px;pointer-events:none;display:none;}
 </style>
 </head>
@@ -3924,16 +3969,25 @@ html,body{width:100%;height:100%;background:#0e1117;color:#dde3ec;font-family:'D
   <span>ADR%: <b id="dr-adrpct">—</b></span>
   <span>TREND: <b id="dr-trend">—</b></span>
 </div>
-<div id="chart-wrap"><div id="chart-el"></div><div id="pos-summary"></div></div>
+<div id="chart-wrap">
+  <div id="chart-wrapper">
+    <div id="chart-main"></div>
+    <div id="chart-volume"></div>
+    <div id="chart-macd"></div>
+  </div>
+  <div id="pos-summary"></div>
+</div>
 <script>
 var _M={GOLD:{color:'#f5c842',dec:2,bnc:null},SILVER:{color:'#b0b8c8',dec:3,bnc:null},OIL:{color:'#4af0b0',dec:3,bnc:null},BTC:{color:'#f7931a',dec:2,bnc:'BTC'},ETH:{color:'#627eea',dec:2,bnc:'ETH'},SOL:{color:'#9945ff',dec:3,bnc:'SOL'},XRP:{color:'#346aa9',dec:4,bnc:'XRP'},DOGE:{color:'#c2a633',dec:5,bnc:'DOGE'},NASDAQ:{color:'#00b4d8',dec:2,bnc:null}};
 var _BNC_INT={'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d','W':'1w'};
 var _asset='GOLD',_tf='60';
-var _chart=null,_cSeries=null,_volSeries=null,_ema5=null,_ema13=null,_ema50=null,_ema200=null,_ema800=null;
+var _chart=null,_volChart=null,_macdChart=null;
+var _cSeries=null,_volSeries=null,_ema5=null,_ema13=null,_ema50=null,_ema200=null,_ema800=null;
 var _macdHist=null,_macdLine=null,_sigLine=null;
 var _priceLine=null,_auxLines=[],_adrLines=[],_dailyOpenLine=null,_tradeLines=[];
 var _cloudCanvas=null,_cloudUpper=[],_cloudLower=[],_zones=[],_lastBars=[];
 var _refreshTimer=null,_priceTimer=null,_posTimer=null,_lastClose=0,_prevClose=0;
+var _syncBlock=false;
 var _EP={GOLD:['GOLD','XAU'],SILVER:['SILVER','XAG'],OIL:['OIL','WTI','BRENT'],BTC:['BTC','BITCOIN'],ETH:['ETH','ETHEREUM'],SOL:['SOL','SOLANA'],XRP:['XRP'],DOGE:['DOGE'],NASDAQ:['NASDAQ','NAS100','US100']};
 
 function _init(){
@@ -3944,33 +3998,60 @@ function _init(){
 }
 
 function _createChart(){
-  var el=document.getElementById('chart-el');if(!el)return;
+  var mainEl=document.getElementById('chart-main');
+  var volEl=document.getElementById('chart-volume');
+  var macdEl=document.getElementById('chart-macd');
+  if(!mainEl||!volEl||!macdEl)return;
   if(_chart){try{_chart.remove();}catch(e){}}
-  _chart=null;_cSeries=_volSeries=_ema5=_ema13=_ema50=_ema200=_ema800=null;
+  if(_volChart){try{_volChart.remove();}catch(e){}}
+  if(_macdChart){try{_macdChart.remove();}catch(e){}}
+  _chart=_volChart=_macdChart=null;
+  _cSeries=_volSeries=_ema5=_ema13=_ema50=_ema200=_ema800=null;
   _macdHist=_macdLine=_sigLine=null;_priceLine=null;_auxLines=[];_adrLines=[];_dailyOpenLine=null;_tradeLines=[];
   _cloudUpper=[];_cloudLower=[];_zones=[];_lastBars=[];
   if(typeof LightweightCharts==='undefined')return;
-  _chart=LightweightCharts.createChart(el,{
-    width:el.clientWidth||1200,height:el.clientHeight||800,
-    layout:{background:{color:'#0e1117'},textColor:'#5a6878'},
-    grid:{vertLines:{color:'#1a1f28'},horzLines:{color:'#1a1f28'}},
+  var layout={background:{color:'#0e1117'},textColor:'#5a6878'};
+  var grid={vertLines:{color:'#1a1f28'},horzLines:{color:'#1a1f28'}};
+  _chart=LightweightCharts.createChart(mainEl,{
+    width:mainEl.clientWidth||1200,height:mainEl.clientHeight||600,
+    layout:layout,grid:grid,crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878'},
+    timeScale:{visible:false},
+  });
+  _volChart=LightweightCharts.createChart(volEl,{
+    width:volEl.clientWidth||1200,height:volEl.clientHeight||80,
+    layout:layout,grid:{vertLines:{color:'#1a1f28'},horzLines:{visible:false}},
     crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
-    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878',scaleMargins:{top:0.02,bottom:0.38}},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878',scaleMargins:{top:0.1,bottom:0.05}},
+    timeScale:{visible:false},
+  });
+  _macdChart=LightweightCharts.createChart(macdEl,{
+    width:macdEl.clientWidth||1200,height:macdEl.clientHeight||100,
+    layout:layout,grid:grid,crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+    rightPriceScale:{borderColor:'#2a2f38',textColor:'#5a6878'},
     timeScale:{borderColor:'#2a2f38',textColor:'#5a6878',timeVisible:true,secondsVisible:false},
   });
   _cSeries=_chart.addCandlestickSeries({upColor:'#2ecc71',downColor:'#e74c3c',borderUpColor:'#2ecc71',borderDownColor:'#e74c3c',wickUpColor:'#2ecc71',wickDownColor:'#e74c3c'});
-  var mkL=function(c,w,sid,sm){
-    var opts={color:c,lineWidth:w||1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false};
-    if(sid)opts.priceScaleId=sid;if(sm)opts.scaleMargins=sm;
-    return _chart.addLineSeries(opts);
-  };
+  var mkL=function(c,w){return _chart.addLineSeries({color:c,lineWidth:w||1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});};
   _ema5=mkL('#FEEA4A');_ema13=mkL('#FD5457');_ema50=mkL('#1FBCD3',2);_ema200=mkL('#FFFFFF');_ema800=mkL('#7B52EB',2);
-  _volSeries=_chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol',scaleMargins:{top:0.85,bottom:0.01},lastValueVisible:false,priceLineVisible:false});
-  _macdHist=_chart.addHistogramSeries({priceScaleId:'macd',scaleMargins:{top:0.62,bottom:0.17},color:'rgba(38,166,154,0.8)',lastValueVisible:false,priceLineVisible:false});
-  _macdLine=mkL('#2196F3',1,'macd',{top:0.62,bottom:0.17});
-  _sigLine=mkL('#FF6D00',1,'macd',{top:0.62,bottom:0.17});
+  _volSeries=_volChart.addHistogramSeries({priceFormat:{type:'volume'},lastValueVisible:false,priceLineVisible:false});
+  _macdHist=_macdChart.addHistogramSeries({color:'rgba(38,166,154,0.8)',lastValueVisible:false,priceLineVisible:false});
+  _macdLine=_macdChart.addLineSeries({color:'#2196F3',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  _sigLine=_macdChart.addLineSeries({color:'#FF6D00',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  var syncMain=function(r){if(_syncBlock||!r)return;_syncBlock=true;try{if(_volChart)_volChart.timeScale().setVisibleLogicalRange(r);if(_macdChart)_macdChart.timeScale().setVisibleLogicalRange(r);}finally{_syncBlock=false;}};
+  var syncVol=function(r){if(_syncBlock||!r)return;_syncBlock=true;try{if(_chart)_chart.timeScale().setVisibleLogicalRange(r);if(_macdChart)_macdChart.timeScale().setVisibleLogicalRange(r);}finally{_syncBlock=false;}};
+  var syncMacd=function(r){if(_syncBlock||!r)return;_syncBlock=true;try{if(_chart)_chart.timeScale().setVisibleLogicalRange(r);if(_volChart)_volChart.timeScale().setVisibleLogicalRange(r);}finally{_syncBlock=false;}};
+  _chart.timeScale().subscribeVisibleLogicalRangeChange(syncMain);
+  _volChart.timeScale().subscribeVisibleLogicalRangeChange(syncVol);
+  _macdChart.timeScale().subscribeVisibleLogicalRangeChange(syncMacd);
   _createCanvas();
-  new ResizeObserver(function(){if(_chart&&el.clientWidth>0&&el.clientHeight>0){_chart.resize(el.clientWidth,el.clientHeight);if(_cloudCanvas){_cloudCanvas.width=el.clientWidth;_cloudCanvas.height=el.clientHeight;}_drawCanvas();}}).observe(el);
+  new ResizeObserver(function(){
+    [[mainEl,_chart],[volEl,_volChart],[macdEl,_macdChart]].forEach(function(p){
+      if(p[1]&&p[0].clientWidth>0&&p[0].clientHeight>0)p[1].resize(p[0].clientWidth,p[0].clientHeight);
+    });
+    if(_cloudCanvas){_cloudCanvas.width=mainEl.clientWidth;_cloudCanvas.height=mainEl.clientHeight;}
+    _drawCanvas();
+  }).observe(document.getElementById('chart-wrap'));
 }
 
 async function _fetch(asset,tf){
@@ -4078,7 +4159,7 @@ function _applyDailyOpen(candles){
   try{_dailyOpenLine=_cSeries.createPriceLine({price:tb[0].open,color:'rgba(254,234,78,0.7)',lineWidth:1,lineStyle:LightweightCharts.LineStyle.Solid,axisLabelVisible:true,title:'Daily Open'});}catch(e){}
 }
 function _createCanvas(){
-  var el=document.getElementById('chart-el');if(!el)return;
+  var el=document.getElementById('chart-main');if(!el)return;
   if(_cloudCanvas)try{_cloudCanvas.remove();}catch(e){}
   var cvs=document.createElement('canvas');cvs.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:2;';
   cvs.width=el.clientWidth;cvs.height=el.clientHeight;el.appendChild(cvs);_cloudCanvas=cvs;
@@ -5800,7 +5881,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   loadSaved();_lwInitToggles();initTVChart(TV.sym);loadCalendar();startFeed();
   // Deferred resize — flexbox layout may not resolve before DOMContentLoaded fires,
   // leaving the chart initialized at 0×0. Force correct dimensions after layout settles.
-  setTimeout(()=>{const c=$('lw-chart');if(LWC.chart&&c&&c.clientWidth>0&&c.clientHeight>0){LWC.chart.resize(c.clientWidth,c.clientHeight);if(LWC.cloudCanvas){LWC.cloudCanvas.width=c.clientWidth;LWC.cloudCanvas.height=c.clientHeight;}_lwDrawCanvas();}},250);
+  setTimeout(()=>{const mainEl=$('chart-main');[[$('chart-main'),LWC.chart],[$('chart-volume'),LWC.volChart],[$('chart-macd'),LWC.macdChart]].forEach(([el,ch])=>{if(ch&&el&&el.clientWidth>0&&el.clientHeight>0)ch.resize(el.clientWidth,el.clientHeight);});if(LWC.cloudCanvas&&mainEl){LWC.cloudCanvas.width=mainEl.clientWidth;LWC.cloudCanvas.height=mainEl.clientHeight;}_lwDrawCanvas();},250);
   initMacro();
   // Fetch live USD→AUD rate (frankfurter.app primary, open.er-api fallback, 1.55 hardcoded last resort)
   fetchAudRate();
