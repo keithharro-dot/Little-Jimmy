@@ -6,8 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Little Jimmy">
-<meta name="theme-color" content="#0e1117">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230e1117' rx='20'/><text y='70' x='50' text-anchor='middle' font-size='65'>📈</text></svg>">
+<meta name="theme-color" content="#f5a623">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
 <title>LITTLE JIMMY TRADING CO</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -50,7 +51,7 @@ body{ background:var(--bg); color:var(--text); font-family:"DM Mono",monospace; 
 .main{ flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; height:0; }
 
 /* ── BOTTOM SPLIT ── */
-.bottom-split{ flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+.bottom-split{ flex:1; display:flex; flex-direction:row; overflow:hidden; min-height:0; }
 
 /* ── TOP GRID: left panel + gap + right panel ── */
 .top-grid{
@@ -143,108 +144,132 @@ tr:hover td{ background:rgba(255,255,255,0.015); }
 .chart-wrap{ flex:1; min-height:350px; position:relative; background:var(--bg); }
 
 /* ═══════════════════════════════════════
-   MOBILE RESPONSIVE — iPhone/Android
+   MOBILE — iPhone / Android (≤768px)
 ═══════════════════════════════════════ */
 @media (max-width:768px){
-  /* ── DOUBLE ALL TEXT SIZE FOR MOBILE READABILITY ── */
-  html{ font-size:200%; }
-  body{ font-size:14px; }
+  /* ── Baseline ── */
+  body{ font-size:14px; -webkit-text-size-adjust:100%; }
+  input[type=number],input[type=text],select{ font-size:16px!important; } /* prevent iOS zoom */
 
-  /* Topbar tickers */
-  .tick-lbl{ font-size:8px !important; }
-  .tick-p{ font-size:14px !important; }
-  .tick-c{ font-size:11px !important; }
+  /* ── Desktop elements hidden on mobile ── */
+  .right-panel,.news-bar,.auto-sb,.sig-sb,.centre-panel,
+  .top-grid,.top-btns,.ticker,.registry{ display:none!important; }
+  .topbar{ padding:0 10px; height:44px; min-height:44px; align-items:center; }
+  .logo-sub{ display:none; }
 
-  /* Left panel cells */
-  .cell-lbl{ font-size:10px !important; }
-  .cell-val{ font-size:14px !important; }
-  .cell-sub{ font-size:10px !important; }
+  /* ── Layout ── */
+  .main{ flex:1; display:flex; flex-direction:column; overflow:hidden; height:0; }
+  .bottom-split{ display:none; flex-direction:column !important; flex:1; min-height:0; }
+  .bottom-split.mob-chart{ display:flex!important; }
+  #chart-panel{ flex:1!important; min-height:0; }
+  /* DOM panel as bottom sheet on mobile — handled by its own CSS above */
 
-  /* Buttons */
-  #btn-limit-buy,#btn-limit-sell,#btn-mkt-buy,#btn-mkt-sell{
-    font-size:18px !important; padding:14px 4px !important; height:52px !important;
+  /* ── Mobile panels ── */
+  .mob-panel{ display:none; flex:1; flex-direction:column; overflow:hidden;
+    -webkit-overflow-scrolling:touch; min-height:0; }
+  .mob-panel.active{ display:flex; }
+
+  /* ── Timeframe strip (chart tab) ── */
+  #mv-tf-strip{
+    display:flex; align-items:center; overflow-x:auto; flex-shrink:0;
+    background:#111418; border-bottom:1px solid #2a3040;
+    padding:5px 8px; gap:5px; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
   }
-  #auto-on-btn,#auto-off-btn{
-    font-size:14px !important; padding:11px 4px !important;
+  #mv-tf-strip::-webkit-scrollbar{ display:none; }
+  #mv-tf-strip button{
+    background:#1e2329; border:1px solid #2a3040; color:#6b7280;
+    font-family:'Bebas Neue',sans-serif; font-size:12px; letter-spacing:1px;
+    padding:6px 14px; border-radius:4px; white-space:nowrap; cursor:pointer;
+    min-height:34px; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+    flex-shrink:0; transition:all 0.12s;
+  }
+  #mv-tf-strip button.active{ background:rgba(245,200,66,0.15); color:#f5c842; border-color:rgba(245,200,66,0.4); }
+  #mv-tf-strip .tf-gear{
+    margin-left:auto; background:rgba(255,255,255,0.06); border:1px solid #2a3040;
+    color:#6b7280; font-size:16px; width:34px; height:34px; border-radius:4px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    flex-shrink:0; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  }
+  #mv-tf-strip .tf-gear.ind-on{ color:#f5c842; border-color:rgba(245,200,66,0.4); }
+
+  /* ── Mobile tab bar ── */
+  #mobile-tabs{
+    display:none; position:fixed; bottom:0; left:0; right:0; z-index:300;
+    height:calc(60px + env(safe-area-inset-bottom,0px));
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    background:#0e1117; border-top:1px solid #2a3040; align-items:stretch;
+  }
+  #mobile-tabs.mob-visible{ display:flex!important; }
+  #mobile-tabs button{
+    flex:1; background:none; border:none; border-right:1px solid #2a3040;
+    color:#6b7280; font-family:'Bebas Neue',sans-serif; font-size:10px;
+    letter-spacing:1px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; padding:6px 2px; min-height:44px;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  }
+  #mobile-tabs button:last-child{ border-right:none; }
+  #mobile-tabs button .ti{ font-size:20px; line-height:1; }
+  #mobile-tabs button.tab-active{ color:#f5c842; background:rgba(245,200,66,0.08); border-top:2px solid #f5c842; }
+
+  /* ── Modals ── */
+  .modal{ width:95vw!important; max-width:95vw!important; }
+  #qop{ position:fixed!important; bottom:calc(64px + env(safe-area-inset-bottom,0px))!important;
+        left:6px!important; right:6px!important; top:auto!important; width:auto!important; }
+
+  /* ── Trades panel rows ── */
+  .mv-trade-item{ position:relative; overflow:hidden; border-bottom:1px solid #2a3040; }
+  .mv-trade-body{ padding:12px 14px; background:#111418; }
+  .mv-close-btn{
+    background:#c0392b; color:#fff; border:none; border-radius:5px;
+    padding:8px 14px; font-family:'Bebas Neue',sans-serif; font-size:13px; letter-spacing:1px;
+    cursor:pointer; min-height:38px; min-width:64px; touch-action:manipulation;
   }
 
-  /* Inputs */
-  input[type=number], input[type=text], select{
-    font-size:16px !important; /* 16px prevents iOS zoom on focus */
-    padding:8px !important;
+  /* ── Signal cards ── */
+  .mv-sig-card{
+    background:#111418; border:1px solid #2a3040; border-radius:10px;
+    padding:14px 16px; margin-bottom:9px;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+    transition:background 0.1s;
   }
+  .mv-sig-card:active{ background:#1a1f28; }
 
-  /* Indicators bar */
-  .ind-lbl{ font-size:9px !important; }
-  .ind-v{ font-size:13px !important; }
+  /* ── Account rows ── */
+  .mv-acct-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 16px; background:#111418; border-bottom:1px solid #2a3040;
+  }
+  .mv-acct-lbl{ font-size:11px; color:#6b7280; letter-spacing:1px; text-transform:uppercase; }
+  .mv-acct-val{ font-family:'Bebas Neue',sans-serif; font-size:22px; }
 
-  /* Trades table */
-  #mv-trades th, .trades-wrap th{ font-size:10px !important; }
-  #mv-trades td, .trades-wrap td{ font-size:12px !important; padding:8px !important; }
+  /* ── Install banner ── */
+  #install-banner{
+    display:none; position:fixed; top:0; left:0; right:0; z-index:500;
+    background:#111418; border-bottom:2px solid rgba(245,166,35,0.6);
+    padding:10px 12px; align-items:center; gap:10px; font-size:13px;
+    padding-top:max(env(safe-area-inset-top,0px),10px);
+  }
+  #install-banner.ib-show{ display:flex; }
 
-  /* Account stats */
-  .stat-lbl{ font-size:10px !important; }
-  .stat-val{ font-size:20px !important; }
+  /* ── Touch targets (global) ── */
+  button,a[onclick]{ touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 
-  /* Tab bar */
-  #mobile-tabs button{ font-size:10px !important; }
-  #mobile-tabs button span{ font-size:22px !important; }
-
-  /* Reg header */
-  .reg-title{ font-size:18px !important; }
-  .reg-header span{ font-size:11px !important; }
-
-  /* Auto sidebar */
-  .as-sec{ font-size:12px !important; }
-  .auto-sb-body label{ font-size:11px !important; }
-  .as-log{ font-size:11px !important; }
-
-  /* Topbar brand */
-  .brand-name{ font-size:18px !important; }
-
-  /* Session label */
-  #session-lbl{ font-size:13px !important; }
-  #session-time{ font-size:11px !important; }
-
-
-  .right-panel,.news-bar,.auto-sb,.centre-panel{display:none!important;}
-  .top-grid{grid-template-columns:1fr!important;flex:0 0 auto!important;height:auto!important;}
-  .left-panel{border-right:none;border-bottom:1px solid var(--border2);}
-  .topbar{flex-wrap:wrap;gap:3px;padding:3px 6px;}
-  .tick{min-width:48px;}
-  .tick-lbl{font-size:5px;}
-  .tick-p{font-size:9px!important;}
-  .row4,.row-header{grid-template-columns:1fr 1fr!important;}
-  #btn-limit-buy,#btn-limit-sell,#btn-mkt-buy,#btn-mkt-sell{font-size:12px!important;padding:9px 4px!important;}
-  #auto-on-btn,#auto-off-btn{font-size:10px!important;padding:7px 4px!important;}
-  .bottom-split{flex:1;}
-  .registry{display:none!important;}
-  .modal{width:95vw!important;max-width:95vw!important;}
-  #qop{position:fixed!important;bottom:62px!important;left:4px!important;right:4px!important;top:auto!important;width:auto!important;}
-  body{padding-bottom:max(54px,env(safe-area-inset-bottom,0px));}
-  #mobile-tabs{display:flex!important;}
-  .mobile-view{display:none;flex-direction:column;flex:1;overflow:hidden;}
-  .mobile-view.active{display:flex;}
-  #mv-chart .chart-wrap{flex:1!important;min-height:0!important;}
-  #mv-chart .ind-bar{font-size:7px;gap:5px;padding:2px 6px;overflow-x:auto;}
-  #mv-trades,#mv-trade,#mv-account,#mv-auto{overflow-y:auto;padding:8px 10px;padding-bottom:62px;}
-  #mv-trades table{font-size:8px;}
-  #mv-trades th,#mv-trades td{padding:4px 6px;white-space:nowrap;}
-  .stat-grid{grid-template-columns:1fr 1fr!important;}
-  .auto-sb-body{padding:8px!important;}
-}
-  /* Catch-all: enforce 11px minimum for any remaining tiny inline-style text */
+  /* ── Enforce readable text: any inline <11px → 12px ── */
   [style*="font-size:5px"],[style*="font-size: 5px"],
   [style*="font-size:6px"],[style*="font-size: 6px"],
   [style*="font-size:7px"],[style*="font-size: 7px"],
   [style*="font-size:8px"],[style*="font-size: 8px"],
   [style*="font-size:9px"],[style*="font-size: 9px"],
-  [style*="font-size:10px"],[style*="font-size: 10px"]{ font-size:11px !important; }
-
+  [style*="font-size:10px"],[style*="font-size: 10px"]{ font-size:12px!important; }
+}
 
 @media (min-width:769px){
-  #mobile-tabs{display:none!important;}
-  .mobile-view{display:contents;}
+  #mobile-tabs{ display:none!important; }
+  #mv-tf-strip{ display:none!important; }
+  #install-banner{ display:none!important; }
+  .mob-panel{ display:contents; }
 }
 
 #chart-wrapper{ position:absolute; inset:0; display:flex; flex-direction:column; }
@@ -329,6 +354,94 @@ thead th { font-size: 13px !important; padding: 6px 8px !important; }
 #lp-price { font-size: 22px !important; }
 .left-panel label, .left-panel .cell-label { font-size: 12px !important; }
 .tbtn { font-size: 12px !important; }
+
+/* ── DOM (Depth of Market) PANEL ── */
+#dom-panel{
+  width:200px; flex-shrink:0; background:#0a0e17;
+  border-left:1px solid #1a2030; display:none; flex-direction:column;
+  overflow:hidden; font-family:'DM Mono',monospace; min-height:0;
+}
+#dom-panel.dom-open{ display:flex; }
+.dom-hdr{
+  padding:6px 8px; background:#0d1117; border-bottom:1px solid #1a2030;
+  flex-shrink:0; display:flex; flex-direction:column; gap:2px;
+}
+.dom-hdr-row{ display:flex; align-items:center; justify-content:space-between; }
+.dom-sym{ font-family:'Bebas Neue'; font-size:12px; letter-spacing:2px; color:var(--gold); }
+.dom-spread-val{ font-size:9px; color:#5a6878; font-family:'DM Mono'; }
+.dom-close{ background:none; border:none; color:#5a6878; font-size:13px; cursor:pointer; padding:2px 4px; line-height:1; }
+.dom-close:hover{ color:var(--text); }
+.dom-col-hdr{
+  display:grid; grid-template-columns:62px 1fr 62px;
+  padding:2px 0; background:#080b10; border-bottom:1px solid #1a2030;
+  font-size:8px; color:#3a4560; letter-spacing:1px; flex-shrink:0;
+  text-transform:uppercase;
+}
+.dom-col-hdr span{ padding:0 4px; }
+.dom-col-hdr .dh-ask{ color:#b03030; text-align:left; }
+.dom-col-hdr .dh-price{ text-align:center; color:#3a4560; }
+.dom-col-hdr .dh-bid{ color:#207040; text-align:right; }
+#dom-ladder{ flex:1; overflow-y:auto; overflow-x:hidden; scroll-behavior:auto;
+  scrollbar-width:thin; scrollbar-color:#1a2030 transparent; }
+#dom-ladder::-webkit-scrollbar{ width:3px; }
+#dom-ladder::-webkit-scrollbar-thumb{ background:#1a2030; }
+.dom-row{
+  display:grid; grid-template-columns:62px 1fr 62px;
+  height:17px; position:relative; user-select:none;
+}
+.dom-row:hover{ background:rgba(255,255,255,0.025) !important; }
+.dom-row.dom-mid{
+  height:21px; background:rgba(245,200,66,0.10) !important;
+  border-top:1px solid rgba(245,200,66,0.18);
+  border-bottom:1px solid rgba(245,200,66,0.18);
+}
+/* Bars sit behind the text */
+.dom-bar{
+  position:absolute; top:0; height:100%;
+  pointer-events:none;
+}
+.dom-bar-ask{ right:62px; background:rgba(231,76,60,0.18); } /* fills from price leftwards */
+.dom-bar-bid{ left:62px; background:rgba(46,204,113,0.16); } /* fills from price rightwards */
+.dom-bar-ask.wall{ background:rgba(231,76,60,0.42); }
+.dom-bar-bid.wall{ background:rgba(46,204,113,0.38); }
+/* Text cells */
+.dom-cell{ display:flex; align-items:center; font-size:9px; position:relative; z-index:1;
+           padding:0 4px; white-space:nowrap; overflow:hidden; }
+.dom-ask-cell{ color:#c0392b; justify-content:flex-end; }
+.dom-ask-cell.wall{ color:#ff6b6b; font-weight:700; }
+.dom-price-cell{ color:#7a8898; justify-content:center; font-family:'DM Mono'; letter-spacing:0; }
+.dom-row.dom-mid .dom-price-cell{ color:var(--gold); font-weight:700; font-size:10px; }
+.dom-bid-cell{ color:#27ae60; justify-content:flex-start; }
+.dom-bid-cell.wall{ color:#5eff9e; font-weight:700; }
+/* Flash animations */
+@keyframes domFlashUp{ 0%{background:rgba(46,204,113,0.40)} 100%{background:transparent} }
+@keyframes domFlashDn{ 0%{background:rgba(231,76,60,0.38)} 100%{background:transparent} }
+.dom-flash-up{ animation:domFlashUp 0.55s ease forwards; }
+.dom-flash-dn{ animation:domFlashDn 0.55s ease forwards; }
+/* Footer */
+.dom-footer{ padding:5px 7px; background:#080b10; border-top:1px solid #1a2030; flex-shrink:0; }
+.dom-tot-row{ display:flex; justify-content:space-between; font-size:8px; margin-bottom:3px; }
+.dom-imb-track{ height:5px; background:#151d28; border-radius:3px; overflow:hidden; display:flex; margin:3px 0; }
+.dom-imb-bid{ background:#27ae60; transition:width 0.35s; }
+.dom-imb-ask{ background:#c0392b; transition:width 0.35s; }
+.dom-imb-lbl{ font-size:8px; text-align:center; letter-spacing:1px; font-family:'Bebas Neue'; margin-top:2px; }
+.dom-signals{ padding:3px 6px; background:#06090e; border-top:1px solid #1a2030;
+  flex-shrink:0; max-height:52px; overflow-y:auto; }
+.dom-sig-row{ font-size:8px; color:#4a5568; padding:1px 0; line-height:1.6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Mobile bottom sheet */
+@media (max-width:768px){
+  #dom-panel{
+    position:fixed; left:0; right:0; bottom:calc(60px + env(safe-area-inset-bottom,0px));
+    z-index:200; width:100% !important; height:55vh;
+    border-left:none; border-top:2px solid rgba(245,200,66,0.3);
+    transform:translateY(105%); transition:transform 0.28s ease;
+    display:flex !important;
+  }
+  #dom-panel.dom-open{ transform:translateY(0); }
+  .dom-row{ height:22px; }
+  .dom-cell,.dom-price-cell{ font-size:11px; }
+  .dom-row.dom-mid .dom-price-cell{ font-size:12px; }
+}
 </style>
 <style id="font-override">
 /* Hard backstop — wins over everything including inline styles on JS-rendered rows */
@@ -574,6 +687,10 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
           <span style="font-size:11px;color:var(--muted);border-left:1px solid var(--border);padding-left:8px;">
             SIGNAL <b id="sig-pct" style="color:var(--green);">—</b>
           </span>
+          <button id="btn-dom" onclick="domToggle()" title="Depth of Market"
+            style="background:rgba(74,240,176,0.08);border:1px solid rgba(74,240,176,0.25);color:var(--oil);padding:2px 8px;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:2px;border-left:1px solid rgba(74,240,176,0.25);">
+            DOM
+          </button>
         </div>
       </div>
       <!-- INDICATOR LAYER TOGGLES -->
@@ -727,6 +844,18 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
   <!-- BOTTOM SPLIT: registry + chart filling remaining space -->
   <div class="bottom-split" id="bottom-split">
 
+    <!-- MOBILE TIMEFRAME STRIP — hidden on desktop -->
+    <div id="mv-tf-strip">
+      <button data-tf="1"   onclick="setMobileTF(this,'1')">M1</button>
+      <button data-tf="5"   onclick="setMobileTF(this,'5')">M5</button>
+      <button data-tf="15"  onclick="setMobileTF(this,'15')">M15</button>
+      <button data-tf="60"  onclick="setMobileTF(this,'60')" class="active">H1</button>
+      <button data-tf="240" onclick="setMobileTF(this,'240')">H4</button>
+      <button data-tf="D"   onclick="setMobileTF(this,'D')">D1</button>
+      <button data-tf="W"   onclick="setMobileTF(this,'W')">W1</button>
+      <div class="tf-gear" onclick="toggleMobileInds(this)" title="Indicators">⚙</div>
+    </div>
+
     <!-- LIGHTWEIGHT CHARTS — full width dominant -->
     <div class="chart-wrap" id="chart-panel" style="min-height:400px;">
       <div id="chart-wrapper">
@@ -745,6 +874,26 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
       <button id="btn-fullscreen" onclick="openChartFullscreen()" title="Fullscreen chart (Esc to exit)" style="position:absolute;top:8px;right:44px;z-index:10;background:rgba(0,0,0,0.6);border:1px solid var(--gold);color:var(--gold);padding:4px 8px;border-radius:3px;cursor:pointer;font-size:14px;line-height:1;font-weight:700;">⛶</button>
     </div>
 
+    <!-- DEPTH OF MARKET PANEL -->
+    <div id="dom-panel">
+      <div class="dom-hdr">
+        <div class="dom-hdr-row">
+          <span class="dom-sym" id="dom-sym-lbl">—</span>
+          <span style="font-family:'Bebas Neue';font-size:10px;letter-spacing:1px;color:#3a4560;">DOM</span>
+          <button class="dom-close" onclick="domToggle()">✕</button>
+        </div>
+        <div class="dom-spread-val" id="dom-spread-val">Spread: —</div>
+      </div>
+      <div class="dom-col-hdr">
+        <span class="dh-ask">ASK VOL</span>
+        <span class="dh-price">PRICE</span>
+        <span class="dh-bid">BID VOL</span>
+      </div>
+      <div id="dom-ladder" style="flex:1;overflow-y:auto;"></div>
+      <div class="dom-footer" id="dom-footer"></div>
+      <div class="dom-signals" id="dom-sigs"></div>
+    </div>
+
   </div><!-- end bottom-split -->
 
   <!-- NEWS TICKER -->
@@ -758,23 +907,17 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
     <div style="padding:0 12px;font-size:11px;color:var(--muted);border-left:1px solid var(--border);white-space:nowrap;" id="blackout-status">✓ CLEAR TO TRADE</div>
   </div>
 
-  <!-- MOBILE TAB BAR — hidden on desktop, shown on iPhone -->
-  <nav id="mobile-tabs" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;background:#0e1117;border-top:1px solid #2a3040;height:54px;display:none;align-items:stretch;">
-    <button onclick="mobileTab('chart')" id="mt-chart" style="flex:1;background:none;border:none;border-right:1px solid #2a3040;color:#6b7280;font-family:Bebas Neue,sans-serif;font-size:8px;letter-spacing:1px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;-webkit-tap-highlight-color:transparent;">
-      <span style="font-size:18px;line-height:1;">📈</span>CHART
-    </button>
-    <button onclick="mobileTab('trade')" id="mt-trade" style="flex:1;background:none;border:none;border-right:1px solid #2a3040;color:#6b7280;font-family:Bebas Neue,sans-serif;font-size:8px;letter-spacing:1px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;-webkit-tap-highlight-color:transparent;">
-      <span style="font-size:18px;line-height:1;">⚡</span>TRADE
-    </button>
-    <button onclick="mobileTab('trades')" id="mt-trades" style="flex:1;background:none;border:none;border-right:1px solid #2a3040;color:#6b7280;font-family:Bebas Neue,sans-serif;font-size:8px;letter-spacing:1px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;-webkit-tap-highlight-color:transparent;">
-      <span style="font-size:18px;line-height:1;">📋</span>ORDERS
-    </button>
-    <button onclick="mobileTab('account')" id="mt-account" style="flex:1;background:none;border:none;border-right:1px solid #2a3040;color:#6b7280;font-family:Bebas Neue,sans-serif;font-size:8px;letter-spacing:1px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;-webkit-tap-highlight-color:transparent;">
-      <span style="font-size:18px;line-height:1;">💰</span>ACCOUNT
-    </button>
-    <button onclick="mobileTab('auto')" id="mt-auto" style="flex:1;background:none;border:none;color:#6b7280;font-family:Bebas Neue,sans-serif;font-size:8px;letter-spacing:1px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;-webkit-tap-highlight-color:transparent;">
-      <span style="font-size:18px;line-height:1;">🤖</span>AUTO
-    </button>
+  <!-- ── MOBILE PANELS — hidden on desktop ── -->
+  <div id="mv-trades-panel" class="mob-panel"></div>
+  <div id="mv-signals-panel" class="mob-panel"></div>
+  <div id="mv-account-panel" class="mob-panel"></div>
+
+  <!-- ── MOBILE TAB BAR — 4 tabs ── -->
+  <nav id="mobile-tabs">
+    <button onclick="mobileTab('chart')"   id="mt-chart"><span class="ti">📊</span>CHART</button>
+    <button onclick="mobileTab('trades')"  id="mt-trades"><span class="ti">📋</span>TRADES</button>
+    <button onclick="mobileTab('signals')" id="mt-signals"><span class="ti">🎯</span>SIGNALS</button>
+    <button onclick="mobileTab('account')" id="mt-account"><span class="ti">💰</span>ACCOUNT</button>
   </nav>
 
   <!-- PAGE FOOTER -->
@@ -783,6 +926,16 @@ body * { font-size: 13px !important; line-height: 1.4 !important; }
   </div>
 
 </div><!-- end main -->
+
+<!-- ── PWA INSTALL BANNER ── -->
+<div id="install-banner">
+  <span style="font-size:20px;flex-shrink:0;">📲</span>
+  <div style="flex:1;line-height:1.4;">
+    <div style="font-family:'Bebas Neue';font-size:14px;letter-spacing:1px;color:#f5a623;">Add to Home Screen</div>
+    <div style="font-size:11px;color:#6b7280;">Safari → Share → Add to Home Screen</div>
+  </div>
+  <button onclick="dismissInstallBanner()" style="background:none;border:1px solid #3a4150;color:#6b7280;font-size:16px;width:32px;height:32px;border-radius:4px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;touch-action:manipulation;">✕</button>
+</div>
 
 <!-- ── BLACKOUT BANNER ── -->
 <div class="blackout" id="blackout">
@@ -2017,6 +2170,7 @@ function onInstrChange(){
   renderPriceSidebar();
   setTimeout(renderPriceSidebar, 500);
   console.log('[Jimmy] onInstrChange done: S.mkt="'+S.mkt+'" price=$'+S.prices[k]);
+  domOnInstrChange();
 }
 
 // ══ ACCOUNT ══
@@ -6130,112 +6284,198 @@ function toast(icon,title,msg){
   t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-// ══ INIT ══
 // ══ MOBILE TAB NAVIGATION ══
-const MOBILE_TABS = ['chart','trade','trades','account','auto'];
+const MOBILE_TABS = ['chart','trades','signals','account'];
 let _mobileActive = 'chart';
 
 function mobileTab(tab){
   if(!isMobile()) return;
   _mobileActive = tab;
 
-  // Update tab button states
+  const bottomSplit = $('bottom-split');
+
+  // Reset layout
+  if(bottomSplit){ bottomSplit.style.display='none'; bottomSplit.classList.remove('mob-chart'); }
+  document.querySelectorAll('.mob-panel').forEach(el=>el.classList.remove('active'));
+  $('auto-sb')?.classList.remove('open');
+  $('sig-sb')?.classList.remove('open');
+
+  // Tab button active state
   MOBILE_TABS.forEach(t=>{
-    const btn = document.getElementById('mt-'+t);
-    if(btn) btn.className = t===tab ? 'active' : '';
+    const btn=$('mt-'+t);
+    if(btn) btn.classList.toggle('tab-active', t===tab);
   });
-
-  // Show the right content
-  const main = document.querySelector('.main');
-  const topGrid = document.querySelector('.top-grid');
-  const bottomSplit = document.getElementById('bottom-split');
-  const registry = document.getElementById('registry-panel');
-  const autoSb = document.getElementById('auto-sb');
-  const rightPanel = document.querySelector('.right-panel');
-
-  // Reset all
-  if(topGrid)   topGrid.style.display='';
-  if(bottomSplit) bottomSplit.style.display='';
-  if(registry)  registry.style.display='';
-  if(autoSb)    autoSb.classList.remove('open');
 
   switch(tab){
     case 'chart':
-      if(topGrid) topGrid.style.display='none';
-      if(registry) registry.style.display='none';
-      if(bottomSplit){
-        bottomSplit.style.display='flex';
-        bottomSplit.style.flex='1';
-        bottomSplit.style.height='calc(100vh - 54px)';
-      }
-      // Force chart to fill available space
-      const cw = document.getElementById('chart-panel');
-      if(cw){
-        cw.style.flex='1';
-        cw.style.height='calc(100vh - 54px)';
-        cw.style.minHeight='300px';
-      }
+      if(bottomSplit){ bottomSplit.classList.add('mob-chart'); }
+      // Sync TF strip highlight to current interval
+      const cur=TV.interval||LWC.interval||'60';
+      document.querySelectorAll('#mv-tf-strip [data-tf]').forEach(b=>{
+        b.classList.toggle('active', b.dataset.tf===cur);
+      });
+      setTimeout(()=>loadTV(), 80);
       break;
-
-    case 'trade':
-      // Show the left trade panel + hide chart
-      if(topGrid) topGrid.style.display='grid';
-      if(bottomSplit) bottomSplit.style.display='none';
-      if(registry) registry.style.display='none';
-      // Scroll left panel into view
-      setTimeout(()=>document.querySelector('.left-panel')?.scrollIntoView({behavior:'smooth'}),50);
-      break;
-
     case 'trades':
-      // Show live trades registry full width
-      if(topGrid) topGrid.style.display='none';
-      if(bottomSplit){ bottomSplit.style.display='flex'; bottomSplit.style.flexDirection='column'; }
-      if(registry){ registry.style.display='flex'; registry.style.height='100%'; registry.style.maxHeight='none'; }
+      const tp=$('mv-trades-panel');
+      if(tp){ tp.classList.add('active'); renderMobileTrades(); }
       break;
-
+    case 'signals':
+      const sp=$('mv-signals-panel');
+      if(sp){ sp.classList.add('active'); renderMobileSignals(); }
+      break;
     case 'account':
-      // Show account stats + right panel
-      if(topGrid) topGrid.style.display='grid';
-      if(rightPanel) rightPanel.style.display='flex';
-      if(bottomSplit) bottomSplit.style.display='none';
-      // Scroll right panel into view
-      setTimeout(()=>rightPanel?.scrollIntoView({behavior:'smooth'}),50);
-      break;
-
-    case 'auto':
-      // Open auto sidebar as full screen overlay
-      if(bottomSplit) bottomSplit.style.display='none';
-      if(topGrid) topGrid.style.display='none';
-      if(autoSb){
-        autoSb.classList.add('open');
-        autoSb.style.position='fixed';
-        autoSb.style.inset='0';
-        autoSb.style.top='0';
-        autoSb.style.zIndex='250';
-        autoSb.style.width='100vw';
-        autoSb.style.display='flex';
-        buildEngInstrs(); syncEngStats(); updateEngUI();
-      }
+      const ap=$('mv-account-panel');
+      if(ap){ ap.classList.add('active'); renderMobileAccount(); }
       break;
   }
+}
 
-  // Always keep chart responsive
-  // Update active tab button styles
-  MOBILE_TABS.forEach(t=>{
-    const btn=document.getElementById('mt-'+t);
-    if(!btn) return;
-    if(t===tab){
-      btn.style.color='#f5c842';
-      btn.style.background='rgba(245,200,66,0.08)';
-      btn.style.borderTop='2px solid #f5c842';
-    } else {
-      btn.style.color='#6b7280';
-      btn.style.background='none';
-      btn.style.borderTop='none';
-    }
-  });
+// ── Mobile TF strip ──
+function setMobileTF(btn, tf){
+  TV.interval = tf;
+  document.querySelectorAll('#mv-tf-strip [data-tf]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadTV();
+}
 
-  if(tab==='chart') setTimeout(()=>loadTV(),100);
+let _mobIndsVisible = false;
+function toggleMobileInds(gear){
+  _mobIndsVisible = !_mobIndsVisible;
+  gear.classList.toggle('ind-on', _mobIndsVisible);
+  const bar = document.querySelector('.ind-bar');
+  if(bar) bar.style.display = _mobIndsVisible ? 'flex' : 'none';
+}
+
+// ── Mobile render: SIGNALS ──
+function renderMobileSignals(){
+  const panel=$('mv-signals-panel'); if(!panel) return;
+  const results=Object.values(HSE.results).sort((a,b)=>b.confidence-a.confidence);
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#111418;border-bottom:1px solid #2a3040;flex-shrink:0;">
+    <div>
+      <div style="font-family:'Bebas Neue';font-size:15px;letter-spacing:2px;color:#f5a623;">🎯 SIGNAL ENGINE</div>
+      <div style="font-size:11px;color:#6b7280;">${HSE.lastScan?'SCANNED: '+new Date(HSE.lastScan).toLocaleTimeString('en-AU',{hour12:false}):'NOT YET SCANNED'}</div>
+    </div>
+    <button onclick="hseStartScan().then(()=>{if(isMobile()&&_mobileActive==='signals')renderMobileSignals();})"
+      style="background:rgba(245,166,35,0.15);border:1px solid rgba(245,166,35,0.5);color:#f5a623;padding:8px 16px;font-family:'Bebas Neue';font-size:12px;letter-spacing:1px;border-radius:4px;cursor:pointer;min-height:40px;touch-action:manipulation;">⟳ SCAN</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px;padding-bottom:calc(70px + env(safe-area-inset-bottom,0px));">`;
+  if(!results.length){
+    h+=`<div style="text-align:center;color:#6b7280;padding:40px 20px;font-size:14px;line-height:1.6;">No signal data yet.<br><span style="font-size:12px;">Tap ⟳ SCAN to analyse all 9 instruments.</span></div>`;
+  } else {
+    results.forEach(r=>{
+      const col=r.recommendation==='BUY'?'#2ecc71':r.recommendation==='SELL'?'#e74c3c':r.recommendation==='WATCH'?'#f5a623':'#6b7280';
+      const bw=Math.min(100,r.confidence).toFixed(0);
+      const reasons=r.signals.map(s=>s.reason).join(' · ')||'—';
+      const price=(S.prices[r.asset]||0).toLocaleString(undefined,{maximumFractionDigits:2});
+      h+=`<div class="mv-sig-card" onclick="(function(){const s=document.getElementById('sel-instrument');if(s){s.value='${r.asset}';onInstrChange();}mobileTab('chart');})()" >
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'Bebas Neue';font-size:20px;color:${M[r.asset].color};">${icon(r.asset)} ${r.asset}</span>
+            <span style="font-size:12px;color:#6b7280;">$${price}</span>
+          </div>
+          <span style="font-family:'Bebas Neue';font-size:14px;padding:5px 12px;border-radius:5px;background:${col}1a;color:${col};border:1px solid ${col}44;">${r.recommendation}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${bw}%;background:${col};border-radius:3px;"></div>
+          </div>
+          <span style="font-family:'Bebas Neue';font-size:16px;color:${col};">${r.confidence.toFixed(0)}%</span>
+        </div>
+        <div style="font-size:12px;color:#8a9bb0;line-height:1.5;">${reasons}</div>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;color:#6b7280;">
+          <span>BUY <b style="color:#2ecc71">${r.buyScore}pt</b></span>
+          <span>SELL <b style="color:#e74c3c">${r.sellScore}pt</b></span>
+          <span style="margin-left:auto;font-size:11px;">${r.timestamp?new Date(r.timestamp).toLocaleTimeString('en-AU',{hour12:false,hour:'2-digit',minute:'2-digit'}):''} →</span>
+        </div>
+      </div>`;
+    });
+  }
+  h+='</div>';
+  panel.innerHTML=h;
+}
+
+// ── Mobile render: TRADES ──
+function renderMobileTrades(){
+  const panel=$('mv-trades-panel'); if(!panel) return;
+  const openPos=S.positions.filter(p=>p.status==='open');
+  const totalPnl=openPos.reduce((s,p)=>s+(p.pnl||0),0);
+  const totalMargin=openPos.reduce((s,p)=>s+(p.margin||0),0);
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#111418;border-bottom:1px solid #2a3040;flex-shrink:0;">
+    <div>
+      <div style="font-family:'Bebas Neue';font-size:15px;letter-spacing:2px;color:#f5a623;">📋 TRADES (${openPos.length})</div>
+      <div style="font-size:11px;color:#6b7280;">MARGIN: $${totalMargin.toFixed(2)}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-family:'Bebas Neue';font-size:22px;color:${totalPnl>=0?'#2ecc71':'#e74c3c'};">${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(2)}</div>
+      <div style="font-size:11px;color:#6b7280;">OPEN P&L</div>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(70px + env(safe-area-inset-bottom,0px));">`;
+  if(!openPos.length){
+    h+=`<div style="text-align:center;color:#6b7280;padding:40px 20px;font-size:14px;line-height:1.6;">No open trades.<br><span style="font-size:12px;">Go to CHART to place a trade.</span></div>`;
+  } else {
+    openPos.forEach(pos=>{
+      const pnl=pos.pnl||0; const m=M[pos.instrument];
+      const pc=pnl>=0?'#2ecc71':'#e74c3c';
+      const dc=pos.direction==='BUY'?'#2ecc71':'#e74c3c';
+      h+=`<div class="mv-trade-item">
+        <div class="mv-trade-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div>
+              <span style="font-family:'Bebas Neue';font-size:18px;color:${m?.color||'#fff'};">${icon(pos.instrument)} ${pos.instrument}</span>
+              <span style="font-family:'Bebas Neue';font-size:13px;color:${dc};margin-left:6px;">${pos.direction}</span>
+            </div>
+            <span style="font-family:'Bebas Neue';font-size:20px;color:${pc};">${pnl>=0?'+':''}$${Math.abs(pnl).toFixed(2)}</span>
+          </div>
+          <div style="display:flex;gap:12px;font-size:12px;color:#6b7280;margin-bottom:8px;">
+            <span>Entry <b style="color:#dde3ec">$${pos.openPrice?.toFixed(m?.dec||2)||'—'}</b></span>
+            <span>SL <b style="color:#e74c3c">$${pos.sl?.toFixed(m?.dec||2)||'—'}</b></span>
+            <span>TP <b style="color:#2ecc71">$${pos.tp?.toFixed(m?.dec||2)||'—'}</b></span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;color:#6b7280;">${pos.leverage||'—'} · ${pos.lot} ${pos.tradeType||''}</span>
+            <button class="mv-close-btn" onclick="closePos('${pos.id}');renderMobileTrades();">CLOSE</button>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+  h+='</div>';
+  panel.innerHTML=h;
+}
+
+// ── Mobile render: ACCOUNT ──
+function renderMobileAccount(){
+  const panel=$('mv-account-panel'); if(!panel) return;
+  const bal=S.bal||0;
+  const openPnl=S.positions.filter(p=>p.status==='open').reduce((s,p)=>s+(p.pnl||0),0);
+  const equity=bal+openPnl;
+  const usedMargin=S.positions.filter(p=>p.status==='open').reduce((s,p)=>s+(p.margin||0),0);
+  const freeMargin=equity-usedMargin;
+  const ar=getAudRate();
+  const aud=v=>'A$'+(v*ar).toFixed(2);
+  const row=(lbl,val,col,sub)=>`<div class="mv-acct-row">
+    <div><div class="mv-acct-lbl">${lbl}</div>${sub?`<div style="font-size:11px;color:#3b9eff;">${sub}</div>`:''}
+    </div><div class="mv-acct-val"${col?` style="color:${col}"`:''}>${val}</div></div>`;
+  let h=`<div style="padding:10px 14px;background:#111418;border-bottom:1px solid #2a3040;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+    <div style="font-family:'Bebas Neue';font-size:15px;letter-spacing:2px;color:#f5a623;">💰 ACCOUNT</div>
+    <div style="font-family:'Bebas Neue';font-size:12px;letter-spacing:1px;padding:3px 9px;background:rgba(245,166,35,0.1);color:#f5a623;border:1px solid rgba(245,166,35,0.3);border-radius:3px;">${S.demo?'DEMO':'LIVE'}</div>
+  </div>
+  <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(70px + env(safe-area-inset-bottom,0px));">`;
+  h+=row('Balance (USD)','$'+bal.toLocaleString(undefined,{maximumFractionDigits:2}),'#f5a623',aud(bal));
+  h+=row('Equity','$'+equity.toFixed(2),'',aud(equity));
+  h+=row('Open P&L',(openPnl>=0?'+':'')+'$'+openPnl.toFixed(2),openPnl>=0?'#2ecc71':'#e74c3c');
+  h+=row('Used Margin','$'+usedMargin.toFixed(2));
+  h+=row('Free Margin','$'+freeMargin.toFixed(2),'#2ecc71');
+  h+=row('Open Trades',''+S.positions.filter(p=>p.status==='open').length);
+  h+=row('Tax Liability (AUD)','$'+(TX.reserve||0).toFixed(2),'#f5a623');
+  h+=`<div style="padding:14px;display:flex;flex-direction:column;gap:10px;">`;
+  if(!S.connected) h+=`<button onclick="openConn()" style="background:#f5a623;color:#000;border:none;padding:14px;font-family:'Bebas Neue';font-size:15px;letter-spacing:2px;border-radius:6px;cursor:pointer;min-height:50px;width:100%;touch-action:manipulation;">⚡ CONNECT CAPITAL.COM</button>`;
+  h+=`<button onclick="openReset()" style="background:#1e2329;border:1px solid #2a3040;color:#dde3ec;padding:12px;font-family:'Bebas Neue';font-size:14px;letter-spacing:1px;border-radius:5px;cursor:pointer;min-height:46px;width:100%;touch-action:manipulation;">💵 RESET BALANCE</button>`;
+  if(S.connected) h+=`<button onclick="if(confirm('Disconnect session?'))disconnectSession()" style="background:#4a1a1a;border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:12px;font-family:'Bebas Neue';font-size:14px;letter-spacing:1px;border-radius:5px;cursor:pointer;min-height:46px;width:100%;touch-action:manipulation;">DISCONNECT</button>`;
+  h+=`</div></div>`;
+  panel.innerHTML=h;
 }
 
 function isMobile(){ return window.innerWidth <= 768; }
@@ -6243,35 +6483,242 @@ function isMobile(){ return window.innerWidth <= 768; }
 function initMobileLayout(){
   if(!isMobile()) return;
 
-  // Fix viewport height for iPhone notch/nav bar
-  const setVH = () => {
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh',''+vh+'px');
-  };
-  setVH();
-  window.addEventListener('resize', setVH);
+  // Dynamic viewport height (fixes iOS address-bar resize)
+  const setVH=()=>document.documentElement.style.setProperty('--vh',(window.innerHeight*0.01)+'px');
+  setVH(); window.addEventListener('resize', setVH, {passive:true});
 
-  // Make ticker less items on mobile
-  const ticker = document.querySelector('.ticker-wrap');
-  if(ticker) ticker.style.display='none';
-
-  // Show mobile tabs
-  const nav = document.getElementById('mobile-tabs');
-  if(nav) nav.style.display='flex';
+  // Show tab bar
+  const nav=$('mobile-tabs');
+  if(nav) nav.classList.add('mob-visible');
 
   // Start on chart tab
   mobileTab('chart');
 
-  // Add touch swipe to switch tabs
-  let touchStartX = 0;
-  document.addEventListener('touchstart', e=>{ touchStartX=e.touches[0].clientX; }, {passive:true});
+  // Swipe to switch tabs
+  let tx=0;
+  document.addEventListener('touchstart', e=>{ tx=e.touches[0].clientX; },{passive:true});
   document.addEventListener('touchend', e=>{
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    if(Math.abs(dx) < 60) return; // not a swipe
-    const idx = MOBILE_TABS.indexOf(_mobileActive);
-    if(dx < 0 && idx < MOBILE_TABS.length-1) mobileTab(MOBILE_TABS[idx+1]);
-    if(dx > 0 && idx > 0) mobileTab(MOBILE_TABS[idx-1]);
-  }, {passive:true});
+    const dx=e.changedTouches[0].clientX-tx;
+    if(Math.abs(dx)<70) return;
+    const idx=MOBILE_TABS.indexOf(_mobileActive);
+    if(dx<0&&idx<MOBILE_TABS.length-1) mobileTab(MOBILE_TABS[idx+1]);
+    if(dx>0&&idx>0) mobileTab(MOBILE_TABS[idx-1]);
+  },{passive:true});
+
+  // Show install banner once (iOS Safari only, not already installed)
+  initInstallBanner();
+}
+
+// ── Install Banner ──────────────────────────────────────────────────────────
+function initInstallBanner(){
+  // Only show on iOS Safari when NOT running in standalone mode
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+  const dismissed=localStorage.getItem('ljtc-install-dismissed');
+  if(isIOS&&!isStandalone&&!dismissed){
+    const banner=$('install-banner');
+    if(banner) setTimeout(()=>banner.classList.add('ib-show'),2000);
+  }
+}
+function dismissInstallBanner(){
+  const banner=$('install-banner');
+  if(banner) banner.classList.remove('ib-show');
+  localStorage.setItem('ljtc-install-dismissed','1');
+}
+
+// ══ DEPTH OF MARKET (DOM) ENGINE ══
+const DOM_SYMBOLS={BTC:'BTCUSDT',ETH:'ETHUSDT',SOL:'SOLUSDT',XRP:'XRPUSDT',DOGE:'DOGEUSDT'};
+const DOM_STATE={visible:false,timer:null,lastBook:null,prevBook:null,flashMap:{},asset:null};
+
+function domToggle(){
+  DOM_STATE.visible=!DOM_STATE.visible;
+  const panel=$('dom-panel');
+  if(!panel) return;
+  if(DOM_STATE.visible){
+    panel.classList.add('dom-open');
+    localStorage.setItem('ljtc-dom-visible','1');
+    domStart();
+  } else {
+    panel.classList.remove('dom-open');
+    localStorage.setItem('ljtc-dom-visible','0');
+    domStop();
+  }
+}
+
+function domStart(){
+  domStop();
+  domFetch();
+  DOM_STATE.timer=setInterval(domFetch,500);
+}
+
+function domStop(){
+  if(DOM_STATE.timer){ clearInterval(DOM_STATE.timer); DOM_STATE.timer=null; }
+}
+
+function domOnInstrChange(){
+  DOM_STATE.lastBook=null; DOM_STATE.prevBook=null; DOM_STATE.flashMap={};
+  const sym=$('dom-sym-lbl');
+  if(sym) sym.textContent=S.mkt||'—';
+  if(DOM_STATE.visible) domFetch();
+}
+
+async function domFetch(){
+  const asset=S.mkt||'GOLD';
+  const sym=DOM_SYMBOLS[asset];
+  if(!sym){ domRenderUnavailable(asset); return; }
+  try{
+    const r=await fetch(`https://api.binance.com/api/v3/depth?symbol=${sym}&limit=20`);
+    if(!r.ok) throw new Error(r.status);
+    const data=await r.json();
+    DOM_STATE.prevBook=DOM_STATE.lastBook;
+    DOM_STATE.lastBook=data;
+    DOM_STATE.asset=asset;
+    domBuildFlash(data);
+    domRender(asset,data);
+  } catch(e){
+    if(!DOM_STATE.lastBook) domRenderUnavailable(asset);
+  }
+}
+
+function domBuildFlash(newData){
+  const prev=DOM_STATE.prevBook;
+  if(!prev) return;
+  const fm={};
+  const buildMap=(arr)=>{const m={};arr.forEach(([p,v])=>m[p]=parseFloat(v));return m;};
+  const oldBids=buildMap(prev.bids), newBids=buildMap(newData.bids);
+  const oldAsks=buildMap(prev.asks), newAsks=buildMap(newData.asks);
+  newData.bids.forEach(([p])=>{
+    const pf=parseFloat(p);
+    const delta=(newBids[p]||0)-(oldBids[p]||0);
+    if(Math.abs(delta)>0) fm['b'+pf]=delta>0?'up':'dn';
+  });
+  newData.asks.forEach(([p])=>{
+    const pf=parseFloat(p);
+    const delta=(newAsks[p]||0)-(oldAsks[p]||0);
+    if(Math.abs(delta)>0) fm['a'+pf]=delta>0?'dn':'up';
+  });
+  DOM_STATE.flashMap=fm;
+}
+
+function domRender(asset,data){
+  const ladder=$('dom-ladder');
+  const spreadEl=$('dom-spread-val');
+  const symEl=$('dom-sym-lbl');
+  if(!ladder) return;
+  if(symEl) symEl.textContent=asset;
+
+  const asks=[...data.asks].slice(0,10).map(([p,v])=>[parseFloat(p),parseFloat(v)]);
+  const bids=[...data.bids].slice(0,10).map(([p,v])=>[parseFloat(p),parseFloat(v)]);
+
+  // Sort: asks ascending (cheapest ask at bottom near mid), bids descending
+  asks.sort((a,b)=>a[0]-b[0]);
+  bids.sort((a,b)=>b[0]-a[0]);
+
+  const bestAsk=asks[0]?.[0], bestBid=bids[0]?.[0];
+  const midPrice=bestAsk&&bestBid?(bestAsk+bestBid)/2:null;
+  const spread=bestAsk&&bestBid?bestAsk-bestBid:null;
+  const dec=asset==='BTC'?1:asset==='ETH'?2:asset==='SOL'?3:5;
+
+  if(spreadEl&&spread!=null) spreadEl.textContent=`Spread: ${spread.toFixed(dec)}`;
+
+  // Max vol for bar scaling
+  const allVols=[...asks.map(r=>r[1]),...bids.map(r=>r[1])];
+  const maxVol=Math.max(...allVols,0.0001);
+  const avgVol=allVols.reduce((a,b)=>a+b,0)/allVols.length;
+  const wallThresh=avgVol*5;
+  const barWidth=76; // pixel width of bar area
+
+  let html='';
+
+  // Asks (displayed top-to-bottom, highest ask first so mid is at bottom of asks)
+  const asksDisplay=[...asks].reverse();
+  asksDisplay.forEach(([price,vol])=>{
+    const isWall=vol>=wallThresh;
+    const pct=Math.min(vol/maxVol,1);
+    const bw=Math.round(pct*barWidth);
+    const fl=DOM_STATE.flashMap['a'+price];
+    const flashCls=fl?` dom-flash-${fl}`:'';
+    html+=`<div class="dom-row${flashCls}" data-p="${price}">
+      <div class="dom-bar dom-bar-ask${isWall?' wall':''}" style="width:${bw}px;"></div>
+      <div class="dom-cell dom-ask-cell${isWall?' wall':''}">—</div>
+      <div class="dom-cell dom-price-cell">${price.toFixed(dec)}</div>
+      <div class="dom-cell dom-ask-cell${isWall?' wall':''}" style="justify-content:flex-start;">${fmtDomVol(vol)}${isWall?' ⚡':''}</div>
+    </div>`;
+  });
+
+  // Mid row
+  if(midPrice!=null){
+    const livePrice=S.prices[asset]||midPrice;
+    html+=`<div class="dom-row dom-mid">
+      <div class="dom-cell" style="color:rgba(245,200,66,0.5);font-size:8px;justify-content:flex-end;">MID</div>
+      <div class="dom-cell dom-price-cell">${livePrice.toFixed(dec)}</div>
+      <div class="dom-cell" style="color:rgba(245,200,66,0.5);font-size:8px;"></div>
+    </div>`;
+  }
+
+  // Bids
+  bids.forEach(([price,vol])=>{
+    const isWall=vol>=wallThresh;
+    const pct=Math.min(vol/maxVol,1);
+    const bw=Math.round(pct*barWidth);
+    const fl=DOM_STATE.flashMap['b'+price];
+    const flashCls=fl?` dom-flash-${fl}`:'';
+    html+=`<div class="dom-row${flashCls}" data-p="${price}">
+      <div class="dom-bar dom-bar-bid${isWall?' wall':''}" style="width:${bw}px;"></div>
+      <div class="dom-cell dom-bid-cell${isWall?' wall':''}" style="justify-content:flex-end;">${fmtDomVol(vol)}${isWall?' ⚡':''}</div>
+      <div class="dom-cell dom-price-cell">${price.toFixed(dec)}</div>
+      <div class="dom-cell dom-bid-cell${isWall?' wall':''}">—</div>
+    </div>`;
+  });
+
+  ladder.innerHTML=html;
+
+  // Footer: imbalance
+  const totalBidVol=bids.reduce((s,[,v])=>s+v,0);
+  const totalAskVol=asks.reduce((s,[,v])=>s+v,0);
+  const total=totalBidVol+totalAskVol||1;
+  const bidPct=Math.round((totalBidVol/total)*100);
+  const askPct=100-bidPct;
+  const imb=bidPct-askPct;
+  const imbLabel=imb>20?'STRONG BUY PRESSURE':imb>8?'BUY PRESSURE':imb<-20?'STRONG SELL PRESSURE':imb<-8?'SELL PRESSURE':'BALANCED';
+  const imbColor=imb>8?'var(--green)':imb<-8?'var(--red)':'var(--muted)';
+  const footer=$('dom-footer');
+  if(footer) footer.innerHTML=`
+    <div class="dom-tot-row">
+      <span style="color:var(--green);">BID ${fmtDomVol(totalBidVol)}</span>
+      <span style="color:var(--red);">ASK ${fmtDomVol(totalAskVol)}</span>
+    </div>
+    <div class="dom-imb-track">
+      <div class="dom-imb-bid" style="width:${bidPct}%;"></div>
+      <div class="dom-imb-ask" style="width:${askPct}%;"></div>
+    </div>
+    <div class="dom-imb-lbl" style="color:${imbColor};">${imbLabel}</div>`;
+
+  // Scalping signals (wall detection)
+  const sigs=$('dom-sigs');
+  if(sigs){
+    const walls=[];
+    asks.forEach(([p,v])=>{ if(v>=wallThresh) walls.push(`ASK WALL @ ${p.toFixed(dec)} (${fmtDomVol(v)})`); });
+    bids.forEach(([p,v])=>{ if(v>=wallThresh) walls.push(`BID WALL @ ${p.toFixed(dec)} (${fmtDomVol(v)})`); });
+    sigs.innerHTML=walls.length
+      ? walls.map(w=>`<div class="dom-sig-row" style="color:var(--gold);">⚡ ${w}</div>`).join('')
+      : `<div class="dom-sig-row">No significant walls</div>`;
+  }
+}
+
+function domRenderUnavailable(asset){
+  const ladder=$('dom-ladder');
+  const sym=$('dom-sym-lbl');
+  if(sym) sym.textContent=asset||'—';
+  if(ladder) ladder.innerHTML=`<div style="padding:20px 8px;text-align:center;color:#3a4560;font-size:9px;font-family:'DM Mono';">DOM not available<br>for ${asset}</div>`;
+  const footer=$('dom-footer'); if(footer) footer.innerHTML='';
+  const sigs=$('dom-sigs'); if(sigs) sigs.innerHTML='';
+}
+
+function fmtDomVol(v){
+  if(v>=1000000) return (v/1000000).toFixed(1)+'M';
+  if(v>=1000) return (v/1000).toFixed(1)+'K';
+  return v.toFixed(2);
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -6305,6 +6752,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   updateAccount();renderTrades();_updateCurrencyHeaders();
   updateAutoButtons();
   initMobileLayout(); // mobile tab nav — detects iPhone automatically
+  // Restore DOM panel visibility
+  if(localStorage.getItem('ljtc-dom-visible')==='1'){ domToggle(); }
   setTimeout(()=>toast('🚀','Jimmys Trading Co','Click CONNECT or DEMO MODE to start'),800);
 });
 </script>
