@@ -39,7 +39,7 @@ This guide is for whoever (and whichever Claude) picks them up next. Give your C
   - Three.js loads on demand (`load3D()`).
   - The game falls back to 2D if WebGL or the download fails.
   - Quality steps down automatically (glow off, then shadows off) if the frame rate drops below about 30.
-  - The menu has a "3D graphics / Classic 2D" switch.
+  - There is one version of the game: 3D, with chaos power-ups and goal movies always on. Phones that can't do 3D fall back to 2D by themselves.
   - Version 0.147 is deliberate: it is the last one that ships plain-script `examples/js` files (glow/bloom, RoomEnvironment) usable without a bundler.
   - Colour uses sRGB (`ColorManagement.legacyMode = false`, sRGB textures, and a `GammaCorrectionShader` pass after bloom). Without that, scenes look washed out.
 - **The simulation catches up after slow frames:** it runs in small fixed-size steps (see `runSim` / `startGame`), so a phone busy drawing 3D doesn't play in slow motion.
@@ -64,17 +64,17 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
   - The computer plays the keeper until a teammate drags it, and whoever grabbed it last controls it (`applyInput`, `grab`).
   - Empty spots are computer players (`aiTarget`).
 - **Joining: one link, by QR code or sent:**
-  - **Host a match** makes one join link per lobby: `#join=CODE.PASS&from=Name`, where PASS is a 10-letter pass (`inviteToken`) that lasts until the host leaves the lobby. The lobby shows it as a QR code for friends in the room, and **Send the link** (`shareInvite`) opens the phone's share sheet (WhatsApp, Messages…) and copies it too. Without a share sheet it just copies, and without clipboard access it shows the link to copy.
+  - **📲 Invite friends to play** (`#goHost`) hosts a match and opens the share sheet straight away. Each lobby has one join link: `#join=CODE.PASS&from=Name`, where PASS is a 10-letter pass (`inviteToken`) that lasts until the host leaves the lobby. The lobby shows it as a QR code for friends in the room, and **Send the link** (`shareInvite`) opens the phone's share sheet (WhatsApp, Messages…) and copies it too. Without a share sheet it just copies, and without clipboard access it shows the link to copy.
   - Opening the link (scanned or tapped) shows a Join screen: who invited you, your face and name, and **Join game** (`join` → `connectTo`).
   - Host and guests use PeerJS's own servers (`PEER_NET`), so it works across the internet. The TV screen still uses `PEER_OPTS` (no STUN/TURN), since it sits on the same Wi-Fi as the host.
   - A guest's first message must be `{t:'knock', token}`.
   - Some school and guest Wi-Fi networks block phones talking to each other; the hotspot is the workaround.
-- **Chaos power-ups** (`POWERS`; on by default, with a "Normal soccer" switch):
+- **Chaos power-ups** (`POWERS`; always on):
   - Each goal powers up the team that let it in; a team 2+ goals behind gets two powers. Powers stack.
   - The ladder: turbo boots, banana peels, human cannon, tennis rackets, ghost curse (10 s, every 40 s), freeze ray, magnet boots, brick wall, homing rocket ball, nuclear ball.
   - All trigger automatically: on touch, or on a timer. `powerTouch` and `powerStep` hold the logic.
   - Balance notes: power shots lose their boost when they hit a player (otherwise rebounds fly back at rocket speed), and the cannon is tuned via `CANNON = [speed, cooldown]`.
-- **Goal movies** (`CUT`, `cutStart`, `drawCut`; menu and lobby switch `.cutSeg`, localStorage `ps_cuts`, sent as `info.cut`): after every goal the host holds the match for `CUT.len()` (7.1 s with chaos, 3.6 s without) and every phone plays an arcade-style cut scene, drawn at 256×192 on `cutLow` and blown up with hard pixels on `#cutcv`.
+- **Goal movies** (`CUT`, `cutStart`, `drawCut`; always on, sent as `info.cut`): after every goal the host holds the match for `CUT.len()` (7.1 s with chaos, 3.6 s without) and every phone plays an arcade-style cut scene, drawn at 256×192 on `cutLow` and blown up with hard pixels on `#cutcv`.
   - Scene 1: four cheerleaders in the scorers' colours (`figure` jointed puppets, `cheerPose` star jumps and toe touches, `pompom`) in the floodlit stadium (`stadium`: crowd, boards), with GOAL! and the scorer's face.
   - Scene 2 (chaos only): the camera pans down the sideline, and a player from the team that let it in (a person if there is one, wearing their face) runs to the esky, chugs a stubby and powers up with the power their team just got.
   - Text is drawn crisp on top (`mkText`). An announcer says "Goal!" and "Power up!" through the browser's speech. Tap skips it; on the host or a single phone that also ends the pause for everyone.
@@ -91,7 +91,7 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
   - Game controllers work through `pollPads()`: left stick moves your player nearest the ball, right stick moves your keeper.
   - Computers and consoles can host and practise, but can't join a match, since joining means scanning a QR code with a camera.
 - **Steampunk look:** CSS variables in `:root` (brass, copper, rivets, Cinzel fonts); the 2D canvas uses `drawPitch`/`gear`, and the 3D scene is built in `setup3D`.
-- **Saved on the phone:** `ps_profile` (name, faces, boss name), `ps_chaos`, `ps_gfx`, `ps_music`, `ps_records`.
+- **Saved on the phone:** `ps_profile` (name, faces, boss name), `ps_music`, `ps_records`.
 
 ## Tower Defence (`tower-defence.html`)
 
