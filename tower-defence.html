@@ -313,7 +313,7 @@ const ENEMIES = {
   erad:    {name:'Eradicator',   hp:2700, shield:200, spd:.33, eco:-15, build:30, cost:1000, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
             desc:'Rocket burst knocks out nearby towers'},
   erad2:   {name:'Eradicator MK II', hp:4500, shield:350, spd:.29, eco:-30, build:45, cost:2000, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
-            fury:true, splashRes:.3, desc:'Resists splash 30%. Rages at half HP'},
+            fury:true, splashRes:.3, desc:'Resists splash 30%. At half HP it rages: stuns every tower 3s and halves both sides\' income'},
 };
 const TAGS = E => [E.boss && ['BOSS','#ff4d4d'], E.stealth && ['HIDDEN','#a371f7'], E.fly && ['FLYING','#58a6ff'],
   E.shield && ['SHIELD','#3ee6ff'], E.fury && ['RAGE','#ff3b30'], E.armor && ['ARMOUR','#8b949e'], E.heal && ['HEALER','#3fb950'], E.spd > 2 && ['FAST','#f2cc60']].filter(Boolean);
@@ -364,6 +364,7 @@ function newGame(epoch = 0) {
 // before it can be sent again, which stops eco from snowballing.
 const ECO = {start:5, min:2, max:30, defGold:0.5};  // defGold: tower gold per second per point of zombie eco
 const income = g => g.eco;
+const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8};
 const addFx = (g, k, x, y, txt) => g.fx.push({id:g.id++, k, x, y, txt, ttl:FX_LIFE[k]});
 
@@ -434,8 +435,10 @@ function step(g, dt) {
   if (g.status === 'countdown') { g.cd -= dt; if (g.cd <= 0) g.status = 'play'; return; }
 
   g.t += dt;
-  g.gold += (4 + g.eco*ECO.defGold)*dt;
-  g.energy = Math.min(2500, g.energy + income(g)*dt);
+  // While a raging MK II is on the map, both players earn half as much per second.
+  const pay = incomeMult(g);
+  g.gold += (4 + g.eco*ECO.defGold) * pay * dt;
+  g.energy = Math.min(2500, g.energy + income(g) * pay * dt);
   for (const k in g.cool) g.cool[k] = Math.max(0, g.cool[k] - dt);
 
   g.spawnT -= dt;
@@ -458,7 +461,9 @@ function step(g, dt) {
     e.x = nx; e.y = ny;
     if (E.boss) {
       // Phase 2 (MK II): at half health it rages, recharging its shield and speeding up.
-      if (E.fury && !e.fury && e.hp < e.m/2) { e.fury = true; e.sh = e.shm; e.hold = 2.5; e.holdK = 2; e.emp = Math.max(e.emp, 3); addFx(g, 'fury', e.x, e.y, 'RAGE!'); }
+      if (E.fury && !e.fury && e.hp < e.m/2) { e.fury = true; e.sh = e.shm; e.hold = 2.5; e.holdK = 2; e.emp = Math.max(e.emp, 3);
+        for (const t of g.towers) t.stun = Math.max(t.stun || 0, 3);   // rage stuns every tower on the map
+        addFx(g, 'fury', e.x, e.y, 'RAGE!'); }
       e.emp -= dt;
       if (e.emp <= 0) {
         e.emp = E.rocket; e.hold = 1.5; e.holdK = 1;
@@ -512,7 +517,7 @@ function step(g, dt) {
 const r2 = v => Math.round(v*100)/100;
 function snap(g) {
   return {
-    t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g),
+    t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g), hm:incomeMult(g) < 1,
     w:g.winner, dur:g.dur, cl:Object.fromEntries(Object.entries(g.cool).map(([k, v]) => [k, r2(v)])), q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
     tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, dmg:t.st.dmg, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0})),
@@ -845,8 +850,10 @@ function hud(v) {
   $('#hLives').textContent = v.lv;
   $('#hGold').textContent = v.gd;
   $('#hEnergy').textContent = v.en;
-  $('#hInc').textContent = '+' + v.inc.toFixed(2) + '/s';
-  $('#hGoldInc').textContent = '+' + (4 + v.inc*ECO.defGold).toFixed(1) + '/s';
+  const pay = v.hm ? .5 : 1;
+  $('#hInc').textContent = '+' + (v.inc*pay).toFixed(2) + '/s' + (v.hm ? ' ½' : '');
+  $('#hGoldInc').textContent = '+' + ((4 + v.inc*ECO.defGold)*pay).toFixed(1) + '/s' + (v.hm ? ' ½' : '');
+  $('#hInc').style.color = $('#hGoldInc').style.color = v.hm ? 'var(--atk)' : '';
   $('#hTime').textContent = fmt(v.dur - v.t);
   for (const [k, b] of Object.entries(enemyBtns)) {
     const left = (v.cl && v.cl[k]) || 0;
@@ -863,7 +870,7 @@ function hud(v) {
   if (bosses.length) {
     const [, k, , , hp, m, , sh, shm, fury, , hold] = bosses[0];
     $('#bossBar').classList.toggle('rage', !!fury);
-    $('#bbName').textContent = ENEMIES[k].name.toUpperCase() + (hold === 1 ? '  FIRING ROCKETS!' : hold === 2 ? '  POWERING UP…' : fury ? '  RAGE!' : '') + (bosses.length > 1 ? `  ×${bosses.length}` : '');
+    $('#bbName').textContent = ENEMIES[k].name.toUpperCase() + (hold === 1 ? '  FIRING ROCKETS!' : hold === 2 ? '  POWERING UP…' : fury ? '  RAGE! · ALL INCOME HALVED' : '') + (bosses.length > 1 ? `  ×${bosses.length}` : '');
     $('#bbHp').textContent = `${Math.max(0, hp)} HP` + (sh > 0 ? ` + ${sh} shield` : '');
     $('#bbFill').style.width = Math.max(0, hp)/m*100 + '%';
     $('#bbShield').style.width = (shm ? sh/shm*100 : 0) + '%';
