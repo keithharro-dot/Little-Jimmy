@@ -135,16 +135,13 @@ details summary{color:var(--gold)}
     </div>
   </div>
   <div class="stack" id="menuBtns">
-    <button class="primary big" id="goHost">📶 Host a match</button>
+    <button class="primary big" id="goHost">📲 Invite friends to play</button>
     <button class="big" id="goPractice">🤖 Practice vs computer</button>
     <button class="big" id="goLocal2">📱 2 players, one phone</button>
     <button class="big" id="goRecords">🏆 Hall of Fame</button>
     <button class="big" id="goTV">📺 TV screen</button>
-    <div class="card small" id="bigScreenTip" hidden>💻🎮 <b>On a computer or Xbox?</b> Tap <b>Host a match</b> to put the game on this screen — friends scan the QR code with their phones to join. Play with the mouse or an Xbox controller (left stick moves your player, right stick your keeper). Or tap <b>TV screen</b> to just show a match that a phone is hosting.</div>
-    <div class="seg chaosSeg"><button data-chaos="1">⚡ Chaos power-ups</button><button data-chaos="0">⚽ Normal soccer</button></div>
-    <div class="seg cutSeg"><button data-cut="1">🎬 Goal movies</button><button data-cut="0">⏩ No movies</button></div>
+    <div class="card small" id="bigScreenTip" hidden>💻🎮 <b>On a computer or Xbox?</b> Tap <b>Invite friends to play</b> to put the game on this screen — friends scan the QR code with their phones to join. Play with the mouse or an Xbox controller (left stick moves your player, right stick your keeper). Or tap <b>TV screen</b> to just show a match that a phone is hosting.</div>
     <button id="musicChip" class="nowplaying"><img src="music/covers/dikshifter-the-2nd-take.jpg" alt=""><span>🎵 Music: <b id="songName">Dikshifter — The 2nd Take</b><br><small id="songHint">Tap to pick a song</small></span><span id="musicState">On</span></button>
-    <div class="seg gfxSeg"><button data-gfx="3d">🎩 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
   </div>
   <div id="joinBox" class="card stack center" hidden>
     <b id="joinTitle">Joining a match</b>
@@ -155,7 +152,7 @@ details summary{color:var(--gold)}
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
     <p class="small">Drag your players (the ones with a glow) with your finger. You don't have to touch the player itself: put your finger next to it (up to about a centimetre away) and drag, and it keeps that gap so your finger never hides it. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
-    <p class="small">Playing together: the host taps <b>Host a match</b>. Friends next to you scan the QR code with their camera; friends anywhere else get the link (tap <b>Send the link</b> and pick WhatsApp, Messages, anything). Either way they tap <b>Join game</b> and they're in. The link works until the host leaves the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
+    <p class="small">Playing together: tap <b>Invite friends to play</b> and send the link (WhatsApp, Messages, anything). Friends next to you can just scan the QR code on your screen with their camera instead. Either way they tap <b>Join game</b> and they're in. The link works until the host leaves the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets.</p>
   </details>
 </div>
 
@@ -237,8 +234,6 @@ details summary{color:var(--gold)}
   <div class="card stack" style="margin-top:12px" id="settingsBox">
     <b>Match</b>
     <div class="seg" id="lenSeg"><button data-len="180" class="sel">3 min</button><button data-len="300">5 min</button><button data-len="0">First to 5</button></div>
-    <div class="seg chaosSeg"><button data-chaos="1">⚡ Chaos power-ups</button><button data-chaos="0">⚽ Normal soccer</button></div>
-    <div class="seg cutSeg"><button data-cut="1">🎬 Goal movies</button><button data-cut="0">⏩ No movies</button></div>
   </div>
   <div class="stack" style="margin-top:14px">
     <button class="primary big" id="btnStart" hidden>▶ Kick off!</button>
@@ -340,8 +335,8 @@ const wallX = (t, team) => 50 + Math.sin(t*1.3 + team*2)*F.goalW*.3;     // cent
 const WALL_HW = () => F.goalW/5;
 // Where power shots aim: the side of the goal away from the keeper.
 function aimX(g, T) { const gk = g.widgets.find(w => w.team !== T && w.role === 'GK'); return 50 + (gk && gk.x > 50 ? -1 : 1)*F.goalW*.33; }
-let CHAOS = true; try { CHAOS = localStorage.getItem('ps_chaos') !== '0'; } catch (e) {}
-let CUTS = true; try { CUTS = localStorage.getItem('ps_cuts') !== '0'; } catch (e) {}   // goal movies
+// One version of the game: chaos power-ups and goal movies are always on.
+const CHAOS = true, CUTS = true;
 function addFx(g, f) { f.id = ++g.fxN; f.a = 0; g.fx.push(f); }
 
 // A player of team T just hit the ball.
@@ -1504,7 +1499,7 @@ let lastK = 0, lastSt = '', lastEp = null, bannerShown = '';
 const seenFx = new Set();
 /* ---------- 3D graphics (Three.js, loaded only when 3D is switched on) ---------- */
 // The match runs exactly as in 2D; this only draws it. World (x, y) is three.js (x - 50, height, y - 80).
-let GFX = '3d'; try { GFX = localStorage.getItem('ps_gfx') || '3d'; } catch (e) {}
+const GFX = '3d';   // phones that can't do 3D fall back to 2D by themselves
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.147.0/';
 const THREE_FILES = ['build/three.min.js', 'examples/js/environments/RoomEnvironment.js', 'examples/js/shaders/CopyShader.js',
   'examples/js/shaders/LuminosityHighPassShader.js', 'examples/js/shaders/GammaCorrectionShader.js', 'examples/js/postprocessing/EffectComposer.js', 'examples/js/postprocessing/RenderPass.js',
@@ -2053,14 +2048,6 @@ function startLocal(kind) {
   game = newMatch(players, 180); info = matchInfo(game);
   runSim(); startView();
 }
-function showCuts() { document.querySelectorAll('.cutSeg button').forEach(b => b.classList.toggle('sel', (b.dataset.cut === '1') === CUTS)); }
-document.querySelectorAll('.cutSeg button').forEach(b => b.onclick = () => { CUTS = b.dataset.cut === '1'; try { localStorage.setItem('ps_cuts', CUTS ? '1' : '0'); } catch (e) {} showCuts(); });
-showCuts();
-function showChaos() { document.querySelectorAll('.chaosSeg button').forEach(b => b.classList.toggle('sel', (b.dataset.chaos === '1') === CHAOS)); }
-document.querySelectorAll('.chaosSeg button').forEach(b => b.onclick = () => { CHAOS = b.dataset.chaos === '1'; try { localStorage.setItem('ps_chaos', CHAOS ? '1' : '0'); } catch (e) {} showChaos(); });
-showChaos();
-function showGfx() { document.querySelectorAll('.gfxSeg button').forEach(b => b.classList.toggle('sel', b.dataset.gfx === GFX)); }
-document.querySelectorAll('.gfxSeg button').forEach(b => b.onclick = () => { GFX = b.dataset.gfx; try { localStorage.setItem('ps_gfx', GFX); } catch (e) {} showGfx(); if (GFX === '3d') load3D(); });
 $('#musicChip').onclick = $('#gameMusic').onclick = () => JB ? JB.open() : toggleMusic();   // the picker has its own on/off
 $('#goPractice').onclick = () => needProfile(() => startLocal('practice'));
 $('#goLocal2').onclick = () => needProfile(() => startLocal('local2'));
@@ -2159,7 +2146,7 @@ function shareInvite() {
 function whenPeer(fn, tries = 0) { if (window.Peer || tries > 50) fn(); else setTimeout(() => whenPeer(fn, tries + 1), 200); }
 function noNet(el) { el.textContent = "Couldn't load multiplayer. Check you're online for a moment, then try again."; }
 
-$('#goHost').onclick = () => needProfile(hostMatch);
+$('#goHost').onclick = () => needProfile(() => { hostMatch(); shareInvite(); });   // host, and straight away offer to send the link
 $('#btnInvite').onclick = shareInvite;
 function hostMatch() {
   if (EMBEDDED) { toast('Multiplayer only works on the website: ' + HOME); return; }
@@ -2372,7 +2359,7 @@ function connectTo(code, token) {
 const isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
 if (!isTouch) $('#bigScreenTip').hidden = false;   // computers and consoles: host on the big screen, or be the TV
 {
-  showMenuProfile(); show('#menu'); showGfx(); if (GFX === '3d') load3D();
+  showMenuProfile(); show('#menu'); load3D();
   if (EMBEDDED) { $('#goHost').hidden = true; $('#goTV').hidden = true;
     $('#menuBtns').insertAdjacentHTML('beforeend', `<div class="small center">To play with friends, open the website on your phones: <b style="color:var(--text)">${HOME.replace('https://', '')}</b></div>`); }
   const link = location.hash.match(/join=([A-Za-z]{4})\.([A-Za-z]{10})(?:&from=([^&]*))?/);
