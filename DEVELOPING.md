@@ -97,6 +97,17 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
   - Bosses: Eradicator, MK II (rages at half health) and the Void (mind control, Voidlings, stomp), plus minions (Avatars, Voidlings).
 - **Towers:** design your own (`stats`, `cleanSpec`) or use the `PRESETS`. Levels 1–4 change the soldier's uniform colour (`LEVEL_UNIFORM`). Reviver and DJ are support towers.
 - **Waves** (`WAVES = 50`): an Eradicator on wave 20, an MK II on 40, the Void on 50. The zombie sender's economy is in `ECO`.
+- **Eradicator abilities** (the `E.boss` branch of `step`):
+  - Rocket bursts (stun and crack), Avatar calls, and a laser sweep through the busiest group of towers.
+  - The MK II rages at half health and rains missiles while raging.
+  - Both melt down when destroyed.
+  - `stunTower(g, t, secs, crack)`: only rocket bursts and Void stomps crack towers (3 cracks destroys one). Lasers, missiles and meltdowns just knock towers out.
+- **3D Eradicators** (`mechTpl`): walking mechs with named parts (`hip±1`, `knee±1`, `torso`, `gun±1`, `reactor`, `core`) that `render3D` animates. They're drawn 1.5× size. `launchMissile`/`stepMissiles` fly missiles for rocket bursts and missile rain.
+- **Close-up camera** (`CU`, `closeup()`, `closeupCam()`), 3D only:
+  - 🔍 turns it on. Tap a character to follow it, drag to orbit, pinch or scroll to zoom.
+  - An info card shows health and abilities. Taps don't build while it's on.
+  - The camera glides between the board view and the close-up (`G3.camPos`/`G3.camLook`).
+  - The Eradicator models are original block-built mechs in a Tower Defense X–like style, not copies of TDX's models.
 - **In-game layout:** full screen, with no page scrolling. The board is always the biggest 15:9 box that fits (`resize`). The CSS at the end of the `<style>` block picks one of three layouts by screen shape:
   - Wide (phones sideways): side columns, towers left and zombies right; one role puts its column on the right.
   - Landscape and at least 600 px tall (tablets, laptops, TVs): a bottom strip of buttons.
