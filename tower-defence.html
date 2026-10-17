@@ -108,6 +108,7 @@ details p,details li{color:var(--muted)}
 .card.building:disabled{opacity:1}
 .card .eco.neg{color:var(--atk)}
 .card canvas{width:44px;height:44px;flex:none;margin:-4px 0 -4px -4px}
+.card canvas.tc{width:32px;height:32px;margin:-6px 0 -6px -4px}
 .tags{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0}
 .tag{font-size:9px;font-weight:800;letter-spacing:.5px;border:1px solid;border-radius:4px;padding:0 4px}
 .card .del{position:absolute;top:2px;right:4px;border:0;background:none;padding:2px 6px;color:var(--muted)}
@@ -150,22 +151,28 @@ details p,details li{color:var(--muted)}
 #boardWrap{grid-area:board;position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
 #board{max-width:none;width:auto;min-width:0;margin:0}
 #panels{display:contents;margin:0}
-.panel{min-height:0;overflow-y:auto;width:clamp(112px,15vw,200px);border-radius:0;border-width:0 1px;padding:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.panel{min-height:0;overflow-y:auto;overflow-x:hidden;width:clamp(124px,16vw,200px);border-radius:0;border-width:0 1px;padding:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 #defPanel{grid-area:left}#atkPanel{grid-area:right}
 #game.solo .panel{grid-area:right}
 .panel h3{font-size:12px;margin:0 0 6px}
 .panel h3 .hint{display:none}
-.panel .cards{grid-template-columns:1fr;gap:5px}
-.panel .card{padding:5px 6px}
+.panel .cards{grid-template-columns:minmax(0,1fr);gap:5px}
+.panel .card{padding:4px 6px;min-height:0;min-width:0;width:100%}
 .panel .card .meta,.panel .card .tags{display:none}
-.panel .card .nm{font-size:12px;gap:4px;line-height:1.15}
-.panel .card canvas{width:30px;height:30px;margin:-2px 0}
-.panel .card .cost,.panel .card .ecost{font-size:12px}
+/* slim cards: picture on the left, the name on top, the price underneath */
+.panel .card{display:grid;grid-template-columns:26px minmax(0,1fr);grid-template-areas:"pic name" "pic cost";column-gap:6px;align-items:center}
+.panel .card .nm{display:contents;font-size:12.5px}
+.panel .card .nm canvas{grid-area:pic;width:26px;height:26px;margin:0}
+.panel .card .nm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel .card .cost,.panel .card .ecost{grid-area:cost;font-size:11.5px;line-height:1.2}
+.panel .card .ecost .eco{display:none}
+.panel .card .del{display:none}
 .panel .card .cdtxt{font-size:11px}
 .panel .card.add{min-height:36px;font-size:12px}
 #bossBar{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:min(70%,520px);z-index:3;margin:0;padding:3px 8px 5px;opacity:.94}
 #selInfo{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:4;margin:0;width:max-content;max-width:calc(100% - 16px);font-size:12px;background:rgba(22,27,34,.95);border:1px solid var(--line);box-shadow:0 4px 16px #000a}
 #selInfo button{padding:6px 10px;font-size:13px}
+@media (max-height:420px){#selInfo{font-size:11px;padding:4px 8px;gap:6px;bottom:4px}#selInfo button{padding:4px 8px;font-size:12px}#selInfo .sel-btns{gap:5px}}   /* short screens: keep it from covering the board */
 #rotate{display:none}
 #zoomBtn.on{background:#0c2d4d;border-radius:8px}
 #closeCard{position:absolute;left:8px;bottom:8px;z-index:5;width:min(300px,calc(100% - 16px));background:rgba(13,17,23,.92);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 4px 16px #000a}
@@ -182,6 +189,7 @@ details p,details li{color:var(--muted)}
   #game #panels .panel{width:auto;grid-area:auto;overflow:hidden;border-width:1px;border-radius:10px}
   #panels .cards{display:flex;overflow-x:auto;gap:6px;scrollbar-width:thin}
   #panels .card{flex:none;width:clamp(108px,11vw,150px)}
+  #game .panel .card .del{display:block;top:-7px;right:-7px;width:20px;height:20px;padding:0;border-radius:50%;background:var(--panel2);border:1px solid var(--line);font-size:12px;line-height:18px}
 }
 /* Upright: board on top, buttons in a scrolling tray underneath */
 @media (max-aspect-ratio:1/1){
@@ -190,6 +198,7 @@ details p,details li{color:var(--muted)}
   #panels{display:grid;grid-area:panels;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-content:start;gap:6px;overflow-y:auto;padding:6px}
   #game #panels .panel{width:auto;grid-area:auto;overflow:visible;border-width:1px;border-radius:10px}
   #panels .cards{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+  #game .panel .card .del{display:block;top:-7px;right:-7px;width:20px;height:20px;padding:0;border-radius:50%;background:var(--panel2);border:1px solid var(--line);font-size:12px;line-height:18px}
   #rotate{display:block;grid-column:1/-1;margin:0}
 }
 </style>
@@ -828,7 +837,7 @@ function renderDesigns() {
   designs().forEach((d, i) => {
     const st = stats(d), b = document.createElement('button');
     b.className = 'card' + (i === selDesign ? ' sel' : '');
-    b.innerHTML = `<div class="nm"><canvas width="64" height="64" style="width:32px;height:32px;margin:-6px 0 -6px -4px"></canvas>${esc(d.name)} ${SP_ICON[d.sp]}${d.det ? '📡' : ''}</div>
+    b.innerHTML = `<div class="nm"><canvas class="tc" width="64" height="64"></canvas><span>${esc(d.name)} ${SP_ICON[d.sp]}${d.det ? '📡' : ''}</span></div>
       <div class="meta">${d.role === 'revive' ? `Revives ${REVIVE.max} towers / ${REVIVE.every}s · RNG ${st.range}` : d.role === 'dj' ? `Buffs nearby towers · RNG ${st.range}` : `DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s`}</div><div class="cost">💰 ${st.cost}</div>`;
     { const c = b.querySelector('canvas').getContext('2d'); c.scale(2, 2); drawSoldier(c, 16, 17, 26, d, 1); }
     b.onclick = () => { selDesign = i; selTower = null; renderDesigns(); };
@@ -909,12 +918,15 @@ $('#bSave').onclick = () => {
 /* ---------- Rendering ---------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let TS = 40;
+let BW = 600, BH = 360;   // size of the board's canvas in CSS pixels
 function resize() {
   const r = $('#boardWrap').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-  TS = Math.max(8, Math.min(r.width / COLS, r.height / ROWS));   // the biggest board that fits
-  const w = TS*COLS; $('#board').style.width = w + 'px';
-  cv.width = Math.round(w*dpr); cv.height = Math.round(TS*ROWS*dpr);
-  cv.style.height = TS*ROWS + 'px'; $('#cv3').style.height = TS*ROWS + 'px';
+  TS = Math.max(8, Math.min(r.width / COLS, r.height / ROWS));   // the biggest 15:9 board that fits
+  // 2D draws exactly 15:9 tiles; in 3D the camera frames the board, so the view can fill all the space there is
+  BW = G3.on ? Math.max(TS*COLS, r.width) : TS*COLS; BH = G3.on ? Math.max(TS*ROWS, r.height) : TS*ROWS;
+  $('#board').style.width = BW + 'px';
+  cv.width = Math.round(BW*dpr); cv.height = Math.round(BH*dpr);
+  cv.style.height = BH + 'px'; $('#cv3').style.height = BH + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (G3.on) fit3D();
 }
@@ -1216,7 +1228,7 @@ function init3D() {
   G3.cam = new T.PerspectiveCamera(34, COLS/ROWS, .1, 200);
   G3.hemi = new T.HemisphereLight(0xcfd8ff, 0x203020, .7); G3.scene.add(G3.hemi);
   const sun = G3.sun = new T.DirectionalLight(0xffffff, 1.2); sun.position.set(-6, 14, 9); sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, {left:-11, right:11, top:8, bottom:-8, near:1, far:40}); sun.shadow.bias = -.0015;
+  sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, {left:-11, right:11, top:8, bottom:-8, near:1, far:40}); sun.shadow.bias = -.0015; sun.shadow.normalBias = .03;
   G3.scene.add(sun);
   G3.flash = new T.PointLight(0xffb060, 0, 9, 1.5); G3.scene.add(G3.flash);
   G3.vmat = new T.MeshLambertMaterial({vertexColors:true});
@@ -1471,23 +1483,23 @@ const FX_COL = {pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', 
 
 // Camera: a tilted view from the front of the board, sized so the board, gravestone and castle all fit.
 function fit3D() {
-  const T = THREE, W = COLS*TS, H = ROWS*TS, cam = G3.cam;
+  const T = THREE, W = BW, H = BH, cam = G3.cam;
   G3.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, G3.q === 2 ? 2 : G3.q === 1 ? 1.5 : 1)); G3.renderer.setSize(W, H, false);
   G3.composer.setSize(W, H); cam.aspect = W/H; cam.updateProjectionMatrix();
   const el = 62*Math.PI/180; G3.dir = new T.Vector3(0, Math.sin(el), Math.cos(el));
-  const pts = []; for (const x of [-COLS/2 - .5, COLS/2 + 1.1]) for (const z of [-ROWS/2, ROWS/2 + .2]) for (const y of [0, 1]) pts.push(new T.Vector3(x, y, z));
+  const pts = []; for (const x of [-COLS/2 - .2, COLS/2 + .5]) for (const z of [-ROWS/2, ROWS/2 + .1]) for (const y of [0, 1]) pts.push(new T.Vector3(x, y, z));
   G3.look = new T.Vector3(.45, 0, .3);
   const place = d => { cam.position.copy(G3.dir).multiplyScalar(d).add(G3.look); cam.lookAt(G3.look); cam.updateMatrixWorld(); };
   for (let round = 0; round < 3; round++) {   // fit the distance, then nudge the aim point so the board sits in the middle
     let lo = 3, hi = 80;
-    for (let i = 0; i < 24; i++) { const d = (lo + hi)/2; place(d); if (pts.every(p => { const q = p.clone().project(cam); return Math.abs(q.x) < .98 && Math.abs(q.y) < .96 && q.z < 1; })) hi = d; else lo = d; }
+    for (let i = 0; i < 24; i++) { const d = (lo + hi)/2; place(d); if (pts.every(p => { const q = p.clone().project(cam); return Math.abs(q.x) < .995 && Math.abs(q.y) < .985 && q.z < 1; })) hi = d; else lo = d; }
     G3.dist = hi; place(hi);
     const ys = pts.map(p => p.clone().project(cam).y), mid = (Math.max(...ys) + Math.min(...ys))/2;
     G3.look.z += mid*ROWS*.35;
   }
   place(G3.dist); G3.camPos = null;
 }
-function project3(x, y, h = 0) { const v = G3.v.set(...W3(x, y, h)).project(G3.cam); return [(v.x + 1)/2*COLS*TS, (1 - v.y)/2*ROWS*TS]; }
+function project3(x, y, h = 0) { const v = G3.v.set(...W3(x, y, h)).project(G3.cam); return [(v.x + 1)/2*BW, (1 - v.y)/2*BH]; }
 function tileAt3D(ev) {
   const r = cv.getBoundingClientRect();
   G3.ray.setFromCamera({x:(ev.clientX - r.left)/r.width*2 - 1, y:1 - (ev.clientY - r.top)/r.height*2}, G3.cam);
@@ -1716,7 +1728,7 @@ function spawnBurst(x, y, h, n, speed, life, size, colors, grav = 0) {
 
 // Health bars, icons and words on top of the 3D view (drawn on the 2D canvas)
 function overlay3D(v) {
-  ctx.clearRect(0, 0, COLS*TS, ROWS*TS);
+  ctx.clearRect(0, 0, BW, BH);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const [bx, by] = project3(...G3.castleTop), bw = TS*1.1, f = Math.max(0, v.lv)/BASE_HP;   // base health over the castle
   ctx.fillStyle = '#000b'; ctx.fillRect(bx - bw/2, by - 4, bw, 7);
@@ -1755,7 +1767,7 @@ function overlay3D(v) {
     ctx.fillStyle = {leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72', mind:'#d2a8ff', summon:'#d2a8ff', revive:'#3fb950', tele:'#3ee6ff'}[k] || '#f2cc60';
     ctx.fillText(txt, sx, sy); ctx.globalAlpha = 1;
   }
-  if (v.st === 'over') drawDance(v);
+  if (v.st === 'over') { ctx.save(); ctx.translate((BW - COLS*TS)/2, (BH - ROWS*TS)/2); drawDance(v); ctx.restore(); }
 }
 
 function draw(v) {
