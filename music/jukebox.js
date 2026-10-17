@@ -3,6 +3,7 @@
 // own phone; it never leaves the phone, and it isn't remembered after a reload.
 window.SONGS = [
   ['dikshifter-the-2nd-take', 'Dikshifter — The 2nd Take'],
+  ['eradicator-mk2-phonk', 'Eradicator MK2 (Phonk)'],
   ['psycholists', 'Psycholists'],
   ['the-legend-part-5', 'The Legend Part 5'],
   ['the-legend-v2', 'The Legend V2'],

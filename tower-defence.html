@@ -2117,20 +2117,28 @@ function unlockAudio() {
 // One track at a time, routed through Web Audio so it can fade (iPhones ignore audio.volume). It starts on the first tap.
 // Without the jukebox (the in-app copy can't load it) it stays on "Dikshifter — The 2nd Take".
 const THEME = {url:'music/dikshifter-the-2nd-take.mp3', el:null, gain:null, want:0, failed:false};
-function themeTo(vol) {
-  THEME.want = vol;
-  if (!AC || THEME.failed) return;
-  if (!THEME.el) {
-    const el = THEME.el = new Audio(THEME.url); el.loop = JB ? JB.loop() : true; el.preload = 'auto';
-    el.addEventListener('ended', () => { if (JB) JB.next(); });   // shuffle moves on to another song
-    el.addEventListener('error', () => { THEME.failed = true; });
-    try { const src = AC.createMediaElementSource(el); THEME.gain = AC.createGain(); THEME.gain.gain.value = 0; src.connect(THEME.gain).connect(AC.destination); } catch (e) { THEME.gain = null; }
+// The Eradicator MK II brings its own phonk theme; it only downloads the first time an MK II turns up.
+const BOSSM = {url:'music/eradicator-mk2-phonk.mp3', el:null, gain:null, want:0, failed:false};
+function fadeTo(tr, vol, setup) {
+  tr.want = vol;
+  if (!AC || tr.failed) return;
+  if (!tr.el) {
+    const el = tr.el = new Audio(tr.url); el.loop = true; el.preload = 'auto';
+    if (setup) setup(el);
+    el.addEventListener('error', () => { tr.failed = true; });
+    try { const src = AC.createMediaElementSource(el); tr.gain = AC.createGain(); tr.gain.gain.value = 0; src.connect(tr.gain).connect(AC.destination); } catch (e) { tr.gain = null; }
   }
-  const t = AC.currentTime, g = THEME.gain;
+  const t = AC.currentTime, g = tr.gain;
   if (g) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(vol, t + 1); }
-  else THEME.el.volume = vol;
-  if (vol > 0) THEME.el.play().catch(() => {});
-  else setTimeout(() => { if (THEME.want === 0 && THEME.el) THEME.el.pause(); }, 1100);
+  else tr.el.volume = vol;
+  if (vol > 0) tr.el.play().catch(() => {});
+  else setTimeout(() => { if (tr.want === 0 && tr.el) tr.el.pause(); }, 1100);
+}
+function themeTo(vol) {
+  fadeTo(THEME, vol, el => {
+    el.loop = JB ? JB.loop() : true;
+    el.addEventListener('ended', () => { if (JB) JB.next(); });   // shuffle moves on to another song
+  });
 }
 const themeVol = v => { if (THEME.want !== v) themeTo(v); };
 const JB = window.Jukebox ? Jukebox({change:themeSong, isOn:() => !muted, setOn:on => setMuted(!on)}) : null;
@@ -2472,9 +2480,11 @@ function frame() {
   // If the theme can't load (no internet), the built-in battle track plays instead.
   const playing = view && view.st === 'play' && !view.p;
   const boss = !playing ? null : view.em.some(e => e[1] === 'void') ? 'void' : view.em.some(e => e[1] === 'erad2') ? 'erad2' : view.em.some(e => e[1] === 'erad') ? 'erad' : null;
-  const want = muted ? null : boss || (playing && THEME.failed ? 'battle' : null);
+  const mk2 = boss === 'erad2' && !BOSSM.failed && !muted;   // MK II plays its phonk theme instead of the synth boss music
+  const want = muted ? null : (mk2 ? null : boss) || (playing && THEME.failed ? 'battle' : null);
   if ((music && music.track) !== want) { if (music) stopMusic(); if (want && AC) startMusic(want); }
   themeVol(muted || boss ? 0 : playing ? .7 : .4);
+  if (BOSSM.want !== (mk2 ? .9 : 0)) { if (mk2 && BOSSM.el) BOSSM.el.currentTime = 0; fadeTo(BOSSM, mk2 ? .9 : 0); }   // each MK II starts the track from the top
   requestAnimationFrame(frame);
 }
 

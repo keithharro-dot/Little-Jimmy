@@ -5,7 +5,7 @@ This guide is for whoever (and whichever Claude) picks them up next. Give your C
 
 - Pocket Soccer: `soccer.html` (live at https://keithharro-dot.github.io/Little-Jimmy/soccer.html)
 - Tower Defence: `tower-defence.html` (live at https://keithharro-dot.github.io/Little-Jimmy/tower-defence.html)
-- Music: the repo owner's own songs in `music/` (covers in `music/covers/`), shared freely for these games. Credit by song title only; the files deliberately carry no artist name. `music/jukebox.js` holds the song list and the picker both games use; to add a song, add the MP3, a 160px cover and one line there.
+- Music: the repo owner's own songs in `music/` (covers in `music/covers/`), shared freely for these games. Credit by song title only; the files deliberately carry no artist name. `music/jukebox.js` holds the song list and the picker both games use; to add a song, add the MP3, a 160px cover and one line there. Tower Defence also plays `music/eradicator-mk2-phonk.mp3` (a phonk remix of the owner's MK II theme) as the MK II boss music, through `BOSSM`/`fadeTo`; other bosses keep the synthesised boss music.
 - Tests: `tests/smoke.mjs`, plus the stand-ins it uses (`tests/mockpeer.js`, `tests/qrstub.js`)
 - `index.html` and `CLAUDE.md`'s main sections are about a **separate trading app**, unrelated to the games.
 
