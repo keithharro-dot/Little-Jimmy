@@ -158,7 +158,7 @@ details p,details li{color:var(--muted)}
       <ul>
         <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
         <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. You earn more gold as the zombie sender's eco grows. Tap a built tower to see its range, upgrade it (up to level 4) or sell it.</li>
-        <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡30 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers, and the MK II rages at half health.</li>
+        <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡30 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers (a tower stunned 3 times is destroyed), and the MK II rages at half health.</li>
         <li>Zombies win if the base's lives reach 0. Towers win by lasting 4 minutes. Then swap sides!</li>
       </ul>
       <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
@@ -396,7 +396,14 @@ function newGame(epoch = 0, map = MAPD.id) {
 const ECO = {start:5, min:2, max:30, defGold:0.5};  // defGold: tower gold per second per point of zombie eco
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
-const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8};
+const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1};
+// Every Eradicator stun cracks a tower; the third one destroys it (no refund).
+const STUNS_TO_BREAK = 3;
+function stunTower(g, t, secs) {
+  t.stun = Math.max(t.stun || 0, secs);
+  t.stuns = (t.stuns || 0) + 1;
+  if (t.stuns >= STUNS_TO_BREAK && !t.dead) { t.dead = true; addFx(g, 'wreck', t.x+.5, t.y+.5, 'DESTROYED!'); }
+}
 const addFx = (g, k, x, y, txt) => g.fx.push({id:g.id++, k, x, y, txt, ttl:FX_LIFE[k]});
 
 function applyCmd(g, role, c) {
@@ -493,16 +500,17 @@ function step(g, dt) {
     if (E.boss) {
       // Phase 2 (MK II): at half health it rages, recharging its shield and speeding up.
       if (E.fury && !e.fury && e.hp < e.m/2) { e.fury = true; e.sh = e.shm; e.hold = 2.5; e.holdK = 2; e.emp = Math.max(e.emp, 3);
-        for (const t of g.towers) t.stun = Math.max(t.stun || 0, 3);   // rage stuns every tower on the map
+        for (const t of g.towers) stunTower(g, t, 3);   // rage stuns every tower on the map
         addFx(g, 'fury', e.x, e.y, 'RAGE!'); }
       e.emp -= dt;
       if (e.emp <= 0) {
         e.emp = E.rocket; e.hold = 1.5; e.holdK = 1;
-        for (const t of g.towers) if (Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 2.2) t.stun = 2.5;
+        for (const t of g.towers) if (Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 2.2) stunTower(g, t, 2.5);
         addFx(g, 'emp', e.x, e.y, 'ROCKETS!');
       }
     }
   }
+  g.towers = g.towers.filter(t => !t.dead);
   for (const e of g.enemies) {
     const heal = ENEMIES[e.k].heal;
     if (heal) for (const o of g.enemies)
@@ -551,7 +559,7 @@ function snap(g) {
     mp:g.map, t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g), hm:incomeMult(g) < 1,
     w:g.winner, dur:g.dur, cl:Object.fromEntries(Object.entries(g.cool).map(([k, v]) => [k, r2(v)])), q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
-    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, dmg:t.st.dmg, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0})),
+    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, dmg:t.st.dmg, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, hits:t.stuns || 0})),
     em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0, e.face, e.hold > 0 ? e.holdK : 0]),
     sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl), s.id]),
   };
@@ -691,7 +699,7 @@ addEventListener('resize', resize);
 
 function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 
-function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1) {
+function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1, hits = 0) {
   const p = TS*.12;
   ctx.globalAlpha = alpha;
   ctx.fillStyle = '#0d1117'; rrect(x*TS+p, y*TS+p, TS-2*p, TS-2*p, TS*.18); ctx.fill();
@@ -706,6 +714,12 @@ function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1) {
   if (stunned) {
     ctx.fillStyle = 'rgba(0,0,0,.55)'; rrect(x*TS+p, y*TS+p, TS-2*p, TS-2*p, TS*.18); ctx.fill();
     ctx.font = `${TS*.45}px sans-serif`; ctx.fillText('⚡', (x+.5)*TS, (y+.5)*TS);
+  }
+  if (hits) {   // red cracks: one per stun taken
+    ctx.strokeStyle = '#ff3b30'; ctx.lineWidth = Math.max(2.5, TS*.08); ctx.lineCap = 'round'; ctx.beginPath();
+    ctx.moveTo((x+.18)*TS, (y+.2)*TS); ctx.lineTo((x+.4)*TS, (y+.42)*TS); ctx.lineTo((x+.32)*TS, (y+.6)*TS);
+    if (hits > 1) { ctx.moveTo((x+.82)*TS, (y+.8)*TS); ctx.lineTo((x+.6)*TS, (y+.62)*TS); ctx.lineTo((x+.7)*TS, (y+.45)*TS); }
+    ctx.stroke();
   }
   ctx.globalAlpha = 1;
 }
@@ -812,7 +826,7 @@ function draw(v) {
   drawGround(ctx, TS, MAPD);
   if (!v) return;
 
-  for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun, t.lvl);
+  for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun, t.lvl, t.hits);
   const sel = v.tw.find(t => t.id === selTower);
   if (sel) {
     const pulse = .5 + .5*Math.sin(performance.now()/250);
@@ -866,9 +880,10 @@ function draw(v) {
     if (k === 'shieldbreak') ring(x, y, .3 + p*.6, '#3ee6ff');
     if (k === 'fury') ring(x, y, .4 + p*1.5, '#ff3b30');
     if (k === 'emp') { ring(x, y, 2.2*p, '#79c0ff', 'rgba(121,192,255,.12)'); }
+    if (k === 'wreck') { ring(x, y, .3 + p*.9, '#ffa657', 'rgba(255,120,40,.25)'); }
     if (txt) {
       ctx.font = `bold ${TS*.4}px system-ui,sans-serif`;
-      ctx.fillStyle = {leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff'}[k] || '#f2cc60';
+      ctx.fillStyle = {leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72'}[k] || '#f2cc60';
       ctx.fillText(txt, x*TS, (y - .3 - p*.7)*TS);
     }
     ctx.globalAlpha = 1;
@@ -933,7 +948,7 @@ function hud(v) {
   $('#selInfo').hidden = !sel;
   $('#btnSell').hidden = !isDef(); $('#btnUp').hidden = !isDef();
   if (sel) {
-    $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]}${sel.spec.det ? '📡' : ''} · Lv${sel.lvl}${sel.lvl >= MAX_LVL ? ' (max)' : ''} · ${sel.dmg} dmg · range ${sel.range}`;
+    $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]}${sel.spec.det ? '📡' : ''} · Lv${sel.lvl}${sel.lvl >= MAX_LVL ? ' (max)' : ''} · ${sel.dmg} dmg · range ${sel.range}` + (sel.hits ? ` · ⚡ stunned ${sel.hits}/${STUNS_TO_BREAK}` : '');
     $('#btnSell').textContent = `Sell 💰${sel.sell}`;
     $('#btnUp').textContent = sel.up ? `⬆ Lv${sel.lvl + 1} 💰${sel.up}` : 'Max level';
     $('#btnUp').disabled = !sel.up || v.gd < sel.up || v.st === 'over';
@@ -995,6 +1010,7 @@ const SFX = {
   shieldbreak: () => tone(1400, 300, .2, 'square', .05),
   fury:   () => { tone(120, 420, .5, 'sawtooth', .1); tone(90, 300, .6, 'square', .05, .1); },
   emp:    () => tone(60, 1800, .35, 'sine', .08),
+  wreck:  () => { tone(180, 35, .5, 'sawtooth', .12); tone(90, 30, .6, 'square', .06, .05); },
   win:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, .18, 'triangle', .1, i*.13)),
   lose:   () => [392, 330, 262, 196].forEach((f, i) => tone(f, f*.98, .22, 'triangle', .1, i*.16)),
 };
@@ -1018,10 +1034,10 @@ $('#mute').onclick = () => {
   try { localStorage.setItem('tc_mute', muted ? '1' : '0'); } catch (e) {}
 };
 
-/* ---------- Boss music ---------- */
-// Plays while an Eradicator is on the map: an original synth loop, or a song the player picked
-// from their own phone (kept only on that phone, in IndexedDB).
-let bossMusic = null, customSong = null;   // customSong = {name, data:ArrayBuffer}
+/* ---------- Music ---------- */
+// Battle music during play, and a metal theme for each Eradicator. Players can also pick their own
+// song from their phone for boss fights (kept only on that phone, in IndexedDB).
+let customSong = null;   // customSong = {name, data:ArrayBuffer}
 function idb(mode, fn) {
   return new Promise((res, rej) => {
     try {
@@ -1053,67 +1069,137 @@ $('#bossFile').addEventListener('change', e => {
 $('#musicReset').onclick = () => { customSong = null; showSong(); idb('readwrite', st => st.delete('bossSong')).catch(() => {}); };
 
 const mtof = m => 440 * Math.pow(2, (m - 69)/12);
-let noiseBuf = null;
-function startBossMusic() {
-  if (!AC || muted || bossMusic) return;
-  const out = AC.createGain(); out.gain.setValueAtTime(0, AC.currentTime);
-  out.gain.linearRampToValueAtTime(.9, AC.currentTime + 1.2); out.connect(AC.destination);
-  const m = bossMusic = {out, timer:null, src:null};
-  if (customSong) {
-    const play = buf => { if (bossMusic !== m) return; const src = AC.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(out); src.start(); m.src = src; };
-    AC.decodeAudioData(customSong.data.slice(0), play, () => { toast("Couldn't play that song, using the built-in theme."); customSong = null; showSong(); synthLoop(m); });
-  } else synthLoop(m);
+let noiseBuf = null, distCurve = null;
+let music = null;   // {track, out, amp, timer, src}
+
+// --- instruments (all synthesised; everything plays into the current track's output) ---
+function synth(m, t, midi, dur, type, vol, cutoff, glideTo) {
+  const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
+  o.type = type; o.frequency.setValueAtTime(mtof(midi), t);
+  if (glideTo) o.frequency.linearRampToValueAtTime(mtof(glideTo), t + dur);
+  f.type = 'lowpass'; f.frequency.value = cutoff;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(f).connect(g).connect(m.out); o.start(t); o.stop(t + dur + .02);
 }
-function synthLoop(m) {
-  if (!noiseBuf) {
-    noiseBuf = AC.createBuffer(1, AC.sampleRate*.3, AC.sampleRate);
-    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+// Power chord (root, fifth, octave) of detuned saws through the distortion "amp".
+function guitar(m, t, midi, dur, vol, open) {
+  const g = AC.createGain();
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  g.connect(m.amp);
+  for (const iv of open ? [0, 7, 12] : [0, 7]) {
+    const o = AC.createOscillator(); o.type = 'sawtooth';
+    o.frequency.value = mtof(midi + iv); o.detune.value = (Math.random() - .5)*14;
+    o.connect(g); o.start(t); o.stop(t + dur + .02);
   }
-  const STEP = 60/150/4;                                   // 150 BPM, 16th notes
-  const BASS = [38,38,50,38, 38,41,38,43, 38,38,50,38, 36,36,48,37];
-  const LEAD = {0:74, 3:77, 6:76, 8:73, 16:74, 19:77, 22:79, 24:78, 26:77, 28:73};
-  const note = (t, f, dur, type, vol, cutoff) => {
-    const o = AC.createOscillator(), g = AC.createGain(), flt = AC.createBiquadFilter();
-    o.type = type; o.frequency.setValueAtTime(f, t); flt.type = 'lowpass'; flt.frequency.value = cutoff;
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    o.connect(flt).connect(g).connect(m.out); o.start(t); o.stop(t + dur + .02);
-  };
-  const noise = (t, dur, type, freq, vol) => {
-    const n = AC.createBufferSource(), g = AC.createGain(), flt = AC.createBiquadFilter();
-    n.buffer = noiseBuf; flt.type = type; flt.frequency.value = freq;
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    n.connect(flt).connect(g).connect(m.out); n.start(t); n.stop(t + dur + .02);
-  };
-  let step = 0, next = AC.currentTime + .05;
-  m.timer = setInterval(() => {
-    while (next < AC.currentTime + .2) {
-      const i = step % 32, t = next;
-      note(t, mtof(BASS[i % 16] + (i >= 16 ? 3 : 0)), STEP*.9, 'sawtooth', .13, 500);
-      if (i % 4 === 0) { const o = AC.createOscillator(), g = AC.createGain();
-        o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(40, t + .15);
-        g.gain.setValueAtTime(.55, t); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
-        o.connect(g).connect(m.out); o.start(t); o.stop(t + .2); }
-      if (i % 8 === 4) noise(t, .14, 'bandpass', 1800, .3);
-      if (i % 2 === 1) noise(t, .03, 'highpass', 7000, .05);
-      if (LEAD[i]) note(t, mtof(LEAD[i]), STEP*2.2, 'square', .045, 2400);
-      next += STEP; step++;
-    }
-  }, 50);
 }
-function stopBossMusic() {
-  const m = bossMusic; if (!m) return; bossMusic = null;
+// Screaming lead with a dive at the end, also through the amp.
+function lead(m, t, midi, dur, vol) {
+  const o = AC.createOscillator(), g = AC.createGain(), lfo = AC.createOscillator(), depth = AC.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(mtof(midi), t);
+  o.frequency.setValueAtTime(mtof(midi), t + dur*.7); o.frequency.exponentialRampToValueAtTime(mtof(midi - 12), t + dur);
+  lfo.frequency.value = 6; depth.gain.value = 12; lfo.connect(depth).connect(o.detune);
+  g.gain.setValueAtTime(vol, t); g.gain.setValueAtTime(vol, t + dur*.8); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(m.amp); o.start(t); o.stop(t + dur + .02); lfo.start(t); lfo.stop(t + dur + .02);
+}
+function noise(m, t, dur, type, freq, vol) {
+  const n = AC.createBufferSource(), g = AC.createGain(), f = AC.createBiquadFilter();
+  n.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  n.connect(f).connect(g).connect(m.out); n.start(t); n.stop(t + dur + .02);
+}
+function drum(m, kind, t, vol = 1) {
+  if (kind === 'kick') {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + .12);
+    g.gain.setValueAtTime(.7*vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .16);
+    o.connect(g).connect(m.out); o.start(t); o.stop(t + .18);
+  } else if (kind === 'snare') { noise(m, t, .16, 'bandpass', 1800, .4*vol); synth(m, t, 57, .08, 'triangle', .15*vol, 2000); }
+  else if (kind === 'hat') noise(m, t, .03, 'highpass', 8000, .05*vol);
+  else if (kind === 'crash') noise(m, t, 1.1, 'highpass', 5000, .14*vol);
+}
+
+// --- tracks: 32 sixteenth-note steps each, looped ---
+const CHORDS = [[40, [64,67,71]], [36, [60,64,67]], [38, [62,66,69]], [35, [59,63,66]]];   // Em C D B
+const RIFF1 = [40,40,40,0, 40,40,43,0, 40,40,40,0, 45,0,44,0, 40,40,40,0, 40,40,46,0, 45,0,43,0, 41,0,40,0];
+const RIFF2 = [38,38,0,38, 38,0,44,0, 38,38,0,38, 43,42,41,40, 38,38,0,38, 38,0,44,0, 50,0,49,0, 48,0,47,46];
+const TRACKS = {
+  // Normal play: a lighter, bouncy adventure loop.
+  battle: {bpm:124, vol:.75, step(m, i, t, S) {
+    const [root, chord] = CHORDS[i >> 3];
+    if (i % 4 === 0) synth(m, t, root, S*2.5, 'triangle', .2, 900);
+    if (i % 4 === 2) synth(m, t, root + 12, S*1.5, 'triangle', .12, 900);
+    if (i % 2 === 0) synth(m, t, chord[(i >> 1) % 3] + 12, S*1.4, 'square', .03, 2600);
+    if (i % 8 === 0) drum(m, 'kick', t, .7);
+    if (i % 8 === 4) drum(m, 'snare', t, .5);
+    if (i % 2 === 1) drum(m, 'hat', t, .8);
+  }},
+  // Eradicator: chugging palm-muted metal riff with double kicks.
+  erad: {bpm:168, vol:.45, step(m, i, t, S) {
+    const n = RIFF1[i];
+    if (n) { const open = n !== 40; guitar(m, t, n, open ? S*1.8 : S*.7, open ? .22 : .17, open); synth(m, t, n - 12, S*.9, 'sawtooth', .14, 400); }
+    if (i % 2 === 0 || [14, 15, 30, 31].includes(i)) drum(m, 'kick', t);
+    if (i % 8 === 4) drum(m, 'snare', t);
+    if (i % 2 === 1) drum(m, 'hat', t);
+    if (i === 0) drum(m, 'crash', t);
+  }},
+  // MK II: faster, lower and darker, with blast-beat drums and a screaming lead.
+  erad2: {bpm:186, vol:.42, step(m, i, t, S) {
+    const n = RIFF2[i];
+    if (n) { const open = n !== 38; guitar(m, t, n, open ? S*1.6 : S*.6, open ? .22 : .18, open); synth(m, t, n - 12, S*.8, 'sawtooth', .15, 380); }
+    drum(m, 'kick', t, .85);
+    if (i % 4 === 2) drum(m, 'snare', t);
+    if (i % 16 === 0) drum(m, 'crash', t);
+    if (i === 0) lead(m, t, 74, S*7, .07);
+    if (i === 16) lead(m, t, 73, S*7, .07);
+  }},
+};
+
+function startMusic(track) {
+  if (!noiseBuf) {
+    noiseBuf = AC.createBuffer(1, AC.sampleRate*1.2, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+    distCurve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i*2/1024 - 1; distCurve[i] = (1 + 60)*x/(1 + 60*Math.abs(x)); }
+  }
+  const T = TRACKS[track], out = AC.createGain();
+  out.gain.setValueAtTime(0, AC.currentTime); out.gain.linearRampToValueAtTime(T.vol, AC.currentTime + 1);
+  const limit = AC.createDynamicsCompressor();   // keeps the loud metal tracks from clipping on phone speakers
+  limit.threshold.value = -8; limit.ratio.value = 12; limit.attack.value = .003; limit.release.value = .2;
+  out.connect(limit).connect(AC.destination);
+  const amp = AC.createWaveShaper(), cab = AC.createBiquadFilter();
+  amp.curve = distCurve; amp.oversample = '2x'; cab.type = 'lowpass'; cab.frequency.value = 3200;
+  amp.connect(cab).connect(out);
+  const m = music = {track, out, amp, timer:null, src:null};
+  const sequence = () => {
+    const S = 60/T.bpm/4; let step = 0, next = AC.currentTime + .05;
+    m.timer = setInterval(() => {
+      while (next < AC.currentTime + .2) { T.step(m, step % 32, next, S); next += S; step++; }
+    }, 50);
+  };
+  // A song picked from the phone replaces both boss themes.
+  if (track !== 'battle' && customSong) {
+    AC.decodeAudioData(customSong.data.slice(0), buf => {
+      if (music !== m) return;
+      const src = AC.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(out); src.start(); m.src = src;
+    }, () => { toast("Couldn't play that song, using the built-in theme."); customSong = null; showSong(); if (music === m) sequence(); });
+  } else sequence();
+}
+function stopMusic() {
+  const m = music; if (!m) return; music = null;
   clearInterval(m.timer);
-  const t = AC.currentTime; m.out.gain.cancelScheduledValues(t); m.out.gain.setValueAtTime(m.out.gain.value, t); m.out.gain.linearRampToValueAtTime(0, t + .8);
-  if (m.src) m.src.stop(t + .9);
-  setTimeout(() => m.out.disconnect(), 1200);
+  const t = AC.currentTime; m.out.gain.cancelScheduledValues(t); m.out.gain.setValueAtTime(m.out.gain.value, t); m.out.gain.linearRampToValueAtTime(0, t + .7);
+  if (m.src) m.src.stop(t + .8);
+  setTimeout(() => m.out.disconnect(), 1100);
 }
 
 function frame() {
   view = mode === 'guest' ? guestView() : snap(game);
   draw(view); hud(view);
   if (view) sounds(view);
-  const bossOn = view && view.st === 'play' && !view.p && view.em.some(e => ENEMIES[e[1]].boss);
-  if (bossOn && !muted) startBossMusic(); else if (bossMusic) stopBossMusic();
+  // Battle music during play; each Eradicator has its own theme (MK II wins if both are out).
+  const want = !view || view.st !== 'play' || view.p || muted ? null
+    : view.em.some(e => e[1] === 'erad2') ? 'erad2' : view.em.some(e => e[1] === 'erad') ? 'erad' : 'battle';
+  if ((music && music.track) !== want) { if (music) stopMusic(); if (want && AC) startMusic(want); }
   requestAnimationFrame(frame);
 }
 
