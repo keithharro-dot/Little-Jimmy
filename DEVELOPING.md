@@ -150,3 +150,7 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
 - Branch, then fast-forward `main` and push. Pages deploys from `main`.
 - Before pushing: run `node tests/smoke.mjs`, plus a syntax check (e.g. parse the last `<script>` with acorn).
 - Keep the code style of the surrounding code: compact functions, short comments explaining *why*.
+
+## Eradicator in AR (`eradicator-ar.html`, `models/`)
+
+`models/build_eradicator.py` builds the MK II in Blender (run it with `pip install bpy==5.2.2`, then `python models/build_eradicator.py`; add `--render <dir>` for preview stills). It writes `eradicator-mk2.glb` for Android and the web, and `eradicator-mk2.usdz` for iPhone/iPad AR Quick Look (Y-up, metres, feet on the floor, about 2 m tall). `eradicator-ar.html` shows it with Google's `<model-viewer>`; its "View in your room" button opens AR on phones. Change the script and re-run it rather than editing the exported files.
