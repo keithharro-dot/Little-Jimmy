@@ -147,19 +147,14 @@ details p,details li{color:var(--muted)}
     <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
     <button id="goLocal">📱 Two players, one phone</button>
     <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
-    <div class="small" id="musicRow" style="text-align:center">
-      🎵 Boss music: <b id="musicName" style="color:var(--text)">built-in theme</b><br>
-      <label for="bossFile" class="linkbtn" style="display:inline-block;cursor:pointer">Choose a song from this phone</label>
-      <input type="file" id="bossFile" accept="audio/*" style="position:absolute;opacity:0;width:1px;height:1px">
-      <button class="linkbtn" id="musicReset" hidden>Use built-in</button>
-    </div>
+    <div class="small" id="musicRow" style="text-align:center;display:grid;gap:6px"></div>
     <details>
       <summary>How to play</summary>
       <ul>
         <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
         <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. You earn more gold as the zombie sender's eco grows. Tap a built tower to see its range, upgrade it (up to level 4) or sell it.</li>
         <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡150 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers (a tower stunned 3 times is destroyed), and the MK II rages at half health.</li>
-        <li>Zombies win if the base's lives reach 0. Towers win by surviving all 50 waves. Waves come automatically, with an Eradicator on wave 20 and an MK II on wave 40. Then swap sides!</li>
+        <li>Zombies win if the base's 150 health reaches 0. Towers win by surviving all 50 waves. Waves come automatically, with an Eradicator on wave 20 and an MK II on wave 40. Then swap sides!</li>
       </ul>
       <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
     </details>
@@ -208,7 +203,7 @@ details p,details li{color:var(--muted)}
 
 <div id="game" hidden>
   <div id="hud">
-    <span class="pill">❤️ <span id="hLives">20</span></span>
+    <span class="pill">🏰 <span id="hLives">150</span></span>
     <span class="pill" id="pGold">💰 <span id="hGold">0</span> <small id="hGoldInc" style="color:var(--muted)"></small></span>
     <span class="pill" id="pEnergy">⚡ <span id="hEnergy">0</span> <small id="hInc" style="color:var(--muted)"></small></span>
     <span class="pill">🌊 <span id="hTime">Wave 0/50</span></span>
@@ -334,22 +329,23 @@ const flyAt = d => { const f = Math.min(1, d/FLYLEN); return [FLY.ax + (FLY.bx-F
 
 /* ---------- Enemies: zombies, plus Eradicator bosses (TDX-style traits) ---------- */
 const ENEMIES = {
-  zombie:  {name:'Zombie',       hp:75,   spd:1.2,  eco:2, build:1, cost:15,  reward:5,  leak:1, r:.3,  desc:'Basic shambling zombie'},
-  speedy:  {name:'Speedy',       hp:35,   spd:2.4,  eco:1, build:1, cost:10,  reward:3,  leak:1, r:.27, desc:'Fast and fragile'},
-  phantom: {name:'Phantom',      hp:60,   spd:1.5,  eco:3, build:8, cost:25,  reward:6,  leak:1, r:.28, stealth:true, desc:'Hidden! Only 📡 towers can see it'},
-  bat:     {name:'Zombie Bats',  hp:35,   spd:1.5,  eco:3, build:8, cost:30,  reward:3,  leak:1, r:.26, fly:true, count:3, desc:'Fly straight over the map'},
-  riot:    {name:'Riot Zombie',  hp:80,   shield:110, spd:1.05, eco:4, build:10, cost:35, reward:9, leak:1, r:.3, desc:'Shield soaks hits. ✹ Splash breaks it 2× faster'},
-  medic:   {name:'Medic Zombie', hp:95,   spd:1.05, eco:4, build:10, cost:35,  reward:9,  leak:1, r:.3,  heal:10, desc:'Heals zombies around it'},
-  brute:   {name:'Brute',        hp:320,  spd:.7,   eco:5, build:12, cost:45,  reward:13, leak:2, r:.38, armor:5, desc:'Armour blocks 5 dmg per hit'},
-  erad:    {name:'Eradicator',   hp:2700, shield:200, spd:.33, eco:-15, build:30, cost:1000, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
+  zombie:  {name:'Zombie',       hp:75,   spd:1.2,  eco:2, build:1, cost:15,  reward:5,  leak:5, r:.3,  desc:'Basic shambling zombie'},
+  speedy:  {name:'Speedy',       hp:35,   spd:2.4,  eco:1, build:1, cost:10,  reward:3,  leak:4, r:.27, desc:'Fast and fragile'},
+  phantom: {name:'Phantom',      hp:60,   spd:1.5,  eco:3, build:8, cost:25,  reward:6,  leak:6, r:.28, stealth:true, desc:'Hidden! Only 📡 towers can see it'},
+  bat:     {name:'Zombie Bats',  hp:35,   spd:1.5,  eco:3, build:8, cost:30,  reward:3,  leak:3, r:.26, fly:true, count:3, desc:'Fly straight over the map'},
+  riot:    {name:'Riot Zombie',  hp:80,   shield:110, spd:1.05, eco:4, build:10, cost:35, reward:9, leak:8, r:.3, desc:'Shield soaks hits. ✹ Splash breaks it 2× faster'},
+  medic:   {name:'Medic Zombie', hp:95,   spd:1.05, eco:4, build:10, cost:35,  reward:9,  leak:8, r:.3,  heal:10, desc:'Heals zombies around it'},
+  brute:   {name:'Brute',        hp:320,  spd:.7,   eco:5, build:12, cost:45,  reward:13, leak:15, r:.38, armor:3, desc:'Armour blocks 3 dmg per hit'},
+  erad:    {name:'Eradicator',   hp:2700, shield:200, spd:.33, eco:-15, build:30, cost:1000, reward:35, leak:75, r:.48, armor:3, boss:true, rocket:8,
             desc:'Rocket burst knocks out nearby towers'},
-  erad2:   {name:'Eradicator MK II', hp:4500, shield:350, spd:.29, eco:-30, build:45, cost:2000, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
+  erad2:   {name:'Eradicator MK II', hp:4500, shield:350, spd:.29, eco:-30, build:45, cost:2000, reward:60, leak:150, r:.54, armor:4, boss:true, rocket:6,
             fury:true, splashRes:.3, desc:'Resists splash 30%. At half HP it rages: stuns every tower 3s and halves both sides\' income'},
 };
 const TAGS = E => [E.boss && ['BOSS','#ff4d4d'], E.stealth && ['HIDDEN','#a371f7'], E.fly && ['FLYING','#58a6ff'],
   E.shield && ['SHIELD','#3ee6ff'], E.fury && ['RAGE','#ff3b30'], E.armor && ['ARMOUR','#8b949e'], E.heal && ['HEALER','#3fb950'], E.spd > 2 && ['FAST','#f2cc60']].filter(Boolean);
 
 /* ---------- Towers ---------- */
+const DMG_MULT = .5;
 const DMG = [0,8,14,22,32,45], RNG = [0,1.6,2.1,2.6,3.2,3.9], RATE = [0,.7,1,1.4,2,2.8];
 const SP_ICON = {none:'', slow:'❄', splash:'✹'};
 function cleanSpec(s) {
@@ -364,9 +360,10 @@ function cleanSpec(s) {
   };
 }
 function stats(s) {
-  const dmg = DMG[s.d], range = RNG[s.r], rate = RATE[s.s], dps = dmg * rate;
+  // Towers deal half their listed damage; the price is still worked out from the full damage.
+  const dmg = Math.round(DMG[s.d] * DMG_MULT), range = RNG[s.r], rate = RATE[s.s], dps = dmg * rate, priceDps = DMG[s.d] * rate;
   const extra = (s.sp === 'slow' ? 25 : s.sp === 'splash' ? 35 : 0) + (s.det ? 25 : 0);
-  const cost = Math.round((20 + dps*1.6 + range*range*6 + extra) / 5) * 5;
+  const cost = Math.round((20 + priceDps*1.6 + range*range*6 + extra) / 5) * 5;
   return {dmg, range, rate, dps, cost};
 }
 // Upgrades: each level adds 35% damage, 0.3 tiles of range and 15% fire speed.
@@ -387,15 +384,16 @@ const PRESETS = [
 
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0, map = MAPD.id) {
-  return {map, t:0, status:'countdown', cd:5, lives:20, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
+  return {map, t:0, status:'countdown', cd:5, lives:BASE_HP, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
           queue:[], spawnT:0, wave:0, waveT:3, wq:[], wspawnT:0, id:1, winner:null, kills:0, paused:false, epoch};
 }
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
 // sending an Eradicator lowers it (never below ECO_MIN). Each zombie type has a build time
 // before it can be sent again, which stops eco from snowballing.
-const ECO = {start:5, min:2, max:150, defGold:1.2};  // defGold: tower gold per second per point of zombie eco
+const ECO = {start:5, min:2, max:150, defGold:2};  // defGold: tower gold per second per point of zombie eco
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
+const BASE_HP = 150;   // the tower builder's base; each zombie that gets through damages it
 const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1};
 // Every Eradicator stun cracks a tower; the third one destroys it (no refund).
 const STUNS_TO_BREAK = 3;
@@ -523,7 +521,7 @@ function step(g, dt) {
   g.enemies = g.enemies.filter(e => {
     if (e.d >= routeLen(e)) {
       const leak = ENEMIES[e.k].leak;
-      g.lives -= leak; addFx(g, 'leak', COLS - .5, WAY[WAY.length-1][1], '-' + leak + '❤️');
+      g.lives -= leak; addFx(g, 'leak', COLS - .5, WAY[WAY.length-1][1], '-' + leak);
       return false;
     }
     return true;
@@ -561,19 +559,20 @@ function step(g, dt) {
 // 50 automatic filler waves on top of whatever the sender sends. They get bigger and tougher,
 // new zombie types join over time, and Eradicators arrive on waves 20 (Eradicator) and 40 (MK II).
 const WAVES = 50, WAVE_GAP = 18;
-const WAVE_BONUS = {base:60, per:12};   // gold the tower builder gets as each wave starts
+const WAVE_BONUS = {base:100, per:20};
+const WAVE_SCALE = {count:.5, hp:.03};   // zombies per wave and extra health per wave   // gold the tower builder gets as each wave starts
 const WAVE_UNLOCK = [['zombie', 1], ['speedy', 3], ['riot', 6], ['phantom', 8], ['medic', 10], ['bat', 12], ['brute', 15]];
 const WAVE_BOSS = {20: 'erad', 40: 'erad2'};
 function waveList(n) {
   const pool = WAVE_UNLOCK.filter(([, from]) => n >= from).map(([k]) => k);
-  const list = [], count = 3 + Math.floor(n * .7);
+  const list = [], count = 3 + Math.floor(n * WAVE_SCALE.count);
   for (let i = 0; i < count; i++) list.push(pool[(i * 7 + n * 3) % pool.length]);
   if (WAVE_BOSS[n]) list.unshift(WAVE_BOSS[n]);   // the Eradicator leads its wave
   return list;
 }
 function startWave(g) {
   g.wave++;
-  const mul = 1 + (g.wave - 1) * .05;   // wave 50 zombies have about 3.5x health
+  const mul = 1 + (g.wave - 1) * WAVE_SCALE.hp;
   const list = waveList(g.wave).flatMap(k => Array(ENEMIES[k].count || 1).fill([k, ENEMIES[k].boss ? 1 : mul]));
   if (ENEMIES[list[0][0]].boss) g.wq.unshift(...list); else g.wq.push(...list);   // a boss jumps the queue
   g.waveT = WAVE_GAP;
@@ -858,6 +857,11 @@ function drawDecor(c, kind, x, y, ts, r) {
 function draw(v) {
   const W = COLS*TS, H = ROWS*TS;
   drawGround(ctx, TS, MAPD);
+  if (v) {   // base health bar over the castle
+    const bx = (COLS - 1)*TS + TS*.05, by = (WAY[WAY.length-1][1] - .5)*TS - 8, bw = TS*.9, f = Math.max(0, v.lv)/BASE_HP;
+    ctx.fillStyle = '#000b'; ctx.fillRect(bx, by, bw, 6);
+    ctx.fillStyle = f > .5 ? '#3fb950' : f > .25 ? '#f2cc60' : '#ff3b30'; ctx.fillRect(bx, by, bw*f, 6);
+  }
   if (!v) return;
 
   for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun, t.lvl, t.hits);
@@ -994,7 +998,7 @@ function hud(v) {
     const tip = myRole === 'both' ? 'Towers: build now! Zombies: get ready…' : isDef() ? 'Tap a tower, then tap the grass. Build now!' : 'Tap a zombie to send it. Get ready…';
     html = `<div class="big">${Math.max(1, Math.ceil(v.cd))}</div><div>${tip}</div>`;
   } else if (v.st === 'over') {
-    const who = v.w === 'def' ? '🛡 Towers win!' : '🧟 Zombies win!';
+    const who = v.w === 'def' ? (v.wv >= WAVES ? '🛡 Towers win! All 50 waves defeated!' : '🛡 Towers win!') : '🧟 Zombies win! The base was destroyed.';
     const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:22px;font-weight:700">🎉 You win!</div>' : '<div style="color:var(--atk);font-size:18px;font-weight:700">You lose. Swap sides for revenge!</div>');
     html = `<h2>${who}</h2>${me}<div ${dim}>${v.k} zombies defeated · reached wave ${v.wv} of ${WAVES} · ${fmt(v.t)}</div>
       <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center">
@@ -1071,7 +1075,10 @@ $('#mute').onclick = () => {
 /* ---------- Music ---------- */
 // Battle music during play, and a metal theme for each Eradicator. Players can also pick their own
 // song from their phone for boss fights (kept only on that phone, in IndexedDB).
-let customSong = null;   // customSong = {name, data:ArrayBuffer}
+// Each boss can play a song picked from this phone instead of its built-in theme (e.g. a recording
+// of its music from TDX). Songs stay on this phone only.
+const SONG_SLOTS = {erad: 'Eradicator', erad2: 'Eradicator MK II'};
+const customSongs = {};   // slot -> {name, data:ArrayBuffer}
 function idb(mode, fn) {
   return new Promise((res, rej) => {
     try {
@@ -1085,22 +1092,32 @@ function idb(mode, fn) {
     } catch (e) { rej(e); }
   });
 }
-function showSong() {
-  $('#musicName').textContent = customSong ? customSong.name : 'built-in theme';
-  $('#musicReset').hidden = !customSong;
+function renderSongs() {
+  const box = $('#musicRow'); box.innerHTML = '';
+  for (const [slot, label] of Object.entries(SONG_SLOTS)) {
+    const song = customSongs[slot], row = document.createElement('div');
+    row.innerHTML = `🎵 ${label} music: <b style="color:var(--text)">${song ? esc(song.name) : 'built-in metal'}</b><br>
+      <label class="linkbtn" style="display:inline-block;cursor:pointer;padding:4px">Choose a song
+        <input type="file" accept="audio/*,video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label>
+      ${song ? '<button class="linkbtn" style="padding:4px;font-size:inherit">Use built-in</button>' : ''}`;
+    row.querySelector('input').addEventListener('change', e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      const fr = new FileReader();
+      fr.onload = () => {
+        customSongs[slot] = {name: f.name.replace(/\.[^.]+$/, '').slice(0, 40), data: fr.result};
+        renderSongs(); toast(label + ' music set!');
+        idb('readwrite', st => st.put(customSongs[slot], 'song_' + slot)).catch(() => toast('Song set for now, but this phone could not save it.'));
+      };
+      fr.readAsArrayBuffer(f);
+    });
+    const reset = row.querySelector('button');
+    if (reset) reset.onclick = () => { delete customSongs[slot]; renderSongs(); idb('readwrite', st => st.delete('song_' + slot)).catch(() => {}); };
+    box.appendChild(row);
+  }
 }
-idb('readonly', st => st.get('bossSong')).then(v => { if (v && v.data) { customSong = v; showSong(); } }).catch(() => {});
-$('#bossFile').addEventListener('change', e => {
-  const f = e.target.files && e.target.files[0]; if (!f) return;
-  const fr = new FileReader();
-  fr.onload = () => {
-    customSong = {name: f.name.replace(/\.[^.]+$/, '').slice(0, 40), data: fr.result};
-    showSong(); toast('Boss music set!');
-    idb('readwrite', st => st.put(customSong, 'bossSong')).catch(() => toast('Song set for now, but this phone could not save it.'));
-  };
-  fr.readAsArrayBuffer(f);
-});
-$('#musicReset').onclick = () => { customSong = null; showSong(); idb('readwrite', st => st.delete('bossSong')).catch(() => {}); };
+renderSongs();
+for (const slot of Object.keys(SONG_SLOTS))
+  idb('readonly', st => st.get('song_' + slot)).then(v => { if (v && v.data) { customSongs[slot] = v; renderSongs(); } }).catch(() => {});
 
 const mtof = m => 440 * Math.pow(2, (m - 69)/12);
 let noiseBuf = null, distCurve = null;
@@ -1210,12 +1227,13 @@ function startMusic(track) {
       while (next < AC.currentTime + .2) { T.step(m, step % 32, next, S); next += S; step++; }
     }, 50);
   };
-  // A song picked from the phone replaces both boss themes.
-  if (track !== 'battle' && customSong) {
-    AC.decodeAudioData(customSong.data.slice(0), buf => {
+  // A song picked from the phone replaces that boss's theme.
+  const song = customSongs[track];
+  if (song) {
+    AC.decodeAudioData(song.data.slice(0), buf => {
       if (music !== m) return;
       const src = AC.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(out); src.start(); m.src = src;
-    }, () => { toast("Couldn't play that song, using the built-in theme."); customSong = null; showSong(); if (music === m) sequence(); });
+    }, () => { toast("Couldn't play that song, using the built-in theme."); delete customSongs[track]; renderSongs(); if (music === m) sequence(); });
   } else sequence();
 }
 function stopMusic() {
