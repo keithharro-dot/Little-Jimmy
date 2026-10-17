@@ -151,7 +151,7 @@ details summary{color:var(--gold)}
   </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
-    <p class="small">Drag your players (the ones with a glow) with your finger. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
+    <p class="small">Drag your players (the ones with a glow) with your finger. You don't have to touch the player itself: put your finger next to it (up to about a centimetre away) and drag, and it keeps that gap so your finger never hides it. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
     <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
   </details>
 </div>
@@ -247,7 +247,7 @@ details summary{color:var(--gold)}
 <div id="game" hidden>
   <canvas id="cv3" hidden></canvas>
   <canvas id="cv"></canvas>
-  <button id="gameMusic" aria-label="Music on/off">🎵</button>
+  <button id="gameMusic" aria-label="Music">🎵</button>
   <div id="hud"><span class="sc"><span class="b" id="sb">0</span><span>–</span><span class="r" id="sr">0</span></span><span class="clock" id="clock">3:00</span></div>
   <div id="pw"><span id="pwb"></span><span id="pwr"></span></div>
   <button id="quit" title="Leave">✕</button>
@@ -949,6 +949,8 @@ const SFX = {
 /* ---------- Game view ---------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let view = null, info = null, myPid = 'me', mode = null, flip = false, game = null;
+const holds = {};   // fingers dragging players: pointerId -> {id, ox, oy: world offset from finger to player, sx, sy: finger on screen}
+const isHeld = i => Object.values(holds).some(h => h.id === i);   // defined up here because the 3D renderer asks too
 let prevS = null, curS = null, curAt = 0;
 let sc = 3, ox = 0, oy = 0, rot = false;
 function resize() {
@@ -1470,7 +1472,7 @@ function render3D(v) {
     const op = ghost ? .3 + .1*Math.sin(t*5) : 1;
     for (const m of [P.side, P.top]) { m.transparent = op < 1; m.opacity = op; }
     if (ghost && Math.random() < dt*6) spawn(x, y, 6, [rnd(2), 8, rnd(2)], 1.2, 3, 7, 0xb57bff);
-    const mine = isMine(wi); P.ring.visible = mine; P.ring.scale.set(h*1.25, h*1.25, 1); P.ring.material.opacity = Object.values(holds).includes(i) ? .95 : .45;
+    const mine = isMine(wi); P.ring.visible = mine; P.ring.scale.set(h*1.25, h*1.25, 1); P.ring.material.opacity = isHeld(i) ? .95 : .45;
     P.racket.visible = !wi.boss && wi.role !== 'GK' && has(v.lv, wi.team, 'racket') && !duel; P.racket.position.set(h*.9, 0, -h*.9);
     const charging = v.hd && v.hd[0] === i; P.glow.visible = charging;
     if (charging) { const k = 1 - v.hd[1]/.6; P.glow.scale.setScalar(h*(3 + k*3)); P.glow.position.y = H*.6; spawn(x + rnd(14), y + rnd(14), 3 + Math.random()*5, [0, 0, 0], .25, 2, .5, 0xffa040); }
@@ -1597,10 +1599,11 @@ function frame() {
     if (G3.on) { render3D(view); overlay3D(view); }
     else {
       if (!view.dl) { drawWalls(view); drawBananas(view); }
-      view.w.forEach(([x, y], i) => { const wi = info.widgets[i]; if (view.dl && !view.dl.ids.includes(i)) return; drawWidget(wi, x, y, isMine(wi), Object.values(holds).includes(i)); });
+      view.w.forEach(([x, y], i) => { const wi = info.widgets[i]; if (view.dl && !view.dl.ids.includes(i)) return; drawWidget(wi, x, y, isMine(wi), isHeld(i)); });
       if (view.dl) drawDuel(view); else drawBall(view.b[0], view.b[1]);
       drawFx(view);
     }
+    drawTethers(view);
     for (const f of view.fx || []) if (!seenFx.has(view.ep + ':' + f.id)) { seenFx.add(view.ep + ':' + f.id); (SFX[f.k] || (() => {}))(); }
     const icons = t => view.lv ? POWERS.slice(0, view.lv[t]).map(p => p.icon).join('') : '';
     $('#pwb').textContent = icons(0); $('#pwr').textContent = icons(1);
@@ -1661,7 +1664,9 @@ function endScreen(v) {
 }
 
 /* ---------- Touch control: drag your players ---------- */
-const holds = {};   // pointerId -> widget id
+// Touch near a player (up to about a centimetre away) and drag: it keeps the gap it had from your finger,
+// so your finger never hides it. A thin line joins your finger to the player you're holding.
+const GRAB_PX = 60;   // about 1 cm on a phone
 let sendTimer = {};
 function controllable() { return info ? info.widgets.filter(isMine) : []; }
 function setTarget(wid, x, y) {
@@ -1672,22 +1677,35 @@ function setTarget(wid, x, y) {
 }
 cv.addEventListener('pointerdown', ev => {
   if (!view) return;
-  const [x, y] = toWorld(ev.clientX, ev.clientY);
-  let best = null, bd = 18;
+  const [x, y] = toWorld(ev.clientX, ev.clientY), [x2, y2] = toWorld(ev.clientX + GRAB_PX, ev.clientY);
+  let best = null, bd = clamp(Math.hypot(x2 - x, y2 - y), 18, 30);
   for (const wi of controllable()) {
-    if (Object.values(holds).includes(wi.id)) continue;
+    if (isHeld(wi.id)) continue;
     const [wx, wy] = view.w[wi.id], d = Math.hypot(wx - x, wy - y);
     if (d < bd) { bd = d; best = wi; }
   }
   if (!best) return;
-  holds[ev.pointerId] = best.id; cv.setPointerCapture && cv.setPointerCapture(ev.pointerId);
-  setTarget(best.id, x, y);
+  const [wx, wy] = view.w[best.id];
+  holds[ev.pointerId] = {id:best.id, ox:wx - x, oy:wy - y, sx:ev.clientX, sy:ev.clientY}; try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+  setTarget(best.id, wx, wy);
 });
 cv.addEventListener('pointermove', ev => {
-  const wid = holds[ev.pointerId]; if (wid === undefined) return;
-  const [x, y] = toWorld(ev.clientX, ev.clientY); setTarget(wid, x, y);
+  const h = holds[ev.pointerId]; if (!h) return;
+  const [x, y] = toWorld(ev.clientX, ev.clientY); h.sx = ev.clientX; h.sy = ev.clientY;
+  setTarget(h.id, clamp(x + h.ox, 0, 100), clamp(y + h.oy, 0, 160));
 });
-const release = ev => { const wid = holds[ev.pointerId]; if (wid === undefined) return; delete holds[ev.pointerId]; setTarget(wid, null, null); };
+const release = ev => { const h = holds[ev.pointerId]; if (!h) return; delete holds[ev.pointerId]; setTarget(h.id, null, null); };
+function drawTethers(v) {
+  for (const h of Object.values(holds)) {
+    const p = v.w[h.id]; if (!p) continue;
+    const [px, py] = toScreen(p[0], p[1]);
+    if (Math.hypot(px - h.sx, py - h.sy) < 14) continue;
+    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(h.sx, h.sy); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(h.sx, h.sy, 16, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+}
 cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
 
 /* ---------- Starting matches ---------- */
@@ -1720,7 +1738,7 @@ document.querySelectorAll('.chaosSeg button').forEach(b => b.onclick = () => { C
 showChaos();
 function showGfx() { document.querySelectorAll('.gfxSeg button').forEach(b => b.classList.toggle('sel', b.dataset.gfx === GFX)); }
 document.querySelectorAll('.gfxSeg button').forEach(b => b.onclick = () => { GFX = b.dataset.gfx; try { localStorage.setItem('ps_gfx', GFX); } catch (e) {} showGfx(); if (GFX === '3d') load3D(); });
-$('#musicChip').onclick = () => JB ? JB.open() : toggleMusic(); $('#gameMusic').onclick = toggleMusic;
+$('#musicChip').onclick = $('#gameMusic').onclick = () => JB ? JB.open() : toggleMusic();   // the picker has its own on/off
 $('#goPractice').onclick = () => needProfile(() => startLocal('practice'));
 $('#goLocal2').onclick = () => needProfile(() => startLocal('local2'));
 function needProfile(then) { if (!profile.name) openProfile(then); else then(); }

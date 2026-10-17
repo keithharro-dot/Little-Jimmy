@@ -46,11 +46,11 @@ This guide is for whoever (and whichever Claude) picks them up next. Give your C
 - **Theme music (`THEME`, `themeTo(vol)`):**
   - One looping `<audio>` element, routed through Web Audio so it can fade. iPhones ignore `audio.volume`.
   - It starts on the first tap, because browsers block sound before that.
-- **Inside the Claude app**, a copy of each game runs with a flag (`window.PS_EMBEDDED` / `window.TD_EMBEDDED`) that hides features needing a network. Those copies belong to the owner's Claude account; you'll publish your own if you want one.
+- **Inside the Claude app**, a copy of each game runs with a flag (`window.PS_EMBEDDED` / `window.TD_EMBEDDED`) that hides features needing a network. Those copies belong to the owner's Claude account; you'll publish your own if you want one. They are built by stripping the doctype/html/head/body tags and the PeerJS/QR scripts, adding the flag line before `<script src="music/jukebox.js">`, and publishing the whole `music/` folder with the page (in two uploads, as it's about 70 MB).
 
 ## Pocket Soccer (`soccer.html`)
 
-Finger soccer for 1–16 players, phones first. Each player is a square block with your face (photo or cartoon) on top. You drag your players with your finger.
+Finger soccer for 1–16 players, phones first. Each player is a square block with your face (photo or cartoon) on top. You drag your players with your finger. Touch control (`holds`, `isHeld`, `drawTethers`): a touch within about 1 cm (`GRAB_PX`) grabs the nearest of your players, and the player keeps its offset from the finger so the finger never covers it; a dotted line shows the link. The in-game 🎵 button and the menu chip both open the music picker.
 
 - **Pitch and physics:**
   - `F` holds the sizes (pitch 100 × 160 units).
