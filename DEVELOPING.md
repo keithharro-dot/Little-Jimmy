@@ -97,6 +97,12 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
   - Bosses: Eradicator, MK II (rages at half health) and the Void (mind control, Voidlings, stomp), plus minions (Avatars, Voidlings).
 - **Towers:** design your own (`stats`, `cleanSpec`) or use the `PRESETS`. Levels 1–4 change the soldier's uniform colour (`LEVEL_UNIFORM`). Reviver and DJ are support towers.
 - **Waves** (`WAVES = 50`): an Eradicator on wave 20, an MK II on 40, the Void on 50. The zombie sender's economy is in `ECO`.
+- **In-game layout:** full screen, with no page scrolling. The board is always the biggest 15:9 box that fits (`resize`). The CSS at the end of the `<style>` block picks one of three layouts by screen shape:
+  - Wide (phones sideways): side columns, towers left and zombies right; one role puts its column on the right.
+  - Landscape and at least 600 px tall (tablets, laptops, TVs): a bottom strip of buttons.
+  - Upright: a scrolling tray under the board.
+  - Upgrade/Sell (`#selInfo`) and the boss bar float over the board.
+  - ⛶ uses the Fullscreen API where it exists (Android, iPad) and locks the screen sideways; starting a game on a touch device asks for full screen automatically. iPhone Safari can't go full screen, so the button tells you to use Add to Home Screen.
 - **Multiplayer:** PeerJS with its default servers, so it works over the internet. Join by invite link, 4-letter code or QR code.
 - **Music:**
   - The theme plays on menus and through battles. The bosses keep their built-in synthesised metal themes (`TRACKS`, `startMusic`), and players can pick their own boss songs from their phone (IndexedDB `tower-defence`).

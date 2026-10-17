@@ -131,11 +131,59 @@ details p,details li{color:var(--muted)}
 .slider span{width:70px;text-align:right;font-variant-numeric:tabular-nums}
 .seg{display:flex;gap:6px}.seg button{flex:1;padding:8px 4px;font-size:13px}
 .seg button.sel{border-color:var(--def);background:#0c2d4d}
-#roleTabs{margin-top:12px}
-#roleTabs button{padding:12px;font-size:16px;font-weight:600}
-#roleTabs button[data-tab=atk].sel{border-color:var(--atk);background:#3d1414}
 #bStats{margin:14px 0;padding:10px;background:var(--panel2);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px}
 #bStats b{font-variant-numeric:tabular-nums}
+
+/* ---------- In game: the board fills the screen, every control sits around it ---------- */
+/* Sideways (and on computers): scoreboard across the top, a button column each side of the board.
+   One phone, two players: towers on the left, zombies on the right. One role: its column on the right. */
+#game{position:fixed;inset:0;max-width:none;margin:0;background:#05080c;overflow:hidden;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"hud hud hud" "left board right"}
+#game[hidden]{display:none!important}
+#hud{grid-area:hud;padding:4px 8px;gap:2px;flex-wrap:nowrap;font-size:13px}
+#hpills{display:flex;gap:6px;align-items:center;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}   /* only the scores scroll; the buttons always stay */
+#hud .pill{padding:2px 9px}
+#hud .role{display:none}
+.hbtn{background:none;border:0;padding:2px 7px;font-size:19px;flex:none;line-height:1.2}
+#mute{font-size:19px}
+#boardWrap{grid-area:board;position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
+#board{max-width:none;width:auto;min-width:0;margin:0}
+#panels{display:contents;margin:0}
+.panel{min-height:0;overflow-y:auto;width:clamp(112px,15vw,200px);border-radius:0;border-width:0 1px;padding:6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#defPanel{grid-area:left}#atkPanel{grid-area:right}
+#game.solo .panel{grid-area:right}
+.panel h3{font-size:12px;margin:0 0 6px}
+.panel h3 .hint{display:none}
+.panel .cards{grid-template-columns:1fr;gap:5px}
+.panel .card{padding:5px 6px}
+.panel .card .meta,.panel .card .tags{display:none}
+.panel .card .nm{font-size:12px;gap:4px;line-height:1.15}
+.panel .card canvas{width:30px;height:30px;margin:-2px 0}
+.panel .card .cost,.panel .card .ecost{font-size:12px}
+.panel .card .cdtxt{font-size:11px}
+.panel .card.add{min-height:36px;font-size:12px}
+#bossBar{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:min(70%,520px);z-index:3;margin:0;padding:3px 8px 5px;opacity:.94}
+#selInfo{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:4;margin:0;width:max-content;max-width:calc(100% - 16px);font-size:12px;background:rgba(22,27,34,.95);border:1px solid var(--line);box-shadow:0 4px 16px #000a}
+#selInfo button{padding:6px 10px;font-size:13px}
+#rotate{display:none}
+/* Ordinary landscape (tablets, laptops, TVs): board on top, a slim strip of buttons along the bottom */
+@media (max-aspect-ratio:2/1) and (min-aspect-ratio:1/1) and (min-height:600px){
+  #game{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"hud" "board" "panels"}
+  #panels{display:grid;grid-area:panels;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;padding:6px}
+  #game #panels .panel{width:auto;grid-area:auto;overflow:hidden;border-width:1px;border-radius:10px}
+  #panels .cards{display:flex;overflow-x:auto;gap:6px;scrollbar-width:thin}
+  #panels .card{flex:none;width:clamp(108px,11vw,150px)}
+}
+/* Upright: board on top, buttons in a scrolling tray underneath */
+@media (max-aspect-ratio:1/1){
+  #game{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);grid-template-areas:"hud" "board" "panels"}
+  #boardWrap{aspect-ratio:15/9;width:100%}
+  #panels{display:grid;grid-area:panels;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-content:start;gap:6px;overflow-y:auto;padding:6px}
+  #game #panels .panel{width:auto;grid-area:auto;overflow:visible;border-width:1px;border-radius:10px}
+  #panels .cards{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+  #rotate{display:block;grid-column:1/-1;margin:0}
+}
 </style>
 </head>
 <body>
@@ -214,35 +262,37 @@ details p,details li{color:var(--muted)}
 
 <div id="game" hidden>
   <div id="hud">
+    <div id="hpills">
     <span class="pill">🏰 <span id="hLives">150</span></span>
     <span class="pill" id="pGold">💰 <span id="hGold">0</span> <small id="hGoldInc" style="color:var(--muted)"></small></span>
     <span class="pill" id="pEnergy">⚡ <span id="hEnergy">0</span> <small id="hInc" style="color:var(--muted)"></small></span>
     <span class="pill">🌊 <span id="hTime">Wave 0/50</span></span>
     <span class="role" id="hRole"></span>
-    <button id="mute" title="Sound on/off">🔊</button>
+    </div>
+    <button class="hbtn" id="fsBtn" title="Full screen">⛶</button>
+    <button class="hbtn" id="mute" title="Sound on/off">🔊</button>
+    <button class="hbtn" id="quitBtn" title="Leave the game">✕</button>
   </div>
-  <div id="bossBar" hidden>
-    <div class="bb-top"><b id="bbName"></b><span id="bbHp"></span></div>
-    <div class="bb-track"><div id="bbShield"></div><div id="bbFill"></div></div>
-  </div>
-  <div id="board">
-    <canvas id="cv3" hidden></canvas>
-    <canvas id="cv"></canvas>
-    <div id="overlay" hidden></div>
-  </div>
-  <div id="rotate">📱↻ Turn your phone sideways for a bigger map</div>
-  <div id="roleTabs" class="seg" hidden>
-    <button data-tab="def">🛡 Towers</button>
-    <button data-tab="atk">🧟 Zombies</button>
+  <div id="boardWrap">
+    <div id="board">
+      <canvas id="cv3" hidden></canvas>
+      <canvas id="cv"></canvas>
+      <div id="overlay" hidden></div>
+    </div>
+    <div id="bossBar" hidden>
+      <div class="bb-top"><b id="bbName"></b><span id="bbHp"></span></div>
+      <div class="bb-track"><div id="bbShield"></div><div id="bbFill"></div></div>
+    </div>
+    <div id="selInfo" hidden><span id="selText"></span><span class="sel-btns"><button class="primary" id="btnUp">Upgrade</button><button class="danger" id="btnSell">Sell</button><button id="btnDesel" aria-label="Close">✕</button></span></div>
   </div>
   <div id="panels">
+    <div id="rotate">📱↻ Turn your phone sideways for a bigger map</div>
     <div class="panel def" id="defPanel">
-      <h3>🛡 Towers <span class="hint" style="margin:0">tap a design, then tap the grass</span></h3>
-      <div id="selInfo" hidden><span id="selText"></span><span class="sel-btns"><button class="primary" id="btnUp">Upgrade</button><button class="danger" id="btnSell">Sell</button></span></div>
+      <h3>🛡 Towers <span class="hint" style="margin:0">tap one, then tap the grass</span></h3>
       <div class="cards" id="designCards"></div>
     </div>
     <div class="panel atk" id="atkPanel">
-      <h3>🧟 Send zombies <span class="hint" style="margin:0" id="qInfo"></span></h3>
+      <h3>🧟 Zombies <span class="hint" style="margin:0" id="qInfo"></span></h3>
       <div class="cards" id="enemyCards"></div>
     </div>
   </div>
@@ -704,10 +754,9 @@ let view = null;
 let selDesign = 0, selTower = null, hover = null, ended = false;
 let guestRole = null, hostCode = null, joinCode = null, reconnecting = false;
 
-// On one phone ('both'), the players pass the phone and a tab picks whose units are shown.
-let tab = 'def';
-const isDef = () => myRole === 'def' || (myRole === 'both' && tab === 'def');
-const isAtk = () => myRole === 'atk' || (myRole === 'both' && tab === 'atk');
+// On one phone ('both'), both palettes are on screen: towers on one side, zombies on the other.
+const isDef = () => myRole === 'def' || myRole === 'both';
+const isAtk = () => myRole === 'atk' || myRole === 'both';
 
 function issue(c) {
   if (mode === 'guest') { if (conn && conn.open) conn.send({t:'cmd', c}); }
@@ -818,8 +867,9 @@ $('#bSave').onclick = () => {
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let TS = 40;
 function resize() {
-  const w = $('#board').clientWidth, dpr = window.devicePixelRatio || 1;
-  TS = w / COLS;
+  const r = $('#boardWrap').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  TS = Math.max(8, Math.min(r.width / COLS, r.height / ROWS));   // the biggest board that fits
+  const w = TS*COLS; $('#board').style.width = w + 'px';
   cv.width = Math.round(w*dpr); cv.height = Math.round(TS*ROWS*dpr);
   cv.style.height = TS*ROWS + 'px'; $('#cv3').style.height = TS*ROWS + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2109,18 +2159,42 @@ document.querySelectorAll('.back').forEach(b => b.onclick = () => {
   $('#hostPick').hidden = false; $('#hostInvite').hidden = true; $('#qrWrap').hidden = true;
   show('#mMain');
 });
-$('#goLocal').onclick = () => { mode = 'local'; myRole = 'both'; setMap(chosenMap); game = newGame(0, chosenMap); startGame(); };
+/* ---------- Full screen ---------- */
+// Android and iPad can go properly full screen (and lock sideways); iPhone Safari can't, but a home-screen icon opens full screen.
+const FS = document.documentElement, standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const canFS = !!(FS.requestFullscreen || FS.webkitRequestFullscreen), isFS = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function goFullscreen() {
+  if (isFS() || standalone || !canFS) return;
+  try {
+    const p = (FS.requestFullscreen || FS.webkitRequestFullscreen).call(FS, {navigationUI:'hide'});
+    if (p && p.then) p.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {});
+  } catch (e) {}
+}
+const autoFS = () => { if (matchMedia('(pointer:coarse)').matches) goFullscreen(); };   // phones and tablets only
+$('#fsBtn').hidden = !!standalone;
+$('#fsBtn').onclick = () => {
+  if (isFS()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else if (canFS) goFullscreen();
+  else toast('For full screen on iPhone: tap Share → Add to Home Screen, then play from the icon');
+};
+for (const ev of ['fullscreenchange', 'webkitfullscreenchange', 'orientationchange']) addEventListener(ev, () => setTimeout(resize, 150));
+let quitArmed = -1e9;
+$('#quitBtn').onclick = () => {
+  if (performance.now() - quitArmed < 3000) { goMenu(); return; }
+  quitArmed = performance.now(); toast('Tap ✕ again to leave the game');
+};
+$('#btnDesel').onclick = () => { selTower = null; };
+
+$('#goLocal').onclick = () => { autoFS(); mode = 'local'; myRole = 'both'; setMap(chosenMap); game = newGame(0, chosenMap); startGame(); };
 
 function applyRoleUI() {
   selTower = null;
   $('#defPanel').hidden = !isDef(); $('#atkPanel').hidden = !isAtk();
   $('#pGold').hidden = !isDef(); $('#pEnergy').hidden = !isAtk();
-  $('#roleTabs').hidden = myRole !== 'both';
-  document.querySelectorAll('#roleTabs button').forEach(b => b.classList.toggle('sel', b.dataset.tab === tab));
+  $('#game').classList.toggle('solo', myRole !== 'both');
   $('#hRole').textContent = {def:'You build 🛡 towers', atk:'You send 🧟 zombies', both:'Two players, one phone'}[myRole];
-  renderDesigns(); renderEnemies();
+  renderDesigns(); renderEnemies(); resize();
 }
-document.querySelectorAll('#roleTabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; applyRoleUI(); });
 function startGame() {
   $('#menu').hidden = true; $('#game').hidden = false;
   G3.on = want3D(); $('#cv3').hidden = !G3.on;
@@ -2167,7 +2241,7 @@ function showQR() {
 
 function noPeer(el) { el.textContent = "Couldn't load online play. Check the internet, or use “Two players, one phone”."; }
 
-document.querySelectorAll('#mHost [data-role]').forEach(b => b.onclick = () => hostGame(b.dataset.role));
+document.querySelectorAll('#mHost [data-role]').forEach(b => b.onclick = () => { autoFS(); hostGame(b.dataset.role); });
 function hostGame(role) {
   const info = $('#hostInfo');
   if (!window.Peer) { info.textContent = 'Loading online play…'; return whenPeerReady(() => window.Peer ? hostGame(role) : noPeer(info)); }
@@ -2250,6 +2324,7 @@ function connectGuest() {
 $('#joinCode').addEventListener('input', e => e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''));
 $('#joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
 $('#btnJoin').onclick = () => {
+  autoFS();
   const info = $('#joinInfo'), code = $('#joinCode').value.toUpperCase();
   if (code.length !== 4) { info.textContent = 'The code has 4 letters.'; return; }
   if (!window.Peer) { info.textContent = 'Loading online play…'; return whenPeerReady(() => window.Peer ? $('#btnJoin').click() : noPeer(info)); }

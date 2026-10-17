@@ -1766,7 +1766,7 @@ function leaveGame() {
   if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
   location.href = location.pathname;
 }
-let quitArmed = 0;
+let quitArmed = -1e9;
 $('#quit').onclick = () => { if (performance.now() - quitArmed < 2500) leaveGame(); else { quitArmed = performance.now(); toast('Tap ✕ again to leave the match'); } };
 
 /* ---------- Networking (same Wi-Fi only) ---------- */
