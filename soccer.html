@@ -5,14 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Pocket Soccer">
-<meta name="theme-color" content="#0b2e1a">
+<meta name="theme-color" content="#1a120b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Cinzel+Decorative:wght@700;900&display=swap">
 <title>Pocket Soccer</title>
 <script async src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root{
-  --bg:#0b1a12;--panel:#12261a;--panel2:#1a3324;--line:#2b4a36;--text:#eef6f0;--muted:#94b3a0;
-  --blue:#3b82f6;--red:#ef4444;--gold:#facc15;--ok:#4ade80;
+  /* Steampunk: walnut, leather, copper and brass. Deliberately single-theme. */
+  --bg:#1a120b;--panel:#2a1c10;--panel2:#3a2716;--line:#8a5a2b;--text:#f3e6c8;--muted:#c2a77a;
+  --blue:#3b82f6;--red:#ef4444;--gold:#e8b84a;--ok:#d4a537;
+  --brass:linear-gradient(180deg,#f6d77e 0%,#d4a537 45%,#9a6b1f 100%);
+  --rivets:radial-gradient(circle at 9px 9px,#f6d98b 0 2px,#4a2c0e 2.6px,transparent 3.4px),radial-gradient(circle at calc(100% - 9px) 9px,#f6d98b 0 2px,#4a2c0e 2.6px,transparent 3.4px),radial-gradient(circle at 9px calc(100% - 9px),#f6d98b 0 2px,#4a2c0e 2.6px,transparent 3.4px),radial-gradient(circle at calc(100% - 9px) calc(100% - 9px),#f6d98b 0 2px,#4a2c0e 2.6px,transparent 3.4px);
+  --serif:'Cinzel',Georgia,'Times New Roman',serif;--deco:'Cinzel Decorative','Cinzel',Georgia,serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -43,6 +49,9 @@ h2{margin:0 0 6px;font-size:20px}
 .addface{width:44px;height:44px;border-radius:50%;padding:0;font-size:22px;border-style:dashed}
 #name{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
 .seg{display:flex;gap:6px;flex-wrap:wrap}.seg button{flex:1;padding:9px 6px;font-size:14px}
+table.rec{width:100%;border-collapse:collapse;font-size:14px}table.rec th,table.rec td{padding:6px 4px;text-align:center}table.rec td:nth-child(2),table.rec th:nth-child(2){text-align:left}table.rec tr+tr{border-top:1px solid var(--line)}
+.tvcode{font:900 64px ui-monospace,monospace;letter-spacing:14px;margin:8px 0}
+body.tv #lobby,body.tv #tv,body.tv #records{zoom:1.35}
 .seg button.sel{border-color:var(--ok);background:#14532d}
 .opt label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
 .swatch{width:34px;height:34px;padding:0;border-radius:50%;border:3px solid transparent}
@@ -76,17 +85,40 @@ h2{margin:0 0 6px;font-size:20px}
 @keyframes pop{from{transform:scale(.3);opacity:0}70%{transform:scale(1.12)}to{transform:scale(1);opacity:1}}
 #pw{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 46px);display:flex;justify-content:space-between;padding:0 10px;pointer-events:none;font-size:13px}
 #pwb,#pwr{background:#0008;border-radius:10px;padding:0 4px}#pwb:empty,#pwr:empty{display:none}#pwr{margin-left:auto}
+/* ---------- Steampunk dressing ---------- */
+html,body{background:radial-gradient(120% 80% at 50% 0%,#2b1d10 0%,#1a120b 55%,#0f0a06 100%) fixed var(--bg)}
+h1,h2,.big,button,.tag,#hud .sc,#hud .clock,#banner .g,#banner .boss,#banner .pu2,.tvcode,table.rec th{font-family:var(--serif)}
+h1{font-family:var(--deco);font-size:36px;background:var(--brass);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 2px 0 #000)}
+h1 span{color:transparent}
+h2{color:var(--gold);letter-spacing:.5px}
+button{background:var(--rivets),linear-gradient(180deg,#5a3b1e,#3a2614);border:2px solid #8a5a2b;border-radius:10px;box-shadow:inset 0 1px 0 #ffffff22,0 2px 0 #000a;color:var(--text);font-weight:700;letter-spacing:.3px}
+button.primary{background:var(--rivets),var(--brass);color:#2a1606;border-color:#6b4513;text-shadow:0 1px 0 #ffffff55}
+.seg button.sel{background:var(--rivets),linear-gradient(180deg,#b87333,#7a4a1c);border-color:var(--gold);color:#fff3d6}
+.card{background:var(--rivets),linear-gradient(180deg,#2e1f12,#22170d);border:2px solid #6b4513;border-radius:12px;box-shadow:inset 0 0 0 1px #00000066,inset 0 0 24px #0008,0 3px 0 #0008;padding:16px 18px}
+.prow{background:linear-gradient(180deg,#3a2716,#2c1d10);border:1px solid #5a3a1a}
+.tag.t0{background:linear-gradient(180deg,#60a5fa,#1d4ed8);border:1px solid #f6d77e88}.tag.t1{background:linear-gradient(180deg,#f87171,#b91c1c);border:1px solid #f6d77e88}
+.face{border-color:#b8862b}.face.xl{border-color:#d4a537;box-shadow:0 0 0 3px #4a2c0e,0 0 0 5px #b87333}
+#name,#bossName{background:#f3e6c8;color:#2a1606;border:2px solid #8a5a2b;border-radius:8px;padding:12px;font-family:Georgia,serif}
+#qr{background:#f3e6c8;border:4px solid #b87333;box-shadow:0 0 0 3px #4a2c0e}
+#toast{background:#2a1c10ee;border:2px solid #b87333;font-family:var(--serif)}
+details summary{color:var(--gold)}
+#game{background:#120c07}
+#hud .sc{background:var(--rivets),var(--brass);color:#2a1606;border:2px solid #6b4513;box-shadow:0 2px 0 #000a}
+#hud .b{color:#1e3a8a}#hud .r{color:#7f1d1d}
+#hud .clock{background:radial-gradient(circle,#f3e6c8,#d8c39a);color:#2a1606;border:3px solid #b87333;border-radius:999px;padding:5px 12px;box-shadow:0 0 0 2px #4a2c0e}
+#quit{background:var(--brass);color:#2a1606;border:2px solid #6b4513}
+#banner .g{font-family:var(--deco);color:#f6d77e;text-shadow:0 3px 0 #4a2c0e,0 0 24px #000}
+#banner .pu{background:linear-gradient(180deg,#2e1f12f2,#1a120bf2);border-width:3px}
+#endbox{background:var(--rivets),linear-gradient(180deg,#2e1f12,#1a120b)!important;border:3px solid #b87333!important;box-shadow:0 0 0 3px #4a2c0e,0 10px 40px #000}
+.gearbg{position:fixed;pointer-events:none;opacity:.10;z-index:-1;animation:spin 40s linear infinite}
+.gearbg.a{width:260px;height:260px;right:-90px;top:-80px}.gearbg.b{width:180px;height:180px;left:-70px;bottom:-60px;animation-direction:reverse;animation-duration:28s}
+@keyframes spin{to{transform:rotate(360deg)}}
 #endbox{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:420px;margin:0 auto;text-align:center}
 </style>
 </head>
 <body>
-
-<div id="phoneOnly" class="screen center" hidden>
-  <h1>⚽ Pocket <span>Soccer</span></h1>
-  <p class="sub">Pocket Soccer is made for phones. Open this page on your phone:</p>
-  <div id="phoneQr" style="background:#fff;padding:10px;border-radius:12px;display:inline-block"></div>
-  <p class="small" id="phoneUrl" style="word-break:break-all"></p>
-</div>
+<svg class="gearbg a" viewBox="-50 -50 100 100" aria-hidden="true"><g fill="#d4a537"><path id="gearpath" d="M-6-48h12l2 10 7 3 9-6 8 8-6 9 3 7 10 2v12l-10 2-3 7 6 9-8 8-9-6-7 3-2 10h-12l-2-10-7-3-9 6-8-8 6-9-3-7-10-2v-12l10-2 3-7-6-9 8-8 9 6 7-3z"/></g><circle r="14" fill="#1a120b"/></svg>
+<svg class="gearbg b" viewBox="-50 -50 100 100" aria-hidden="true"><use href="#gearpath" fill="#b87333"/><circle r="14" fill="#1a120b"/></svg>
 
 <div id="menu" class="screen" hidden>
   <h1>⚽ Pocket <span>Soccer</span></h1>
@@ -102,6 +134,9 @@ h2{margin:0 0 6px;font-size:20px}
     <button class="primary big" id="goHost">📶 Host a match</button>
     <button class="big" id="goPractice">🤖 Practice vs computer</button>
     <button class="big" id="goLocal2">📱 2 players, one phone</button>
+    <button class="big" id="goRecords">🏆 Hall of Fame</button>
+    <button class="big" id="goTV">📺 TV screen</button>
+    <div class="card small" id="bigScreenTip" hidden>💻🎮 <b>On a computer or Xbox?</b> Tap <b>Host a match</b> to put the game on this screen — friends scan the QR code with their phones to join. Play with the mouse or an Xbox controller (left stick moves your player, right stick your keeper). Or tap <b>TV screen</b> to just show a match that a phone is hosting.</div>
     <div class="seg chaosSeg"><button data-chaos="1">⚡ Chaos power-ups</button><button data-chaos="0">⚽ Normal soccer</button></div>
   </div>
   <div id="joinBox" class="card stack center" hidden>
@@ -114,6 +149,24 @@ h2{margin:0 0 6px;font-size:20px}
     <p class="small">Drag your players (the ones with a glow) with your finger. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
     <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
   </details>
+</div>
+
+<div id="tv" class="screen center" hidden>
+  <h1>📺 Pocket <span>Soccer</span> TV</h1>
+  <div class="card stack" id="tvWaitBox">
+    <div>On the host's phone, open the match lobby, tap <b>📺 Add a TV</b> and type:</div>
+    <div class="tvcode" id="tvCode">····</div>
+    <div class="small" id="tvInfo">This screen must be on the same Wi-Fi as the phones.</div>
+  </div>
+  <div class="row" style="margin-top:14px"><button id="tvRecords">🏆 Hall of Fame</button><button id="tvLeave">Exit TV mode</button></div>
+</div>
+
+<div id="records" class="screen" hidden>
+  <h2>🏆 Hall of Fame</h2>
+  <div class="card stack" id="recTop"></div>
+  <div class="card" style="margin-top:12px;overflow-x:auto"><table class="rec" id="recTable"></table></div>
+  <div class="small" style="margin:10px 0">P = played · W = won · L = lost · ⚽ = goals · ⚔️ = duels won. Records are kept on this device; the host's phone records everyone in its matches.</div>
+  <div class="row"><button class="primary" id="recBack">Back</button><button id="recReset">Reset records</button></div>
 </div>
 
 <div id="profile" class="screen" hidden>
@@ -181,6 +234,7 @@ h2{margin:0 0 6px;font-size:20px}
   <div class="stack" style="margin-top:14px">
     <button class="primary big" id="btnStart" hidden>▶ Kick off!</button>
     <div class="small center" id="lobbyInfo"></div>
+    <button id="addTV" hidden>📺 Add a TV</button>
     <button id="lobbyLeave">Leave</button>
   </div>
 </div>
@@ -365,17 +419,92 @@ function powerStep(g, dt) {
   g.fx = g.fx.filter(f => (f.a += dt) < 1.2);
 }
 
+// A team's champion: the boss if there is one, else its top scorer's player, else anyone a person controls.
+function pickChamp(g, T) {
+  const field = g.widgets.filter(w => w.team === T && w.role !== 'GK'), boss = field.find(w => w.boss);
+  if (boss) return boss;
+  const people = g.players.filter(p => p.team === T).sort((a, c) => (g.goals[c.pid] || 0) - (g.goals[a.pid] || 0));
+  return (people.length && field.find(w => w.ctl === people[0].pid)) || field.find(w => w.ctl) || field[field.length - 1];
+}
 function startBoss(g) {
   g.boss = [];
   for (const T of [0, 1]) {
-    const field = g.widgets.filter(w => w.team === T && w.role !== 'GK');
-    const people = g.players.filter(p => p.team === T).sort((a, c) => (g.goals[c.pid] || 0) - (g.goals[a.pid] || 0));
-    const w = (people.length && field.find(w => w.ctl === people[0].pid)) || field.find(w => w.ctl) || field[field.length - 1];
+    const w = pickChamp(g, T);
     const owner = g.players.find(p => p.pid === w.ctl);
     w.boss = true; w.frz = w.slip = 0;
     g.boss.push([w.id, String((owner && owner.boss) || randomBoss()).slice(0, 28)]);
   }
   g.status = 'boss'; g.cd = 3.6;
+}
+
+/* ---------- Lightsaber duel: a timed match that ends level is settled by sudden death ---------- */
+const SABER = 14, DUEL_HP = 3;
+function startDuel(g) {
+  const ids = [0, 1].map(T => pickChamp(g, T).id);
+  for (const w of g.widgets) { w.frz = w.slip = w.kx = w.ky = 0; }
+  ids.forEach((id, T) => { const w = g.widgets[id]; w.x = 50; w.y = T ? 62 : 98; w.vx = w.vy = 0; });
+  g.duel = {ids, hp:[DUEL_HP, DUEL_HP], ang:[-Math.PI/2, Math.PI/2], cd:[0, 0], inv:[0, 0], t:0, tip:[null, null], ph:[Math.random()*9, Math.random()*9]};
+  g.ball = {x:-99, y:-99, vx:0, vy:0}; g.ghost = [0, 0]; g.bananas = []; g.fx = []; g.targets = {};
+  g.status = 'duelintro'; g.cd = 3.5;
+}
+// Does segment a cross segment b? (each [x1, y1, x2, y2])
+function segX(a, b) {
+  const o = (p, q, r) => Math.sign((q[0] - p[0])*(r[1] - p[1]) - (q[1] - p[1])*(r[0] - p[0]));
+  const A = [a[0], a[1]], B = [a[2], a[3]], C = [b[0], b[1]], D = [b[2], b[3]];
+  return o(A, B, C) !== o(A, B, D) && o(C, D, A) !== o(C, D, B);
+}
+function duelStep(g, dt) {
+  const D = g.duel, ws = D.ids.map(id => g.widgets[id]); D.t += dt;
+  if (g.fx.length) g.fx = g.fx.filter(f => (f.a += dt) < 1.2);
+  ws.forEach((w, T) => {
+    const o = ws[1 - T]; let tx = null, ty = null, vmax = VMAX;
+    if (w.ctl === null && !g.targets[w.id]) {   // computer duelist: circles in and lunges, so its blade sweeps
+      const dx = o.x - w.x, dy = o.y - w.y, d = Math.hypot(dx, dy) || 1, ph = D.ph[T], side = Math.sin(D.t*(2 + ph*.1) + ph)*16;
+      const lunge = D.cd[T] <= 0 && D.inv[1 - T] <= 0 && Math.sin(D.t*(.9 + ph*.05) + ph) > .35;   // circle, wait for an opening, then lunge
+      const near = lunge ? 6 : 30;
+      tx = o.x - dx/d*near - dy/d*side; ty = o.y - dy/d*near + dx/d*side; vmax = VMAX_AI*(lunge ? 1.3 : .8);
+    } else if (g.targets[w.id]) ({x:tx, y:ty} = g.targets[w.id]);
+    if (w.frz > 0) { w.frz -= dt; tx = null; }
+    if (tx !== null) { let vx = (tx - w.x)/.06, vy = (ty - w.y)/.06; const sp = Math.hypot(vx, vy); if (sp > vmax) { vx *= vmax/sp; vy *= vmax/sp; } w.vx = vx; w.vy = vy; }
+    else { const k = Math.exp(-12*dt); w.vx *= k; w.vy *= k; }
+    w.x += (w.vx + w.kx)*dt; w.y += (w.vy + w.ky)*dt;
+    const k = Math.exp(-4*dt); w.kx *= k; w.ky *= k;
+    confine(w, halfOf(g.lv, w));
+    const sp = Math.hypot(w.vx, w.vy);   // the blade swings round to point the way you move
+    if (sp > 15) { const diff = Math.atan2(Math.sin(Math.atan2(w.vy, w.vx) - D.ang[T]), Math.cos(Math.atan2(w.vy, w.vx) - D.ang[T])); D.ang[T] += clamp(diff, -14*dt, 14*dt); }
+    if (D.cd[T] > 0) D.cd[T] -= dt;
+    if (D.inv[T] > 0) D.inv[T] -= dt;
+  });
+  const blade = T => { const w = ws[T], h = halfOf(g.lv, w), a = D.ang[T], c = Math.cos(a), s = Math.sin(a);
+                       return [w.x + c*h*.7, w.y + s*h*.7, w.x + c*(h + SABER), w.y + s*(h + SABER)]; };
+  const bl = [blade(0), blade(1)];
+  const tipSp = [0, 1].map(T => { const p = D.tip[T], v = p ? Math.hypot(bl[T][2] - p[0], bl[T][3] - p[1])/dt : 0; D.tip[T] = [bl[T][2], bl[T][3]]; return v; });
+  let winner = null;
+  if (segX(bl[0], bl[1])) {   // blades clash: sparks, and both duelists are thrown apart
+    if (D.cd[0] <= 0 && D.cd[1] <= 0) {
+      const dx = ws[1].x - ws[0].x, dy = ws[1].y - ws[0].y, d = Math.hypot(dx, dy) || 1;
+      ws[0].kx = -dx/d*130; ws[0].ky = -dy/d*130; ws[1].kx = dx/d*130; ws[1].ky = dy/d*130; D.cd = [.35, .35];
+      addFx(g, {k:'clash', x:r1((bl[0][2] + bl[1][2])/2), y:r1((bl[0][3] + bl[1][3])/2)});
+    }
+  } else for (const T of [0, 1]) {
+    if (D.cd[T] > 0 || D.inv[1 - T] > 0 || tipSp[T] < 45) continue;   // a blade only cuts when it's swung, and not someone just hit
+    const o = ws[1 - T], h = halfOf(g.lv, o) + 1, [x1, y1, x2, y2] = bl[T];
+    for (let i = 0; i <= 6; i++) {
+      const x = x1 + (x2 - x1)*i/6, y = y1 + (y2 - y1)*i/6;
+      if (Math.abs(x - o.x) < h && Math.abs(y - o.y) < h) {
+        D.hp[1 - T]--; D.cd = [1.2, 1.2]; D.inv[1 - T] = 1.3; o.frz = .5;
+        const dx = o.x - ws[T].x, dy = o.y - ws[T].y, d = Math.hypot(dx, dy) || 1; o.kx = dx/d*230; o.ky = dy/d*230;
+        addFx(g, {k:'hit', x:r1(x), y:r1(y)}); g.kicks++;
+        if (D.hp[1 - T] <= 0) winner = T;
+        break;
+      }
+    }
+  }
+  if (winner === null && D.t > 60) winner = D.hp[0] === D.hp[1] ? (Math.random() < .5 ? 0 : 1) : D.hp[0] > D.hp[1] ? 0 : 1;   // a minute's up: most health wins
+  if (winner !== null) {
+    g.score[winner]++; g.duelWin = winner; g.status = 'over';
+    const w = ws[winner]; g.scorer = {w:w.id, own:false, team:winner, duel:true};
+  }
 }
 
 /* ---------- Simulation (host / single phone only) ---------- */
@@ -433,10 +562,11 @@ function aiTarget(g, w, chaser, attacking) {
 
 function step(g, dt) {
   if (g.status === 'over') return;
+  if (g.status === 'duel') return duelStep(g, dt);
   if (g.status !== 'play') {
     if (g.fx.length) g.fx = g.fx.filter(f => (f.a += dt) < 1.2);   // explosions finish during the pause
     g.cd -= dt;
-    if (g.cd <= 0) { if (g.status === 'goal') resetKickoff(g, g.lastConceded); else g.status = 'play'; }
+    if (g.cd <= 0) { if (g.status === 'goal') resetKickoff(g, g.lastConceded); else g.status = g.status === 'duelintro' ? 'duel' : 'play'; }
     if (g.status !== 'play') return;
   }
   g.t += dt;
@@ -545,7 +675,7 @@ function step(g, dt) {
     b.vx = b.vy = 0;
     if (g.len === 0 && g.score[scoringTeam] >= 5) { g.status = 'over'; }
   }
-  if (g.len && g.t >= g.len && g.status === 'play') g.status = 'over';
+  if (g.len && g.t >= g.len && g.status === 'play') { if (g.score[0] === g.score[1]) startDuel(g); else g.status = 'over'; }
 }
 
 const r1 = v => Math.round(v*10)/10;
@@ -555,7 +685,8 @@ function snap(g) {
           lv:g.lv, pu:g.pu, fz:g.widgets.filter(w => w.frz > 0).map(w => w.id), bv:[r1(g.ball.vx), r1(g.ball.vy)],
           bn:g.ball.nuke ? 1 : 0, bh:g.ball.home || 0, fx:g.fx.map(f => ({...f, a:r1(f.a)})),
           hd:g.ball.held ? [g.ball.held.w, r1(g.ball.held.t)] : null, gh:g.ghost.map(v => v > 0 ? Math.ceil(v) : 0), na:g.bananas.map(n => [n.x, n.y]),
-          sl:g.widgets.filter(w => w.slip > 0).map(w => w.id), bs:g.boss};
+          sl:g.widgets.filter(w => w.slip > 0).map(w => w.id), bs:g.boss,
+          dl:g.duel ? {ids:g.duel.ids, hp:g.duel.hp, inv:g.duel.inv.map(v => v > 0 ? 1 : 0), ang:g.duel.ang.map(a => Math.round(a*100)/100)} : null, dw:g.duelWin === undefined ? null : g.duelWin};
 }
 // Static match info sent once at kick-off: who controls which player, and which face it wears.
 const matchInfo = g => ({size:g.size, len:g.len, players:g.players.map(p => ({pid:p.pid, name:p.name, team:p.team, boss:p.boss})),
@@ -657,7 +788,7 @@ const saveProfile = () => { try { localStorage.setItem('ps_profile', JSON.string
 function showMenuProfile() { $('#menuFace').src = profile.faces[0]; $('#menuName').textContent = profile.name || 'Player'; }
 
 /* ---------- Screens ---------- */
-const SCREENS = ['#phoneOnly', '#menu', '#profile', '#picker', '#maker', '#lobby', '#game'];
+const SCREENS = ['#tv', '#menu', '#records', '#profile', '#picker', '#maker', '#lobby', '#game'];
 function show(id) { for (const s of SCREENS) $(s).hidden = s !== id; window.scrollTo(0, 0); }
 
 function renderProfile() {
@@ -762,6 +893,10 @@ const SFX = {
   slip: () => { tone(900, 150, .5, 'triangle', .2); tone(1200, 200, .4, 'sine', .1, .1); },
   ghost: () => { tone(500, 700, .9, 'sine', .12); tone(700, 450, .9, 'sine', .1, .5); tone(450, 300, 1, 'triangle', .08, 1); },
   boss: () => { noise(2.2, 90, .7); tone(70, 40, 2.4, 'sawtooth', .35); tone(110, 55, 2, 'square', .12, .4); [196, 185, 175, 165].forEach((f, i) => tone(f, f, .5, 'sawtooth', .12, 1 + i*.45)); },
+  clash: () => { tone(1400, 900, .25, 'sawtooth', .12); noise(.2, 4000, .25); },
+  hit: () => { tone(300, 80, .35, 'sawtooth', .25); noise(.3, 1200, .3); },
+  saber: () => { tone(110, 220, .6, 'sawtooth', .12); tone(220, 440, .6, 'sawtooth', .05, .1); [0, .9, 1.8].forEach(d => tone(90, 95, .8, 'sawtooth', .05, .8 + d)); },
+  steam: () => { noise(1.6, 5000, .18); noise(1.2, 2500, .1, .2); },
   power: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, f*1.01, .18, 'square', .06, .9 + i*.08)),
   end: () => { tone(2600, 2500, .25, 'sine', .12); tone(2600, 2500, .25, 'sine', .12, .32); tone(2600, 2300, .8, 'sine', .12, .64); },
 };
@@ -770,16 +905,18 @@ const SFX = {
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let view = null, info = null, myPid = 'me', mode = null, flip = false, game = null;
 let prevS = null, curS = null, curAt = 0;
-let sc = 3, ox = 0, oy = 0;
+let sc = 3, ox = 0, oy = 0, rot = false;
 function resize() {
   const dpr = devicePixelRatio || 1, W = innerWidth, H = innerHeight;
   cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const top = 52;
-  sc = Math.min(W/106, (H - top - 8)/178); ox = (W - 100*sc)/2; oy = top + (H - top - 160*sc)/2;
+  rot = W > H*1.1;   // landscape screens (TVs, computers, sideways tablets) show the pitch sideways
+  if (rot) { sc = Math.min((W - 16)/170, (H - top - 8)/106); ox = (W - 160*sc)/2; oy = top + (H - top - 100*sc)/2; }
+  else { sc = Math.min(W/106, (H - top - 8)/178); ox = (W - 100*sc)/2; oy = top + (H - top - 160*sc)/2; }
 }
 addEventListener('resize', () => { if (!$('#game').hidden) resize(); });
-const toScreen = (x, y) => flip ? [ox + (100 - x)*sc, oy + (160 - y)*sc] : [ox + x*sc, oy + y*sc];
-const toWorld = (sx, sy) => { const x = (sx - ox)/sc, y = (sy - oy)/sc; return flip ? [100 - x, 160 - y] : [x, y]; };
+const toScreen = (x, y) => { if (flip) { x = 100 - x; y = 160 - y; } return rot ? [ox + y*sc, oy + (100 - x)*sc] : [ox + x*sc, oy + y*sc]; };
+const toWorld = (sx, sy) => { const x = rot ? 100 - (sy - oy)/sc : (sx - ox)/sc, y = rot ? (sx - ox)/sc : (sy - oy)/sc; return flip ? [100 - x, 160 - y] : [x, y]; };
 
 const defaultFaces = {};
 function botFace(w) {
@@ -791,41 +928,74 @@ function botFace(w) {
   return defaultFaces[key];
 }
 
+// A brass gear: n teeth, outer radius r, spinning at angle a.
+function gear(x, y, r, n, a, col) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = col; ctx.beginPath();
+  for (let i = 0; i < n*2; i++) { const t0 = i*Math.PI/n, rr = i % 2 ? r*.78 : r; ctx.lineTo(Math.cos(t0 - .12)*rr, Math.sin(t0 - .12)*rr); ctx.lineTo(Math.cos(t0 + Math.PI/n - .12)*rr, Math.sin(t0 + Math.PI/n - .12)*rr); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1a120b'; ctx.beginPath(); ctx.arc(0, 0, r*.32, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#00000055'; ctx.lineWidth = r*.08; ctx.beginPath(); ctx.arc(0, 0, r*.55, 0, 7); ctx.stroke();
+  ctx.restore();
+}
 function drawPitch() {
-  const W = innerWidth, H = innerHeight;
-  ctx.fillStyle = '#06140c'; ctx.fillRect(0, 0, W, H);
-  for (let i = 0; i < 10; i++) {   // mowed stripes
-    ctx.fillStyle = i % 2 ? '#1f7a3a' : '#238443';
+  const W = innerWidth, H = innerHeight, now = performance.now()/1000;
+  const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H)*.7); bg.addColorStop(0, '#2b1d10'); bg.addColorStop(1, '#0f0a06');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  // gears turning in the four corners around the pitch
+  const corners = [[0, 0], [100, 0], [0, 160], [100, 160]].map(([x, y]) => toScreen(x, y));
+  corners.forEach(([x, y], i) => { gear(x, y, 9*sc, 10, now*(i % 2 ? -.4 : .4), i % 2 ? '#8a5a2b' : '#b8862b'); });
+  // copper frame with rivets
+  const [fa, fb] = toScreen(0, 0), [fc, fd] = toScreen(100, 160), FX = Math.min(fa, fc), FY = Math.min(fb, fd), FW = Math.abs(fc - fa), FH = Math.abs(fd - fb), fr = sc*2.2;
+  const cu = ctx.createLinearGradient(FX, FY, FX + FW, FY + FH); cu.addColorStop(0, '#d08a4a'); cu.addColorStop(.5, '#8a5a2b'); cu.addColorStop(1, '#c47b3a');
+  ctx.fillStyle = cu; ctx.fillRect(FX - fr, FY - fr, FW + fr*2, FH + fr*2);
+  ctx.fillStyle = '#f6d98b';
+  for (let i = 0; i <= 12; i++) for (const [px, py] of [[FX + FW*i/12, FY - fr/2], [FX + FW*i/12, FY + FH + fr/2]]) { ctx.beginPath(); ctx.arc(px, py, sc*.45, 0, 7); ctx.fill(); }
+  for (let i = 1; i < 18; i++) for (const [px, py] of [[FX - fr/2, FY + FH*i/18], [FX + FW + fr/2, FY + FH*i/18]]) { ctx.beginPath(); ctx.arc(px, py, sc*.45, 0, 7); ctx.fill(); }
+  for (let i = 0; i < 10; i++) {   // mowed stripes, olive-toned
+    ctx.fillStyle = i % 2 ? '#3f6b2c' : '#477635';
     const [x0, y0] = toScreen(0, i*16), [x1, y1] = toScreen(100, (i + 1)*16);
     ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
   }
-  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = Math.max(1.5, sc*.5);
+  ctx.strokeStyle = 'rgba(243,230,200,.85)'; ctx.lineWidth = Math.max(1.5, sc*.5);
   const rect = (x, y, w, h) => { const [a, b] = toScreen(x, y), [c, d] = toScreen(x + w, y + h); ctx.strokeRect(Math.min(a, c), Math.min(b, d), Math.abs(c - a), Math.abs(d - b)); };
   rect(0, 0, 100, 160);
-  for (const [cx, cy] of [[0, 0], [100, 0], [0, 160], [100, 160]]) {
+  for (const [cx, cy] of [[0, 0], [100, 0], [0, 160], [100, 160]]) {   // angled corners: brass plates
     const [a, b] = toScreen(cx ? cx - F.cut : F.cut, cy), [c, d] = toScreen(cx, cy ? cy - F.cut : F.cut);
-    ctx.fillStyle = '#0f3d20'; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(...toScreen(cx, cy)); ctx.fill();
+    ctx.fillStyle = '#9a6b1f'; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(...toScreen(cx, cy)); ctx.fill();
     ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke();
   }
-  const [mx0, my] = toScreen(0, 80), [mx1] = toScreen(100, 80);
-  ctx.beginPath(); ctx.moveTo(mx0, my); ctx.lineTo(mx1, my); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(...toScreen(0, 80)); ctx.lineTo(...toScreen(100, 80)); ctx.stroke();
   const [cx, cy] = toScreen(50, 80); ctx.beginPath(); ctx.arc(cx, cy, 13*sc, 0, 7); ctx.stroke();
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, sc*.8, 0, 7); ctx.fill();
+  gear(cx, cy, 3.2*sc, 8, -now*.6, '#d4a537');   // a little gear on the centre spot
   rect(50 - F.boxW/2, 0, F.boxW, F.boxD); rect(50 - F.boxW/2, 160 - F.boxD, F.boxW, F.boxD);
   rect(50 - 12, 0, 24, 8); rect(50 - 12, 152, 24, 8);
-  for (const team of [0, 1]) {   // goals with nets, coloured by the team that defends them
+  for (const team of [0, 1]) {   // brass goal frames with nets, a team-coloured crossbar stripe
     const y0 = team ? -6 : 160, [a, b] = toScreen(50 - F.goalW/2, y0), [c, d] = toScreen(50 + F.goalW/2, y0 + 6);
     const X = Math.min(a, c), Y = Math.min(b, d), w = Math.abs(c - a), h = Math.abs(d - b);
-    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(X, Y, w, h);
-    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1;
-    for (let i = 1; i < 8; i++) { ctx.beginPath(); ctx.moveTo(X + w*i/8, Y); ctx.lineTo(X + w*i/8, Y + h); ctx.stroke(); }
-    ctx.strokeStyle = TEAMS[team].col; ctx.lineWidth = Math.max(2, sc*.8); ctx.strokeRect(X, Y, w, h);
+    ctx.fillStyle = 'rgba(20,12,6,.75)'; ctx.fillRect(X, Y, w, h);
+    ctx.strokeStyle = 'rgba(243,230,200,.3)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 8; i++) { ctx.beginPath(); ctx.moveTo(X + w*i/8, Y); ctx.lineTo(X + w*i/8, Y + h); ctx.stroke(); ctx.beginPath(); ctx.moveTo(X, Y + h*i/8); ctx.lineTo(X + w, Y + h*i/8); ctx.stroke(); }
+    ctx.strokeStyle = '#d4a537'; ctx.lineWidth = Math.max(3, sc*1.1); ctx.strokeRect(X, Y, w, h);
+    ctx.strokeStyle = TEAMS[team].col; ctx.lineWidth = Math.max(1.5, sc*.4); ctx.strokeRect(X + sc*.6, Y + sc*.6, w - sc*1.2, h - sc*1.2);
+  }
+  drawSteam();
+}
+// Steam bursts out of the goal that was just scored in.
+let steam = null;
+function drawSteam() {
+  if (!steam) return;
+  const t = (performance.now() - steam.at)/1000; if (t > 2.2) { steam = null; return; }
+  const gy = steam.goalY, dir = gy ? -1 : 1;
+  for (let i = 0; i < 14; i++) {
+    const k = (t*1.4 + i/14) % 1, sx = 50 + Math.sin(i*2.3)*F.goalW*.45 + Math.sin(t*3 + i)*3, sy = gy + dir*(2 + k*26);
+    const [x, y] = toScreen(sx, sy);
+    ctx.fillStyle = `rgba(235,228,215,${(1 - k)*.45*Math.min(1, (2.2 - t)*2)})`; ctx.beginPath(); ctx.arc(x, y, (2 + k*6)*sc, 0, 7); ctx.fill();
   }
 }
 
 function drawWidget(wi, x, y, mine, holding) {
   const [sx, sy] = toScreen(x, y), r = halfOf(view && view.lv, wi)*sc, T = TEAMS[wi.team];
-  const frozen = view && view.fz && view.fz.includes(wi.id) && !(view.sl && view.sl.includes(wi.id));
+  const frozen = view && view.fz && view.fz.includes(wi.id) && !(view.sl && view.sl.includes(wi.id)) && !view.dl;
   const ghost = view && view.gh && view.gh[wi.team] > 0 && wi.role !== 'GK', slipping = view && view.sl && view.sl.includes(wi.id);
   const charging = view && view.hd && view.hd[0] === wi.id;
   ctx.save();
@@ -844,6 +1014,8 @@ function drawWidget(wi, x, y, mine, holding) {
   const f = wi.face && faceStore[wi.face] && faceStore[wi.face].img.complete ? faceStore[wi.face].img : botFace(wi);
   ctx.drawImage(f, sx - r*.9, sy - r*.9, r*1.8, r*1.8); ctx.restore();
   ctx.strokeStyle = T.col; ctx.lineWidth = r*.2; sq(sx, sy, r*.9, r*.12); ctx.stroke();
+  ctx.strokeStyle = '#d4a537'; ctx.lineWidth = Math.max(1, r*.07); sq(sx, sy, r*1.02, r*.16); ctx.stroke();   // brass rim and rivets
+  ctx.fillStyle = '#f6d98b'; for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.beginPath(); ctx.arc(sx + dx*r*.88, sy + dy*r*.88, Math.max(1, r*.09), 0, 7); ctx.fill(); }
   if (has(view && view.lv, wi.team, 'racket')) {   // tennis racket poking out of the corner
     const hx = sx + r*1.05, hy = sy - r*1.05, s = F.r*sc;
     ctx.strokeStyle = '#a16207'; ctx.lineWidth = s*.18; ctx.beginPath(); ctx.moveTo(sx + r*.6, sy - r*.6); ctx.lineTo(hx - s*.3, hy + s*.3); ctx.stroke();
@@ -869,6 +1041,23 @@ function drawWidget(wi, x, y, mine, holding) {
   }
   if (ghost) { ctx.font = `${r*.8}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('👻', sx + r*.7, sy - r*.7); }
   ctx.restore();
+}
+function drawDuel(v) {
+  v.dl.ids.forEach((id, T) => {
+    const wi = info.widgets[id], [x, y] = v.w[id], h = halfOf(v.lv, wi), a = v.dl.ang[T], c = Math.cos(a), s = Math.sin(a);
+    if (v.dl.inv && v.dl.inv[T] && Math.floor(performance.now()/90) % 2) return;   // flashing after a hit
+    const [hx, hy] = toScreen(x + c*h*.45, y + s*h*.45), [bx, by] = toScreen(x + c*h*.8, y + s*h*.8), [tx, ty] = toScreen(x + c*(h + SABER), y + s*(h + SABER));
+    ctx.save(); ctx.lineCap = 'round';
+    ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = Math.max(4, sc*1.6); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(bx, by); ctx.stroke();   // hilt
+    const col = T ? '#ff3b3b' : '#38bdf8', flick = 1 + Math.random()*.15;
+    ctx.shadowColor = col; ctx.shadowBlur = 18*flick; ctx.strokeStyle = col; ctx.lineWidth = Math.max(6, sc*2.2)*flick;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, sc*.8); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.restore();
+    const [sx, sy] = toScreen(x, y), r = h*sc;   // health hearts
+    ctx.font = `${Math.max(14, sc*4)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('❤️'.repeat(v.dl.hp[T]) + '🖤'.repeat(Math.max(0, DUEL_HP - v.dl.hp[T])), sx, sy + (sy > innerHeight/2 ? r*1.7 : -r*1.7));
+  });
 }
 function drawBananas(v) {
   ctx.font = `${7*sc}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -901,6 +1090,10 @@ function drawFx(v) {
       ctx.strokeStyle = '#fdba74'; ctx.lineWidth = 2;
       for (let i = 0; i < 8; i++) { const a = i*Math.PI/4, r0 = (16 - t*14)*sc; ctx.beginPath(); ctx.moveTo(sx + Math.cos(a)*r0, sy + Math.sin(a)*r0); ctx.lineTo(sx + Math.cos(a)*r0*.6, sy + Math.sin(a)*r0*.6); ctx.stroke(); }
       ctx.fillStyle = '#fff'; ctx.font = `900 ${6*sc}px system-ui`; ctx.fillText('SLURP!', clamp(sx, 16*sc, innerWidth - 16*sc), sy - 12*sc);
+    } else if (f.k === 'clash' || f.k === 'hit') {
+      ctx.strokeStyle = f.k === 'hit' ? '#fde047' : '#fff'; ctx.lineWidth = 2; ctx.shadowColor = '#fff'; ctx.shadowBlur = 10;
+      for (let i = 0; i < 10; i++) { const a = i*Math.PI/5 + f.id, r0 = t*16*sc, r1 = r0 + 5*sc; ctx.beginPath(); ctx.moveTo(sx + Math.cos(a)*r0, sy + Math.sin(a)*r0); ctx.lineTo(sx + Math.cos(a)*r1, sy + Math.sin(a)*r1); ctx.stroke(); }
+      if (f.k === 'hit') { ctx.fillStyle = '#fff'; ctx.font = `900 ${7*sc}px system-ui`; ctx.fillText('SLASH!', clamp(sx, 18*sc, innerWidth - 18*sc), sy - (8 + t*8)*sc); }
     } else if (f.k === 'slip') {
       ctx.fillStyle = '#fde047'; ctx.font = `900 ${6*sc}px system-ui`; ctx.fillText('WHOOPS!', clamp(sx, 18*sc, innerWidth - 18*sc), sy - (6 + t*8)*sc);
     } else if (f.k === 'ghost') {
@@ -922,7 +1115,7 @@ function drawFx(v) {
 function drawBall(x, y) {
   const [sx, sy] = toScreen(x, y), r = F.ballR*sc*(view && view.hd ? Math.max(.35, view.hd[1]/.6) : 1);
   if (view && view.bh && view.bv) {   // rocket flame behind the ball
-    const sp = Math.hypot(view.bv[0], view.bv[1]) || 1, dx = -view.bv[0]/sp*(flip ? -1 : 1), dy = -view.bv[1]/sp*(flip ? -1 : 1);
+    const sp = Math.hypot(view.bv[0], view.bv[1]) || 1, [ex, ey] = toScreen(x - view.bv[0]/sp, y - view.bv[1]/sp), dx = (ex - sx)/sc, dy = (ey - sy)/sc;
     for (let i = 4; i >= 1; i--) { ctx.fillStyle = i > 2 ? 'rgba(239,68,68,.5)' : 'rgba(250,204,21,.8)';
       ctx.beginPath(); ctx.arc(sx + dx*r*i*.9 + (Math.random() - .5)*r*.4, sy + dy*r*i*.9 + (Math.random() - .5)*r*.4, r*(1.1 - i*.15), 0, 7); ctx.fill(); }
   }
@@ -938,13 +1131,13 @@ function drawBall(x, y) {
   if (view && view.bn) { ctx.font = `${r*1.6}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('☢️', sx, sy); }
 }
 
-const myTeam = () => { const p = info && info.players.find(p => p.pid === myPid); return p ? p.team : 0; };
+const myTeam = () => { const p = info && info.players.find(p => p.pid === myPid); return p ? p.team : mode === 'tv' ? -1 : 0; };
 const isMine = wi => wi.grab ? (mode === 'local2' || wi.team === myTeam())
                              : wi.ctl !== null && (wi.ctl === myPid || (mode === 'local2' && (wi.ctl === 'me' || wi.ctl === 'p2')));
 const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':' + String(s % 60).padStart(2, '0'); };
 
 function currentView() {
-  if (mode !== 'guest') return snap(game);
+  if (mode !== 'guest' && mode !== 'tv') return snap(game);
   if (!curS || !prevS) return curS;
   const a = Math.min(1, (performance.now() - curAt)/33);
   const lerp = (p, q) => [p[0] + (q[0] - p[0])*a, p[1] + (q[1] - p[1])*a];
@@ -953,17 +1146,42 @@ function currentView() {
 
 let lastK = 0, lastSt = '', lastEp = null, bannerShown = '';
 const seenFx = new Set();
+/* ---------- Game controllers (Xbox / PC): left stick = your player nearest the ball, right stick = your keeper ---------- */
+const padHeld = {};
+try { if ('gamepadInputEmulation' in navigator) navigator.gamepadInputEmulation = 'gamepad'; } catch (e) {}   // Xbox: stop the stick acting as a mouse
+function pollPads() {
+  if (!navigator.getGamepads || !info || !view || mode === 'tv' || $('#game').hidden) return;
+  let i = 0;
+  for (const pad of navigator.getGamepads()) {
+    if (!pad || i > 1) continue;
+    const team = mode === 'local2' ? i : myTeam(), mine = controllable().filter(w => w.team === team && (!view.dl || view.dl.ids.includes(w.id)));
+    drivePad('L' + i, mine.filter(w => w.role !== 'GK'), pad.axes[0] || 0, pad.axes[1] || 0);
+    drivePad('R' + i, mine.filter(w => w.role === 'GK'), pad.axes[2] || 0, pad.axes[3] || 0);
+    i++;
+  }
+}
+function drivePad(key, list, ax, ay) {
+  if (Math.hypot(ax, ay) < .25) { if (padHeld[key] !== undefined) { setTarget(padHeld[key], null, null); delete padHeld[key]; } return; }
+  if (padHeld[key] === undefined) {   // grab the player nearest the ball
+    const d = w => Math.hypot(view.w[w.id][0] - view.b[0], view.w[w.id][1] - view.b[1]), w = list.sort((a, c) => d(a) - d(c))[0];
+    if (!w) return; padHeld[key] = w.id;
+  }
+  const [sx, sy] = toScreen(...view.w[padHeld[key]]), [tx, ty] = toWorld(sx + ax*14*sc, sy + ay*14*sc);   // the stick pushes in screen directions
+  setTarget(padHeld[key], tx, ty);
+}
+
 function frame() {
   if ($('#game').hidden) return;
   view = currentView();
+  pollPads();
   const quake = view && (view.fx || []).find(f => f.k === 'nuke' && f.a < .8);
   ctx.save(); if (quake) ctx.translate((Math.random() - .5)*14*(1 - quake.a/.8), (Math.random() - .5)*14*(1 - quake.a/.8));
   drawPitch();
   if (view && info) {
-    drawWalls(view); drawBananas(view);
+    if (!view.dl) { drawWalls(view); drawBananas(view); }
     info.widgets.forEach(wi => wi.boss = !!(view.bs && view.bs.some(b => b[0] === wi.id)));
-    view.w.forEach(([x, y], i) => { const wi = info.widgets[i]; drawWidget(wi, x, y, isMine(wi), Object.values(holds).includes(i)); });
-    drawBall(view.b[0], view.b[1]);
+    view.w.forEach(([x, y], i) => { const wi = info.widgets[i]; if (view.dl && !view.dl.ids.includes(i)) return; drawWidget(wi, x, y, isMine(wi), Object.values(holds).includes(i)); });
+    if (view.dl) drawDuel(view); else drawBall(view.b[0], view.b[1]);
     drawFx(view);
     for (const f of view.fx || []) if (!seenFx.has(view.ep + ':' + f.id)) { seenFx.add(view.ep + ':' + f.id); (SFX[f.k] || (() => {}))(); }
     const icons = t => view.lv ? POWERS.slice(0, view.lv[t]).map(p => p.icon).join('') : '';
@@ -975,9 +1193,10 @@ function frame() {
     if (view.k > lastK) { SFX.kick(); lastK = view.k; }
     if (view.st !== lastSt) {
       if (view.st === 'kickoff') SFX.whistle();
-      if (view.st === 'goal') { SFX.goal(); if (view.pu) SFX.power(); }
+      if (view.st === 'goal') { SFX.goal(); SFX.steam(); if (view.pu) SFX.power(); if (view.sco) steam = {at:performance.now(), goalY:view.sco.team === 0 ? 0 : 160}; }
       if (view.st === 'over') SFX.end();
       if (view.st === 'boss') SFX.boss();
+      if (view.st === 'duelintro') SFX.saber();
       lastSt = view.st;
     }
     showBanner(view);
@@ -995,6 +1214,9 @@ function showBanner(v) {
     if (v.pu) { const P = POWERS[v.pu.i];
       const Q = v.pu.two !== null && v.pu.two !== undefined ? POWERS[v.pu.two] : null;
       html += `<div class="pu t${v.pu.team}"><div class="pu1">⚡ ${TEAMS[v.pu.team].name} ${Q ? 'DOUBLE powers up!' : 'powers up!'}</div>${Q ? `<div class="pu2">${Q.icon} ${esc(Q.name.toUpperCase())}</div>` : ''}<div class="pu2">${P.icon} ${esc(P.name.toUpperCase())}</div><div class="pu3">${v.pu.max ? 'Fully loaded — TOTAL CHAOS!' : Q ? 'Way behind? Catch up!' : esc(P.desc)}</div></div>`; }
+  } else if (v.st === 'duelintro' && v.dl) {
+    const who = T => { const wi = info.widgets[v.dl.ids[T]], p = info.players.find(p => p.pid === wi.ctl); return esc(p ? p.name : 'Computer'); };
+    html = `<div class="g" style="font-size:44px">⚔️ DRAW! ⚔️</div><div class="g" style="font-size:28px;color:#fff">LIGHTSABER DUEL</div><div class="boss"><span class="b0">${who(0)}</span><span class="vs">VS</span><span class="b1">${who(1)}</span></div><div class="n" style="margin-top:8px">Swing your blade by moving. 3 hits wins — winner takes all!</div>`;
   } else if (v.st === 'boss' && v.bs) {
     const nm = t => esc((v.bs[t] || [])[1] || '');
     html = `<div class="g" style="font-size:40px;color:#f87171">⚠️ BOSS ROUND ⚠️</div><div class="boss"><span class="b0">${nm(0)}</span><span class="vs">VS</span><span class="b1">${nm(1)}</span></div>`;
@@ -1015,8 +1237,9 @@ function endScreen(v) {
   const line = win === null ? "It's a draw!" : (mode !== 'local2' && myTeam !== undefined) ? (myTeam === win ? '🎉 You win!' : '😭 You lose… rematch?') : TEAMS[win].name + ' wins!';
   return `<h2 style="font-size:26px;margin:0">${win === null ? '🤝' : '🏆'} ${win === null ? 'Draw' : TEAMS[win].name + ' wins'} ${a}–${b}</h2>
     <div style="font-size:18px;font-weight:700">${line}</div>
+    ${v.dw !== null && v.dw !== undefined ? `<div style="font-size:16px">⚔️ Won in a lightsaber duel!</div>` : ''}
     ${topP ? `<div class="small">Top scorer: <b style="color:var(--text)">${esc(topP.name)}</b> (${top[1]})</div>` : ''}
-    <div class="row">${mode === 'guest' ? '<span class="small" style="align-self:center">Waiting for the host…</span>' : '<button class="primary" id="btnAgain">Rematch</button>'}<button id="btnEndMenu">Menu</button></div>`;
+    <div class="row">${mode === 'guest' || mode === 'tv' ? '<span class="small" style="align-self:center">Waiting for the host…</span>' : '<button class="primary" id="btnAgain">Rematch</button>'}<button id="btnEndMenu">Menu</button></div>`;
 }
 
 /* ---------- Touch control: drag your players ---------- */
@@ -1058,7 +1281,7 @@ function startView() {
 function runSim() {
   clearInterval(simTimer);
   let last = performance.now();
-  simTimer = setInterval(() => { const now = performance.now(), dt = Math.min(.05, (now - last)/1000); last = now; step(game, dt/2); step(game, dt/2); }, 16);
+  simTimer = setInterval(() => { const now = performance.now(), dt = Math.min(.05, (now - last)/1000); last = now; step(game, dt/2); step(game, dt/2); if (game.status === 'over') recordMatch(game); }, 16);
 }
 function me() { return {pid:'me', name:profile.name || 'You', team:0, faces:profile.faces.map(addFace), boss:profile.boss || ''}; }
 function startLocal(kind) {
@@ -1078,6 +1301,56 @@ function rematch() {
   if (mode === 'host') { backToLobby(); return; }
   game = newMatch(game.players, game.len); info = matchInfo(game); $('#endbox').hidden = true; $('#endbox').dataset.h = '';
 }
+/* ---------- All-time records (kept on this device) ---------- */
+let RECS = {players:{}, best:null};
+try { RECS = JSON.parse(localStorage.getItem('ps_records')) || RECS; } catch (e) {}
+function matchRows(g) {
+  const out = [];
+  for (const T of [0, 1]) {
+    const res = g.score[T] > g.score[1 - T] ? 'w' : g.score[T] < g.score[1 - T] ? 'l' : 'd', ps = g.players.filter(p => p.team === T);
+    if (ps.length) for (const p of ps) out.push({name:p.name, res, goals:g.goals[p.pid] || 0, duel:g.duelWin === T});
+    else out.push({name:'🤖 Computer', res, goals:0, duel:g.duelWin === T});
+  }
+  return out;
+}
+function saveRecords(rows) {
+  if (!Array.isArray(rows)) return;
+  for (const r of rows.slice(0, 20)) {
+    const n = String(r.name || 'Player').slice(0, 16), res = ['w', 'l', 'd'].includes(r.res) ? r.res : 'd', goals = Math.max(0, Math.min(99, r.goals | 0));
+    const p = RECS.players[n] = RECS.players[n] || {p:0, w:0, d:0, l:0, g:0, duels:0};
+    p.p++; p[res]++; p.g += goals; if (r.duel && res === 'w') p.duels++;
+    if (goals > 0 && (!RECS.best || goals > RECS.best.goals)) RECS.best = {name:n, goals, date:new Date().toLocaleDateString()};
+  }
+  try { localStorage.setItem('ps_records', JSON.stringify(RECS)); } catch (e) {}
+}
+let recBackTo = '#menu', recResetArmed = 0;
+function openRecords(back) {
+  recBackTo = back || '#menu';
+  const rows = Object.entries(RECS.players).sort((a, b) => b[1].w - a[1].w || b[1].g - a[1].g || a[1].p - b[1].p);
+  const top = rows.filter(([n]) => n !== '🤖 Computer').sort((a, b) => b[1].g - a[1].g)[0];
+  $('#recTop').innerHTML = rows.length ? `
+    <div>👑 <b>All-time top scorer:</b> ${top && top[1].g ? `${esc(top[0])} — ${top[1].g} goals` : 'nobody yet'}</div>
+    <div>🥇 <b>Most wins:</b> ${esc(rows[0][0])} — ${rows[0][1].w}</div>
+    <div>🔥 <b>Most goals in one match:</b> ${RECS.best ? `${esc(RECS.best.name)} — ${RECS.best.goals} (${esc(RECS.best.date)})` : 'nobody yet'}</div>`
+    : '<div>No matches played yet. Go play!</div>';
+  $('#recTable').innerHTML = '<tr><th>#</th><th>Player</th><th>P</th><th>W</th><th>L</th><th>⚽</th><th>⚔️</th></tr>' +
+    rows.map(([n, r], i) => `<tr><td>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</td><td>${esc(n)}</td><td>${r.p}</td><td>${r.w}</td><td>${r.l}</td><td>${r.g}</td><td>${r.duels}</td></tr>`).join('');
+  $('#recReset').textContent = 'Reset records'; recResetArmed = 0;
+  show('#records');
+}
+$('#goRecords').onclick = () => openRecords();
+$('#recBack').onclick = () => show(recBackTo);
+$('#recReset').onclick = () => {
+  if (performance.now() - recResetArmed > 3000) { recResetArmed = performance.now(); $('#recReset').textContent = 'Tap again to wipe them'; return; }
+  RECS = {players:{}, best:null}; try { localStorage.removeItem('ps_records'); } catch (e) {} openRecords(recBackTo);
+};
+// Called by the phone running the match once it ends: save it here and tell everyone else to save it too.
+function recordMatch(g) {
+  if (g.recorded) return; g.recorded = true;
+  const rows = matchRows(g); saveRecords(rows);
+  if (mode === 'host') broadcast({t:'result', rows});
+}
+
 function leaveGame() {
   clearInterval(simTimer); clearInterval(netTimer);
   if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
@@ -1100,7 +1373,9 @@ const joinUrl = () => HOME + '#join=' + hostCode + '.' + qrToken;
 const newToken = () => Array.from({length:6}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
 function rotateQR() {
   oldToken = qrToken; qrToken = newToken(); qrLeft = 30;
-  if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:joinUrl(), width:180, height:180, correctLevel:QRCode.CorrectLevel.M}); }
+  const size = isTouch ? 180 : 260;   // bigger on a computer or TV
+  if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:joinUrl(), width:size, height:size, correctLevel:QRCode.CorrectLevel.M}); }
+  tellTVs({t:'tvqr', url:joinUrl(), left:30});
 }
 function startQR() {
   rotateQR(); clearInterval(qrTimer);
@@ -1133,7 +1408,7 @@ function hostMatch() {
   peer.on('open', () => {
     $('#hostBox').hidden = false; startQR();
   });
-  peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); hostMatch(); } else toast('Connection problem: ' + e.type); });
+  peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); hostMatch(); } else if (e.type === 'peer-unavailable') toast("Couldn't find that TV. Check the code on the TV."); else toast('Connection problem: ' + e.type); });
   peer.on('connection', c => {
     // listen straight away: the guest knocks the moment the line opens, before our checks finish
     let ok = null, knock = null;
@@ -1216,6 +1491,7 @@ function renderLobby(list) {
   $('#btnStart').hidden = !host; $('#settingsBox').hidden = !host;
   document.querySelectorAll('#lenSeg button').forEach(b => b.classList.toggle('sel', +b.dataset.len === matchLen));
   const counts = [0, 1].map(t => players.filter(p => p.team === t).length);
+  $('#addTV').hidden = !host;
   $('#lobbyInfo').textContent = host ? (players.length === 1 ? 'Waiting for friends to join… (or kick off now against the computer)' : `Blue ${counts[0]} · Red ${counts[1]}`) : 'Waiting for the host to kick off…';
 }
 document.querySelectorAll('#lenSeg button').forEach(b => b.onclick = () => { matchLen = +b.dataset.len; if (lobby) syncLobby(); });
@@ -1233,6 +1509,55 @@ function backToLobby() {
   broadcast({t:'lobbyback'}); syncLobby(); show('#lobby');
 }
 $('#lobbyLeave').onclick = leaveGame;
+
+/* ---------- TV screen: a big screen in the room that shows the match (it never plays) ---------- */
+// Host side: connect to the TV whose code is on its screen, then it gets everything guests get.
+$('#addTV').onclick = () => {
+  const code = (prompt('Type the 4-letter code shown on the TV:') || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (code.length !== 4) { if (code) toast('The TV code has 4 letters'); return; }
+  const pid = 'tv-' + code, c = peer.connect(PFX + pid, {reliable:true, serialization:'json'});
+  const t = setTimeout(() => { if (!c.open) toast("Couldn't reach that TV. Check the code, and that it's on the same Wi-Fi."); }, 9000);
+  c.on('open', () => {
+    clearTimeout(t); conns[pid] = c; toast('📺 TV connected!'); sendFaces();
+    if (lobby) { syncLobby(); c.send({t:'tvqr', url:joinUrl(), left:qrLeft}); } else if (game) c.send({t:'start', info});
+  });
+  c.on('close', () => { delete conns[pid]; });
+};
+function tellTVs(msg) { for (const [pid, c] of Object.entries(conns)) if (pid.startsWith('tv-') && c.open) c.send(msg); }
+// TV side
+let tvLeft = 0, tvTimer = null;
+function storeFaces(faces) {
+  for (const [id, url] of Object.entries(faces || {})) if (!faceStore[id] && typeof url === 'string' && url.startsWith('data:image/')) { const img = new Image(); img.src = url; faceStore[id] = {url, img}; }
+}
+function startTV() {
+  show('#tv'); document.body.classList.add('tv');
+  if (!window.Peer) { $('#tvInfo').textContent = 'Loading…'; return whenPeer(() => window.Peer ? startTV() : noNet($('#tvInfo'))); }
+  mode = 'tv'; myPid = null; flip = false;
+  const code = code4();
+  peer = new Peer(PFX + 'tv-' + code, PEER_OPTS);
+  peer.on('open', () => { $('#tvCode').textContent = code; $('#tvInfo').textContent = 'This screen must be on the same Wi-Fi as the phones.'; });
+  peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); startTV(); } else $('#tvInfo').textContent = 'Connection problem: ' + e.type; });
+  peer.on('connection', c => {
+    if (conn && conn.open) { c.close(); return; }   // one host at a time
+    conn = c; c.on('data', tvData);
+    c.on('close', () => { if (conn !== c) return; conn = null; info = null; curS = prevS = null; toast('The host has gone'); show('#tv'); });
+  });
+  clearInterval(tvTimer); tvTimer = setInterval(() => { if (tvLeft > 0) $('#qrCountdown').textContent = `New QR code in ${--tvLeft}s`; }, 1000);
+  try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch (e) {}   // keep the TV awake
+}
+function tvData(m) {
+  if (!m) return;
+  if (m.t === 'faces') storeFaces(m.faces);
+  else if (m.t === 'lobby') { matchLen = m.len; renderLobby(m.players); $('#hostBox').hidden = false; if ($('#game').hidden) show('#lobby'); }
+  else if (m.t === 'tvqr') { tvLeft = m.left; if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:m.url, width:260, height:260, correctLevel:QRCode.CorrectLevel.M}); } }
+  else if (m.t === 'start') { info = m.info; curS = prevS = null; F.goalW = goalWidth(info.size); flip = false; startView(); }
+  else if (m.t === 's') { prevS = curS; curS = m.s; curAt = performance.now(); }
+  else if (m.t === 'result') saveRecords(m.rows);
+  else if (m.t === 'lobbyback') { info = null; curS = prevS = null; show('#lobby'); }
+}
+$('#goTV').onclick = startTV;
+$('#tvLeave').onclick = leaveGame;
+$('#tvRecords').onclick = () => openRecords('#tv');
 
 // Joining
 $('#joinCancel').onclick = leaveGame;
@@ -1258,6 +1583,7 @@ function join(code, token) {
       else if (m.t === 'reject') { clearTimeout(timer); infoEl.textContent = m.why; }
       else if (m.t === 'faces') { for (const [id, url] of Object.entries(m.faces)) if (!faceStore[id] && typeof url === 'string' && url.startsWith('data:image/')) { const img = new Image(); img.src = url; faceStore[id] = {url, img}; } }
       else if (m.t === 'lobby') { matchLen = m.len; lastLobby = m.players; if (helloSent) { renderLobby(m.players); if ($('#game').hidden) show('#lobby'); } }
+      else if (m.t === 'result') saveRecords(m.rows);
       else if (m.t === 'lobbyback') { info = null; curS = prevS = null; if (helloSent) show('#lobby'); }
       else if (m.t === 'start') {
         info = m.info; curS = prevS = null; F.goalW = goalWidth(info.size);
@@ -1272,13 +1598,11 @@ function join(code, token) {
 }
 
 /* ---------- Boot ---------- */
-const isPhone = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
-if (!isPhone) {
-  show('#phoneOnly'); $('#phoneUrl').textContent = HOME;
-  const qr = () => { if (window.QRCode) new QRCode($('#phoneQr'), {text:HOME, width:180, height:180}); else setTimeout(qr, 300); }; qr();
-} else {
+const isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+if (!isTouch) $('#bigScreenTip').hidden = false;   // computers and consoles: host on the big screen, or be the TV
+{
   showMenuProfile(); show('#menu');
-  if (EMBEDDED) { $('#goHost').hidden = true;
+  if (EMBEDDED) { $('#goHost').hidden = true; $('#goTV').hidden = true;
     $('#menuBtns').insertAdjacentHTML('beforeend', `<div class="small center">To play with friends, open the website on your phones: <b style="color:var(--text)">${HOME.replace('https://', '')}</b></div>`); }
   const link = location.hash.match(/join=([A-Za-z]{4})\.([A-Za-z]{6})/);
   if (link) { history.replaceState(null, '', location.pathname); join(link[1].toUpperCase(), link[2].toUpperCase()); }
