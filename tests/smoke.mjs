@@ -25,27 +25,26 @@ const page = async (url, name) => { const p = await ctx.newPage(); p.on('pageerr
 
 console.log('Pocket Soccer');
 const h = await page(BASE + '/soccer.html', 'Host');
-await h.tap('#goHost'); await h.waitForFunction(() => !!qrToken);
+await h.tap('#goHost'); await h.waitForFunction(() => !!inviteToken);
 const link = (await h.evaluate(() => joinUrl())).replace(/^https:\/\/[^#]+/, BASE + '/soccer.html');
-const g = await page(link, 'Guest'); await h.waitForTimeout(1000);
-check(await g.isVisible('#lobby'), 'guest joins by the QR link');
+const g = await page(link, 'Guest'); await g.waitForTimeout(400);
+check(await g.isVisible('#joinGo') && (await g.textContent('#joinTitle')).includes('Host invited you'), 'the link opens a Join game screen');
+await g.tap('#joinGo'); await h.waitForTimeout(1000);
+check(await g.isVisible('#lobby'), 'guest joins by tapping Join game');
 check(await h.locator('#plist .prow').count() === 2, 'host lobby shows 2 players');
 await h.tap('#btnStart'); await h.waitForTimeout(3000);
 check(await g.isVisible('#game') && await g.evaluate(() => !!view), 'match starts on both phones');
 await h.evaluate(() => { game.t = game.len - .2; }); await h.waitForFunction(() => game.status === 'duel' || game.status === 'over', null, {timeout:15000});
 check(true, 'a timed match reaches its end (duel if level)');
-// invite link: the 🔗 button hosts and shares a link that works from anywhere; a made-up pass is turned away
-const h2 = await page(BASE + '/soccer.html', 'Inviter');
+// the lobby's Send button shares that same link; a made-up pass is turned away
+const h2 = await page(BASE + '/soccer.html', 'Sender');
 await h2.evaluate(() => { window.shared = null; navigator.share = d => { window.shared = d; return Promise.resolve(); }; });
-await h2.tap('#goInvite'); await h2.waitForFunction(() => !!window.shared);
-const invite = (await h2.evaluate(() => window.shared.url)).replace(/^https:\/\/[^#]+/, BASE + '/soccer.html');
-check(/#join=[A-Z]{4}\.[A-Z]{10}$/.test(invite) && await h2.isVisible('#lobby'), 'invite button hosts a match and shares a link');
-const g2 = await page(invite, 'Remote'); await h2.waitForTimeout(1000);
-check(await g2.isVisible('#lobby') && await h2.locator('#plist .prow').count() === 2, 'friend joins by the invite link');
-const g3 = await page(invite.replace(/\.[A-Z]{10}$/, '.ABCDEFGHJK'), 'Stranger'); await g3.waitForTimeout(1200);
-check(!(await g3.isVisible('#lobby')) && await h2.locator('#plist .prow').count() === 2, 'a wrong invite pass is turned away');
-for (const p of [h2, g2, g3]) await p.close();
-
+await h2.tap('#goHost'); await h2.waitForFunction(() => !!inviteToken); await h2.tap('#btnInvite'); await h2.waitForFunction(() => !!window.shared);
+check(await h2.evaluate(() => window.shared.url === joinUrl()), 'Send the link shares the same link as the QR code');
+const g3 = await page(BASE + '/soccer.html#join=' + await h2.evaluate(() => hostCode) + '.ABCDEFGHJK', 'Stranger');
+await g3.tap('#joinGo'); await g3.waitForTimeout(1200);
+check(!(await g3.isVisible('#lobby')) && await h2.locator('#plist .prow').count() === 1, 'a made-up link is turned away');
+for (const p of [h2, g3]) await p.close();
 const p1 = await page(BASE + '/soccer.html', 'Solo'); await p1.tap('#goPractice'); await p1.waitForTimeout(2500);
 check(await p1.evaluate(() => game.status !== undefined && !G3.on), 'practice runs, in 2D when 3D can\'t load');
 

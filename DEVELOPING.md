@@ -63,9 +63,10 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
   - One outfield player per person on the bigger team (`teamSize`, `OUTFIELD` formations), plus a keeper per side.
   - The computer plays the keeper until a teammate drags it, and whoever grabbed it last controls it (`applyInput`, `grab`).
   - Empty spots are computer players (`aiTarget`).
-- **Joining: in person by QR code, or from anywhere by invite link:**
-  - The host shows a QR code whose pass changes every 30 s (`rotateQR`). The previous pass stays valid as grace. QR guests connect with **no STUN/TURN** (`PEER_OPTS`), and `sameNetwork()` rejects them unless the connection is direct on the local network: same Wi-Fi or the host's hotspot.
-  - Invite link (`🔗 Invite a friend anywhere` on the menu, which hosts and shares at once, or `#btnInvite` in the lobby; `shareInvite`): `#join=CODE.PASS` with a 10-letter pass (`inviteToken`) that lasts for that lobby. It opens the phone's share sheet (WhatsApp, Messages…) and copies the link too; without a share sheet it copies, and without clipboard access it shows the link to copy. Invite guests and the host use PeerJS's own servers (`PEER_NET`), so it works across the internet, and the same-Wi-Fi check is skipped for them. The pass length tells the guest which kind of link it is.
+- **Joining: one link, by QR code or sent:**
+  - **Host a match** makes one join link per lobby: `#join=CODE.PASS&from=Name`, where PASS is a 10-letter pass (`inviteToken`) that lasts until the host leaves the lobby. The lobby shows it as a QR code for friends in the room, and **Send the link** (`shareInvite`) opens the phone's share sheet (WhatsApp, Messages…) and copies it too. Without a share sheet it just copies, and without clipboard access it shows the link to copy.
+  - Opening the link (scanned or tapped) shows a Join screen: who invited you, your face and name, and **Join game** (`join` → `connectTo`).
+  - Host and guests use PeerJS's own servers (`PEER_NET`), so it works across the internet. The TV screen still uses `PEER_OPTS` (no STUN/TURN), since it sits on the same Wi-Fi as the host.
   - A guest's first message must be `{t:'knock', token}`.
   - Some school and guest Wi-Fi networks block phones talking to each other; the hotspot is the workaround.
 - **Chaos power-ups** (`POWERS`; on by default, with a "Normal soccer" switch):
