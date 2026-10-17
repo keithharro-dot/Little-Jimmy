@@ -71,6 +71,13 @@ details p,details li{color:var(--muted)}
 #bossBar.rage #bbFill{background:#ff3b30}
 #bbShield{position:absolute;left:0;top:0;height:3px;background:#3ee6ff;transition:width .15s}
 #cv{display:block;width:100%;border-radius:10px;touch-action:none;cursor:crosshair}
+#overlay.over{justify-content:space-between;background:transparent;padding:8px}
+#overlay.over h2{font-size:15px;text-shadow:none}
+#overlay.over .ov-top{background:rgba(13,17,23,.82);border-radius:10px;padding:4px 10px;display:flex;flex-direction:column;gap:2px;max-width:100%}
+#overlay.over .ov-top div{font-size:13px!important}
+#overlay.over .ov-stats{display:none}
+#overlay.over .ov-bot{width:100%;justify-content:flex-end!important}
+#overlay.over .ov-bot button{flex:none;padding:6px 12px;font-size:13px}
 #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(13,17,23,.72);border-radius:10px;text-align:center;padding:16px;pointer-events:none}
 #overlay button{pointer-events:auto}
 #overlay h2{margin:0;font-size:32px}
@@ -1009,6 +1016,57 @@ function drawDecor(c, kind, x, y, ts, r) {
   }
 }
 
+/* ---------- Victory dance ---------- */
+// The winner's units dance in the middle of the map under confetti; the loser's unit stands in the
+// corner wearing a clown nose and rainbow wig, crying. Silly-embarrassing, not mean.
+const TAUNTS = ['🤡 CLOWNED! Swap sides for revenge?', '🎺 Wah wah waaah…', '😭 Skill issue!', '🥴 That was embarrassing…', '🐔 Bawk bawk! Too scared to rematch?'];
+const CONFETTI = ['#f2cc60', '#ff7b72', '#58a6ff', '#3fb950', '#d2a8ff', '#ff7bd5'];
+function drawDance(v) {
+  const W = COLS*TS, H = ROWS*TS, t = performance.now()/1000, towersWon = v.w === 'def';
+  ctx.fillStyle = 'rgba(13,17,23,.6)'; ctx.fillRect(0, 0, W, H);
+  // spotlight
+  const g = ctx.createRadialGradient(W/2, H*.62, 0, W/2, H*.62, H*.7);
+  g.addColorStop(0, towersWon ? 'rgba(88,166,255,.35)' : 'rgba(63,185,80,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // three dancers: bounce, sway and flip on the beat, hands waving in the air
+  const dancers = towersWon ? [PRESETS[2], PRESETS[0], PRESETS[3]] : ['speedy', 'zombie', 'brute'];
+  dancers.forEach((d, i) => {
+    const big = i === 1, size = TS*(big ? 2.3 : 1.8), x = W*(.32 + i*.18), beat = t*4.2 + i*1.3;
+    const y = H*.74 - Math.abs(Math.sin(beat))*TS*.5, face = Math.sin(beat*.5) > 0 ? 1 : -1;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(beat)*.18);
+    const armUp = Math.sin(beat*2) > 0;
+    ctx.fillStyle = towersWon ? '#4b5d3a' : '#7bab5a';   // raised arms, waving in turn
+    ctx.fillRect(-size*.34, -size*(armUp ? .62 : .48), size*.1, size*.3);
+    ctx.fillRect(size*.24, -size*(armUp ? .48 : .62), size*.1, size*.3);
+    if (towersWon) drawSoldier(ctx, 0, 0, size, d, face); else drawUnit(ctx, d, 0, 0, size, beat*2, false, face);
+    ctx.restore();
+  });
+  // the loser, clowned, in the corner
+  const lx = W*(towersWon ? .87 : .13), ly = H*.8, ls = TS*1.5;
+  ctx.save(); ctx.translate(lx, ly); ctx.rotate(.12*(towersWon ? 1 : -1));
+  if (towersWon) drawUnit(ctx, 'zombie', 0, 0, ls, 0, false, -1); else drawSoldier(ctx, 0, 0, ls, PRESETS[0], 1);
+  ['#ff3b30', '#ffa657', '#f2cc60', '#3fb950', '#58a6ff', '#d2a8ff'].forEach((c, k) => {   // rainbow clown wig
+    ctx.fillStyle = c; ctx.beginPath(); ctx.arc((-.24 + k*.1)*ls, -.55*ls - (k % 2)*.06*ls, .09*ls, 0, 7); ctx.fill(); });
+  ctx.fillStyle = '#ff2d2d'; ctx.beginPath(); ctx.arc(.05*ls, -.32*ls, .07*ls, 0, 7); ctx.fill();   // clown nose
+  ctx.fillStyle = '#79c0ff';   // tears
+  for (const k of [0, 1]) { const ty = ((t*.9 + k*.5) % 1)*.35*ls; ctx.beginPath(); ctx.arc((-.08 + k*.16)*ls, -.33*ls + ty, .03*ls, 0, 7); ctx.fill(); }
+  ctx.restore();
+  ctx.save(); ctx.translate(lx, ly - ls*.95); ctx.rotate(Math.sin(t*3)*.06);
+  ctx.fillStyle = '#fff'; rrect(-TS*1.05, -TS*.24, TS*2.1, TS*.48, 6); ctx.fill();
+  ctx.fillStyle = '#e5534b'; ctx.font = `900 ${TS*.3}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🤡 CLOWNED!', 0, 0); ctx.restore();
+  // confetti
+  for (let k = 0; k < 70; k++) {
+    const cx = (k*97.3 + Math.sin(t + k)*30) % W, cy = ((t*(60 + k % 5*20) + k*53) % (H + 20)) - 10;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(t*3 + k); ctx.fillStyle = CONFETTI[k % CONFETTI.length];
+    ctx.fillRect(-3, -5, 6, 10); ctx.restore();
+  }
+  // flashing banner
+  ctx.font = `900 ${Math.min(TS*.62, 36)}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = Math.sin(t*8) > 0 ? '#f2cc60' : '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+  ctx.strokeText('VICTORY DANCE!', W/2, H*.36); ctx.fillText('VICTORY DANCE!', W/2, H*.36);
+}
+
 function draw(v) {
   const W = COLS*TS, H = ROWS*TS;
   drawGround(ctx, TS, MAPD);
@@ -1093,6 +1151,8 @@ function draw(v) {
     ctx.globalAlpha = 1;
   }
 
+  if (v.st === 'over') { drawDance(v); return; }
+
   // placement preview
   if (hover && isDef() && selTower == null && v.st !== 'over') {
     const [hx, hy] = hover, d = designs()[selDesign];
@@ -1165,9 +1225,10 @@ function hud(v) {
     html = `<div class="big">${Math.max(1, Math.ceil(v.cd))}</div><div>${tip}</div>`;
   } else if (v.st === 'over') {
     const who = v.w === 'def' ? (v.wv >= WAVES ? '🛡 Towers win! All 50 waves defeated!' : '🛡 Towers win!') : '🧟 Zombies win! The base was destroyed.';
-    const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:22px;font-weight:700">🎉 You win!</div>' : '<div style="color:var(--atk);font-size:18px;font-weight:700">You lose. Swap sides for revenge!</div>');
-    html = `<h2>${who}</h2>${me}<div ${dim}>${v.k} zombies defeated · reached wave ${v.wv} of ${WAVES} · ${fmt(v.t)}</div>
-      <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center">
+    const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:20px;font-weight:800;text-shadow:0 2px 6px #000">🎉 You win! Enjoy the dance!</div>'
+      : `<div style="color:#ffb3ad;font-size:18px;font-weight:800;text-shadow:0 2px 6px #000">${TAUNTS[v.ep % TAUNTS.length]}</div>`);
+    html = `<div class="ov-top"><h2>${who}</h2>${me}<div class="ov-stats" style="color:#c9d1d9">${v.k} zombies defeated · reached wave ${v.wv} of ${WAVES} · ${fmt(v.t)}</div></div>
+      <div class="row ov-bot" style="gap:10px;flex-wrap:wrap;justify-content:center">
         ${mode === 'local' ? '' : '<button class="danger" id="btnSwap">🔁 Swap sides</button>'}
         <button class="primary" id="btnAgain">Play again</button><button id="btnMenu">Menu</button></div>`;
   } else if (v.p) html = `<h2>⏸ Paused</h2><div ${dim}>Waiting for your friend to come back…</div>`;
@@ -1178,6 +1239,7 @@ function hud(v) {
   if (html !== lastOverlay) {
     lastOverlay = html;
     $('#overlay').innerHTML = html; $('#overlay').hidden = !html;
+    $('#overlay').classList.toggle('over', html.includes('ov-top'));
     const on = (id, f) => { const b = $(id); if (b) b.onclick = f; };
     on('#btnAgain', () => issue({type:'restart'}));
     on('#btnSwap', () => issue({type:'swap'}));
@@ -1196,6 +1258,19 @@ function unlockAudio() {
 }
 addEventListener('pointerdown', unlockAudio);
 addEventListener('touchend', unlockAudio);
+// "Wah wah wah waaah": three falling notes, then a long wobbly one.
+function trombone(delay = 0) {
+  if (!AC || muted) return;
+  [[311, .38], [294, .38], [277, .38], [262, 1.3]].reduce((at, [f, d], i) => {
+    const t = AC.currentTime + delay + at, o = AC.createOscillator(), g = AC.createGain(), lp = AC.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f*1.03, t); o.frequency.linearRampToValueAtTime(f, t + .08);
+    if (i === 3) { const l = AC.createOscillator(), dg = AC.createGain(); l.frequency.value = 6; dg.gain.value = 9; l.connect(dg).connect(o.frequency); l.start(t + .2); l.stop(t + d); }
+    lp.type = 'lowpass'; lp.frequency.value = 1100;
+    g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.14, t + .05); g.gain.setValueAtTime(.14, t + d*.8); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(lp).connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .02);
+    return at + d + .04;
+  }, 0);
+}
 function tone(f1, f2, dur, type = 'sine', vol = .08, delay = 0) {
   if (!AC || muted) return;
   const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
@@ -1220,7 +1295,7 @@ const SFX = {
   tele:   () => { tone(1800, 300, .4, 'sine', .07); tone(900, 150, .5, 'triangle', .05, .05); },
   wreck:  () => { tone(180, 35, .5, 'sawtooth', .12); tone(90, 30, .6, 'square', .06, .05); },
   win:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, .18, 'triangle', .1, i*.13)),
-  lose:   () => [392, 330, 262, 196].forEach((f, i) => tone(f, f*.98, .22, 'triangle', .1, i*.16)),
+  lose:   () => trombone(),
 };
 let seenId = 0, seenEp = -1, lastShot = 0, lastSt = '';
 function sounds(v) {
@@ -1233,7 +1308,9 @@ function sounds(v) {
     if (now - lastShot > 70) { lastShot = now; (s[5] ? SFX.splash : SFX.shoot)(); }
   }
   seenId = maxId;
-  if (v.st === 'over' && lastSt && lastSt !== 'over') (myRole === 'both' || v.w === myRole ? SFX.win : SFX.lose)();
+  if (v.st === 'over' && lastSt && lastSt !== 'over') {
+    if (myRole === 'both') { SFX.win(); trombone(1); } else (v.w === myRole ? SFX.win : SFX.lose)();
+  }
   lastSt = v.st;
 }
 $('#mute').textContent = muted ? '🔇' : '🔊';
