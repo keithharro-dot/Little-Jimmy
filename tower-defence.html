@@ -1207,6 +1207,34 @@ function lead(m, t, midi, dur, vol) {
   g.gain.setValueAtTime(vol, t); g.gain.setValueAtTime(vol, t + dur*.8); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
   o.connect(g).connect(m.amp); o.start(t); o.stop(t + dur + .02); lfo.start(t); lfo.stop(t + dur + .02);
 }
+// "Vroom vroom": a revving engine played on the distorted guitar amp.
+function rev(m, t) {
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sawtooth';
+  const f = o.frequency; f.setValueAtTime(55, t);
+  f.linearRampToValueAtTime(190, t + .45); f.linearRampToValueAtTime(95, t + .8);
+  f.linearRampToValueAtTime(240, t + 1.35); f.linearRampToValueAtTime(130, t + 1.7); f.linearRampToValueAtTime(300, t + 2.4);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.2, t + .1); g.gain.setValueAtTime(.2, t + 2.3); g.gain.exponentialRampToValueAtTime(.0001, t + 2.6);
+  o.connect(g).connect(m.amp); o.start(t); o.stop(t + 2.65);
+  noise(m, t, 2.5, 'lowpass', 300, .12);
+}
+function leadNote(m, t, midi, dur, vol) {
+  const o = AC.createOscillator(), g = AC.createGain(), lfo = AC.createOscillator(), depth = AC.createGain();
+  o.type = 'sawtooth'; o.frequency.value = mtof(midi);
+  lfo.frequency.value = 5.5; depth.gain.value = 10; lfo.connect(depth).connect(o.detune);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(m.amp); o.start(t); o.stop(t + dur + .02); lfo.start(t); lfo.stop(t + dur + .02);
+}
+// A crowd-style "HEY!": a short buzzy chord through a vowel-ish band filter.
+function shout(m, t) {
+  for (const f0 of [196, 247, 294]) {
+    const o = AC.createOscillator(), g = AC.createGain(), bp = AC.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0*.9, t + .18);
+    bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 3;
+    g.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.0001, t + .2);
+    o.connect(bp).connect(g).connect(m.out); o.start(t); o.stop(t + .22);
+  }
+  noise(m, t, .12, 'bandpass', 1500, .15);
+}
 function noise(m, t, dur, type, freq, vol) {
   const n = AC.createBufferSource(), g = AC.createGain(), f = AC.createBiquadFilter();
   n.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
@@ -1227,7 +1255,8 @@ function drum(m, kind, t, vol = 1) {
 // --- tracks: 32 sixteenth-note steps each, looped ---
 const CHORDS = [[40, [64,67,71]], [36, [60,64,67]], [38, [62,66,69]], [35, [59,63,66]]];   // Em C D B
 const RIFF1 = [40,40,40,0, 40,40,43,0, 40,40,40,0, 45,0,44,0, 40,40,40,0, 40,40,46,0, 45,0,43,0, 41,0,40,0];
-const RIFF3 = [36,0,0,0, 37,0,0,0, 36,0,0,0, 42,0,41,0, 36,0,0,0, 37,0,0,0, 39,0,0,0, 37,0,36,0];
+const RIFF4 = [45,45,45,45, 45,45,48,0, 50,0,48,45, 45,45,43,0, 45,45,45,45, 45,45,48,0, 52,0,50,0, 48,0,47,0];
+const HOOK = {16:76, 18:79, 20:81, 22:79, 24:84, 26:81};
 const RIFF2 = [38,38,0,38, 38,0,44,0, 38,38,0,38, 43,42,41,40, 38,38,0,38, 38,0,44,0, 50,0,49,0, 48,0,47,46];
 const TRACKS = {
   // Normal play: a lighter, bouncy adventure loop.
@@ -1259,14 +1288,17 @@ const TRACKS = {
     if (i === 0) lead(m, t, 74, S*7, .07);
     if (i === 16) lead(m, t, 73, S*7, .07);
   }},
-  // The Void: slow, crushing doom riff in a dark scale, with an eerie high drone.
-  void: {bpm:140, vol:.45, step(m, i, t, S) {
-    const n = RIFF3[i];
-    if (n) { guitar(m, t, n, S*3.6, .24, true); synth(m, t, n - 12, S*3.6, 'sawtooth', .16, 300); }
-    if (i % 8 === 0) drum(m, 'kick', t); if (i % 8 === 6) drum(m, 'kick', t, .7);
-    if (i % 16 === 8) drum(m, 'snare', t);
-    if (i === 0) { drum(m, 'crash', t); synth(m, t, 85, S*30, 'sine', .035, 4000, 84); }
-    if (i % 2 === 1) drum(m, 'hat', t, .6);
+  // The Void: "Full Throttle", an original fast 80s-metal track: motorbike rev intro, racing
+  // palm-muted chugs, a bright guitar hook and a gang shout at the end of each loop.
+  void: {bpm:178, vol:.45, introLen:2.6, intro(m, t) { rev(m, t); }, step(m, i, t, S) {
+    const n = RIFF4[i];
+    if (n) { const open = n !== 45; guitar(m, t, n, open ? S*1.7 : S*.6, open ? .22 : .17, open); synth(m, t, n - 12, S*.9, 'sawtooth', .15, 420); }
+    if (i % 4 === 0 || i % 8 === 6) drum(m, 'kick', t);
+    if (i % 8 === 4) drum(m, 'snare', t);
+    if (i % 2 === 1) drum(m, 'hat', t, 1.2);
+    if (i % 16 === 0) drum(m, 'crash', t, .9);
+    const h = HOOK[i]; if (h) leadNote(m, t, h, S*1.9, .06);
+    if (i === 30) shout(m, t);
   }},
 };
 
@@ -1288,6 +1320,7 @@ function startMusic(track) {
   const m = music = {track, out, amp, timer:null, src:null};
   const sequence = () => {
     const S = 60/T.bpm/4; let step = 0, next = AC.currentTime + .05;
+    if (T.intro) { T.intro(m, next); next += T.introLen; }
     m.timer = setInterval(() => {
       while (next < AC.currentTime + .2) { T.step(m, step % 32, next, S); next += S; step++; }
     }, 50);
