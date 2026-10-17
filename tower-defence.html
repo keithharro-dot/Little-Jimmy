@@ -227,9 +227,9 @@ details p,details li{color:var(--muted)}
 <body>
 
 <div id="tune" hidden>
-  <header><h2>🎛 Characters &amp; tuning</h2><button id="tuneReset">Reset all</button><button class="primary" id="tuneClose">Done</button></header>
+  <header><h2>🎛 Characters &amp; tuning</h2><button id="tuneLogin">🔒 Admin</button><button id="tuneReset">Reset all</button><button class="primary" id="tuneClose">Done</button></header>
   <div id="tuneTabs"></div>
-  <div class="small" style="padding:6px 14px 0">Slide to make anything stronger or weaker (×1 = as designed). Changes save on this phone and work straight away, even mid-game, in games this phone runs (hosting, or two players on one phone).</div>
+  <div class="small" style="padding:6px 14px 0" id="tuneNote"></div>
   <div id="tuneList"></div>
 </div>
 
@@ -1114,6 +1114,22 @@ function updateLeo(v) {
 const TUNE_TABS = [['zombies', '🧟 Zombies'], ['bosses', '👹 Bosses'], ['towers', '🛡 Towers'], ['launcher', '🚀 Launcher'], ['other', '⚽ LEO BOMB & money']];
 let tuneTab = 'bosses';
 const toSlider = v => Math.round(50 + 25*Math.log2(v)), fromSlider = x => Math.round(Math.pow(2, (x - 50)/25)*100)/100;
+// Only the admin can move the sliders: everyone else can look. The passcode is checked against a hash (the default,
+// and any new one set on this phone in localStorage td_admin). It keeps players out, not a determined coder.
+let tuneAdmin = false;
+const passHash = p => { let x = 0x811c9dc5; for (let r = 0; r < 1000; r++) for (const ch of 'little-jimmy-td:' + p + r) { x ^= ch.charCodeAt(0); x = Math.imul(x, 0x01000193) >>> 0; } return x.toString(16); };
+const adminHash = () => { try { return localStorage.getItem('td_admin') || 'b02a5d05'; } catch (e) { return 'b02a5d05'; } };
+function adminLogin() {
+  if (tuneAdmin) {   // already in: offer to change the passcode on this phone
+    const p1 = prompt('New admin passcode (4 or more digits) for this phone:'); if (!p1) return;
+    if (!/^\d{4,}$/.test(p1)) return toast('Use at least 4 digits');
+    if (prompt('Type the new passcode again:') !== p1) return toast("The passcodes didn't match");
+    try { localStorage.setItem('td_admin', passHash(p1)); } catch (e) {}
+    return toast('Admin passcode changed on this phone');
+  }
+  const p = prompt('Admin passcode:'); if (p === null) return;
+  if (passHash(p.trim()) === adminHash()) { tuneAdmin = true; toast('🔓 Admin: you can change the settings'); renderTune(); } else toast('Wrong passcode');
+}
 function setTune(k, v) { if (Math.abs(v - 1) < .005) delete TUNE[k]; else TUNE[k] = v; try { localStorage.setItem('td_tune', JSON.stringify(TUNE)); } catch (e) {} }
 function tuneCard(draw, name, stats, desc, sliders) {
   const el = document.createElement('div'); el.className = 'tcard';
@@ -1125,14 +1141,18 @@ function tuneCard(draw, name, stats, desc, sliders) {
     row.innerHTML = `<span>${label}</span><input type="range" min="0" max="100" step="1"><b></b>`;
     const inp = row.querySelector('input'), out = row.querySelector('b');
     const show = () => { const v = tune(key); out.textContent = '×' + v.toFixed(2); out.classList.toggle('chg', Math.abs(v - 1) > .005); };
-    inp.value = toSlider(tune(key)); show();
+    inp.value = toSlider(tune(key)); show(); inp.disabled = !tuneAdmin;
     inp.oninput = () => { setTune(key, fromSlider(+inp.value)); show(); };
-    row.ondblclick = () => { setTune(key, 1); inp.value = 50; show(); };
+    row.ondblclick = () => { if (!tuneAdmin) return; setTune(key, 1); inp.value = 50; show(); };
     el.appendChild(row);
   }
   return el;
 }
 function renderTune() {
+  $('#tuneLogin').textContent = tuneAdmin ? '🔓 Change passcode' : '🔒 Admin login'; $('#tuneReset').hidden = !tuneAdmin;
+  $('#tuneNote').textContent = tuneAdmin
+    ? 'Slide to make anything stronger or weaker (×1 = as designed); double-tap a slider to reset it. Changes save on this phone and work straight away, even mid-game, in games this phone runs (hosting, or two players on one phone).'
+    : 'Every character and their powers. Only the admin can change the settings: tap 🔒 Admin login.';
   $('#tuneTabs').innerHTML = TUNE_TABS.map(([k, n]) => `<button data-t="${k}" class="${k === tuneTab ? 'sel' : ''}">${n}</button>`).join('');
   $('#tuneTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tuneTab = b.dataset.t; renderTune(); });
   const list = $('#tuneList'); list.innerHTML = '';
@@ -1172,7 +1192,8 @@ function renderTune() {
 function openTune() { renderTune(); $('#tune').hidden = false; }
 $('#goTune').onclick = openTune; $('#tuneBtn').onclick = openTune;
 $('#tuneClose').onclick = () => { $('#tune').hidden = true; };
-$('#tuneReset').onclick = () => { if (!confirm('Put every setting back to ×1?')) return; TUNE = {}; try { localStorage.removeItem('td_tune'); } catch (e) {} renderTune(); };
+$('#tuneLogin').onclick = adminLogin;
+$('#tuneReset').onclick = () => { if (!tuneAdmin) return; if (!confirm('Put every setting back to ×1?')) return; TUNE = {}; try { localStorage.removeItem('td_tune'); } catch (e) {} renderTune(); };
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const enemyBtns = {};
