@@ -135,7 +135,6 @@ details summary{color:var(--gold)}
   </div>
   <div class="stack" id="menuBtns">
     <button class="primary big" id="goHost">📶 Host a match</button>
-    <button class="big" id="goInvite">🔗 Invite a friend anywhere</button>
     <button class="big" id="goPractice">🤖 Practice vs computer</button>
     <button class="big" id="goLocal2">📱 2 players, one phone</button>
     <button class="big" id="goRecords">🏆 Hall of Fame</button>
@@ -146,14 +145,15 @@ details summary{color:var(--gold)}
     <div class="seg gfxSeg"><button data-gfx="3d">🎩 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
   </div>
   <div id="joinBox" class="card stack center" hidden>
-    <b>Joining a match</b>
+    <b id="joinTitle">Joining a match</b>
     <div class="small" id="joinInfo"></div>
+    <button class="primary big" id="joinGo" hidden>⚽ Join game</button>
     <button id="joinCancel">Cancel</button>
   </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
     <p class="small">Drag your players (the ones with a glow) with your finger. You don't have to touch the player itself: put your finger next to it (up to about a centimetre away) and drag, and it keeps that gap so your finger never hides it. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
-    <p class="small">Playing together in the same room: the host taps <b>Host a match</b>, and friends on the <b>same Wi-Fi</b> (or one phone's hotspot) scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it.<br><br>Friends somewhere else: tap <b>🔗 Invite a friend anywhere</b> and send them the link (WhatsApp, Messages, anything). Tapping it puts them straight into your match over the internet. The link works until you leave the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
+    <p class="small">Playing together: the host taps <b>Host a match</b>. Friends next to you scan the QR code with their camera; friends anywhere else get the link (tap <b>Send the link</b> and pick WhatsApp, Messages, anything). Either way they tap <b>Join game</b> and they're in. The link works until the host leaves the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
   </details>
 </div>
 
@@ -222,11 +222,10 @@ details summary{color:var(--gold)}
 <div id="lobby" class="screen" hidden>
   <h2 id="lobbyTitle">Match lobby</h2>
   <div class="card stack center" id="hostBox" hidden>
-    <div class="small">Friends in the same room scan this with their camera:</div>
+    <div class="small">Friends next to you scan this with their camera. Friends anywhere else: send them the link.</div>
     <div><div id="qr"></div></div>
     <div class="small" id="qrCountdown"></div>
-    <div class="small">Scanning needs the <b>same Wi-Fi</b> (or this phone's hotspot).</div>
-    <button id="btnInvite">🔗 Send an invite link (friends anywhere)</button>
+    <button class="primary" id="btnInvite">🔗 Send the link (WhatsApp, Messages…)</button>
   </div>
   <div class="card stack" style="margin-top:12px">
     <div class="row" style="align-items:center"><b>Players <span id="pCount"></span></b><span class="small" style="text-align:right" id="sizeInfo"></span></div>
@@ -1854,80 +1853,56 @@ $('#quit').onclick = () => { if (performance.now() - quitArmed < 2500) leaveGame
 /* ---------- Networking (same Wi-Fi only) ---------- */
 // No STUN/TURN servers: phones can only reach each other directly on the same local network
 // (same Wi-Fi or one phone's hotspot). The internet is only used for a moment to say hello.
-// PEER_OPTS: same Wi-Fi only (no STUN/TURN). PEER_NET: PeerJS's own servers, so an invite link works across the internet.
+// PEER_NET: PeerJS's own servers, so friends can join from anywhere. PEER_OPTS (no STUN/TURN) is for the TV screen,
+// which sits on the same Wi-Fi as the host.
 const PFX = 'pocketsoccer-lj-', PEER_OPTS = {config:{iceServers:[]}, debug:0}, PEER_NET = {debug:0};
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 let peer = null, conn = null, conns = {}, lobby = null, hostCode = null, matchLen = 180;
 const code4 = () => Array.from({length:4}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
-// The QR code carries a pass that changes every 30s; the host accepts the current or the previous one,
-// so a photo of the code sent to someone elsewhere stops working within a minute.
-let qrToken = null, oldToken = null, qrLeft = 0, qrTimer = null;
-const joinUrl = () => HOME + '#join=' + hostCode + '.' + qrToken;
-const newToken = (n = 6) => Array.from({length:n}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
-// The invite link carries a longer pass (10 letters) that lasts as long as this lobby, for friends who aren't in the
-// room. Anyone with the link can join, from anywhere, so it's meant to be sent to one friend at a time.
+// One join link per lobby: the QR code shows it and the Send button shares it. Its 10-letter pass lasts until the host
+// leaves the lobby; anyone with the link can join, from anywhere, so it's for sending to friends only.
 let inviteToken = null;
-const inviteUrl = () => HOME + '#join=' + hostCode + '.' + inviteToken;
-function shareInvite() {
-  if (!inviteToken) return;
-  const url = inviteUrl(), text = `⚽ ${profile.name || 'Your friend'} invited you to a Pocket Soccer match! Tap to join:`;
-  let copied = false;
-  try { navigator.clipboard.writeText(text + ' ' + url).then(() => { copied = true; }, () => {}); } catch (e) {}
-  const fallback = () => setTimeout(() => copied ? toast('📋 Invite link copied — paste it into WhatsApp or Messages') : prompt('Copy this invite link and send it to your friend:', url), 150);
-  if (navigator.share) navigator.share({title:'Pocket Soccer', text, url}).catch(e => { if (e && e.name !== 'AbortError') fallback(); else if (copied) toast('📋 Invite link copied too'); });
-  else fallback();
-}
-function rotateQR() {
-  oldToken = qrToken; qrToken = newToken(); qrLeft = 30;
+const newToken = () => Array.from({length:10}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
+const joinUrl = () => HOME + '#join=' + hostCode + '.' + inviteToken + '&from=' + encodeURIComponent(profile.name || '');
+function showQR() {
   const size = isTouch ? 180 : 260;   // bigger on a computer or TV
   if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:joinUrl(), width:size, height:size, correctLevel:QRCode.CorrectLevel.M}); }
-  tellTVs({t:'tvqr', url:joinUrl(), left:30});
+  $('#qrCountdown').textContent = '';
+  tellTVs({t:'tvqr', url:joinUrl()});
 }
-function startQR() {
-  rotateQR(); clearInterval(qrTimer);
-  qrTimer = setInterval(() => { if (--qrLeft <= 0) rotateQR(); $('#qrCountdown').textContent = `New QR code in ${qrLeft}s`; }, 1000);
+function shareInvite() {
+  if (!inviteToken) return;
+  const url = joinUrl(), text = `⚽ ${profile.name || 'Your friend'} invited you to a Pocket Soccer match! Tap the link, then Join game:`;
+  let copied = false;
+  try { navigator.clipboard.writeText(text + ' ' + url).then(() => { copied = true; }, () => {}); } catch (e) {}
+  const fallback = () => setTimeout(() => copied ? toast('📋 Link copied — paste it into WhatsApp or Messages') : prompt('Copy this link and send it to your friend:', url), 150);
+  if (navigator.share) navigator.share({title:'Pocket Soccer', text, url}).catch(e => { if (e && e.name !== 'AbortError') fallback(); else if (copied) toast('📋 Link copied too'); });
+  else fallback();
 }
 function whenPeer(fn, tries = 0) { if (window.Peer || tries > 50) fn(); else setTimeout(() => whenPeer(fn, tries + 1), 200); }
 function noNet(el) { el.textContent = "Couldn't load multiplayer. Check you're online for a moment, then try again."; }
 
-// Check the connection is direct on the local network (not relayed through the internet).
-async function sameNetwork(c) {
-  try {
-    const pc = c.peerConnection; if (!pc || !pc.getStats) return true;
-    const stats = await pc.getStats(); let pair = null; const cands = {};
-    stats.forEach(s => { if (s.type === 'local-candidate' || s.type === 'remote-candidate') cands[s.id] = s;
-                         if (s.type === 'candidate-pair' && (s.selected || s.nominated) && s.state === 'succeeded') pair = s; });
-    if (!pair) return true;
-    const types = [cands[pair.localCandidateId], cands[pair.remoteCandidateId]].map(s => s && s.candidateType);
-    return !types.some(t => t === 'relay' || t === 'srflx');
-  } catch (e) { return true; }
-}
-
 $('#goHost').onclick = () => needProfile(hostMatch);
-$('#goInvite').onclick = () => needProfile(() => { hostMatch(); shareInvite(); });
 $('#btnInvite').onclick = shareInvite;
 function hostMatch() {
   if (EMBEDDED) { toast('Multiplayer only works on the website: ' + HOME); return; }
   if (!window.Peer) { toast('Loading multiplayer…'); return whenPeer(() => window.Peer ? hostMatch() : toast("Couldn't load multiplayer.")); }
   mode = 'host'; myPid = 'me';
   lobby = {players:[me()]};
-  hostCode = code4(); inviteToken = newToken(10);
+  hostCode = code4(); inviteToken = newToken();
   peer = new Peer(PFX + hostCode, PEER_NET);
   peer.on('open', () => {
-    $('#hostBox').hidden = false; startQR();
+    $('#hostBox').hidden = false; $('#btnInvite').hidden = false; showQR();
   });
-  peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); hostMatch(); toast('Sorry, the invite link changed: tap 🔗 to send it again'); } else if (e.type === 'peer-unavailable') toast("Couldn't find that TV. Check the code on the TV."); else toast('Connection problem: ' + e.type); });
+  peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); hostMatch(); } else if (e.type === 'peer-unavailable') toast("Couldn't find that TV. Check the code on the TV."); else toast('Connection problem: ' + e.type); });
   peer.on('connection', c => {
     // listen straight away: the guest knocks the moment the line opens, before our checks finish
     let ok = null, knock = null;
     const welcome = () => { const pid = 'g' + Math.random().toString(36).slice(2, 7); conns[pid] = c; c.pid = pid; c.send({t:'welcome', pid}); };
     const reject = why => { c.send({t:'reject', why}); setTimeout(() => c.close(), 300); };
-    const admit = async m => {
-      const token = m && m.t === 'knock' && m.token;
-      if (token && token === inviteToken) welcome();   // invite link: from anywhere
-      else if (token && (token === qrToken || token === oldToken)) {   // QR code: only from the same Wi-Fi
-        if (await sameNetwork(c)) welcome(); else reject('You need to be on the same Wi-Fi as the host (or their hotspot). Or ask them for an invite link.');
-      } else reject("This QR code has expired. Scan the host's screen again.");
+    const admit = m => {
+      if (m && m.t === 'knock' && m.token && m.token === inviteToken) welcome();
+      else reject("That link has expired. Ask your friend for a new one.");
     };
     c.on('data', m => {
       if (c.pid) return hostOnData(c.pid, m);
@@ -2007,7 +1982,7 @@ function renderLobby(list) {
 }
 document.querySelectorAll('#lenSeg button').forEach(b => b.onclick = () => { matchLen = +b.dataset.len; if (lobby) syncLobby(); });
 $('#btnStart').onclick = () => {
-  game = newMatch(lobby.players, matchLen); lobby = null; info = matchInfo(game); clearInterval(qrTimer);
+  game = newMatch(lobby.players, matchLen); lobby = null; info = matchInfo(game);
   sendFaces(); broadcast({t:'start', info});
   runSim(); clearInterval(netTimer);
   netTimer = setInterval(() => broadcast({t:'s', s:snap(game)}), 33);
@@ -2016,7 +1991,7 @@ $('#btnStart').onclick = () => {
 function backToLobby() {
   clearInterval(simTimer); clearInterval(netTimer);
   lobby = {players:game.players.filter(p => p.pid === 'me' || conns[p.pid])}; game = null; info = null;
-  startQR();
+  showQR();
   broadcast({t:'lobbyback'}); syncLobby(); show('#lobby');
 }
 $('#lobbyLeave').onclick = leaveGame;
@@ -2030,13 +2005,13 @@ $('#addTV').onclick = () => {
   const t = setTimeout(() => { if (!c.open) toast("Couldn't reach that TV. Check the code, and that it's on the same Wi-Fi."); }, 9000);
   c.on('open', () => {
     clearTimeout(t); conns[pid] = c; toast('📺 TV connected!'); sendFaces();
-    if (lobby) { syncLobby(); c.send({t:'tvqr', url:joinUrl(), left:qrLeft}); } else if (game) c.send({t:'start', info});
+    if (lobby) { syncLobby(); c.send({t:'tvqr', url:joinUrl()}); } else if (game) c.send({t:'start', info});
   });
   c.on('close', () => { delete conns[pid]; });
 };
 function tellTVs(msg) { for (const [pid, c] of Object.entries(conns)) if (pid.startsWith('tv-') && c.open) c.send(msg); }
 // TV side
-let tvLeft = 0, tvTimer = null;
+
 function storeFaces(faces) {
   for (const [id, url] of Object.entries(faces || {})) if (!faceStore[id] && typeof url === 'string' && url.startsWith('data:image/')) { const img = new Image(); img.src = url; faceStore[id] = {url, img}; }
 }
@@ -2053,14 +2028,13 @@ function startTV() {
     conn = c; c.on('data', tvData);
     c.on('close', () => { if (conn !== c) return; conn = null; info = null; curS = prevS = null; toast('The host has gone'); show('#tv'); });
   });
-  clearInterval(tvTimer); tvTimer = setInterval(() => { if (tvLeft > 0) $('#qrCountdown').textContent = `New QR code in ${--tvLeft}s`; }, 1000);
   try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch (e) {}   // keep the TV awake
 }
 function tvData(m) {
   if (!m) return;
   if (m.t === 'faces') storeFaces(m.faces);
-  else if (m.t === 'lobby') { matchLen = m.len; renderLobby(m.players); $('#hostBox').hidden = false; if ($('#game').hidden) show('#lobby'); }
-  else if (m.t === 'tvqr') { tvLeft = m.left; if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:m.url, width:260, height:260, correctLevel:QRCode.CorrectLevel.M}); } }
+  else if (m.t === 'lobby') { matchLen = m.len; renderLobby(m.players); $('#hostBox').hidden = false; $('#btnInvite').hidden = true; if ($('#game').hidden) show('#lobby'); }
+  else if (m.t === 'tvqr') { if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:m.url, width:260, height:260, correctLevel:QRCode.CorrectLevel.M}); } }
   else if (m.t === 'start') { info = m.info; curS = prevS = null; F.goalW = goalWidth(info.size); flip = false; startView(); }
   else if (m.t === 's') { prevS = curS; curS = m.s; curAt = performance.now(); }
   else if (m.t === 'result') saveRecords(m.rows);
@@ -2072,19 +2046,25 @@ $('#tvRecords').onclick = () => openRecords('#tv');
 
 // Joining
 $('#joinCancel').onclick = leaveGame;
-function join(code, token) {
+// Tapping a friend's link (or scanning their QR code) opens this: who invited you, your face and name, and Join game.
+function join(code, token, from) {
   const infoEl = $('#joinInfo');
-  if (EMBEDDED) { infoEl.textContent = 'Joining only works on the website: ' + HOME; return; }
   show('#menu'); $('#joinBox').hidden = false; $('#menuBtns').hidden = true;
-  if (!/^[A-Z]{4}$/.test(code) || !token) { infoEl.textContent = "That link doesn't look right. Scan the host's QR code again."; return; }
-  if (!window.Peer) { infoEl.textContent = 'Loading…'; return whenPeer(() => window.Peer ? join(code, token) : noNet(infoEl)); }
+  if (EMBEDDED) { infoEl.textContent = 'Joining only works on the website: ' + HOME; return; }
+  if (!/^[A-Z]{4}$/.test(code) || !token) { infoEl.textContent = "That link doesn't look right. Ask your friend to send it again."; return; }
+  $('#joinTitle').textContent = from ? `⚽ ${from} invited you to a match!` : '⚽ You\'re invited to a match!';
+  infoEl.textContent = profile.name ? 'Check your face and name above, then tap Join.' : 'Tap Join, then set up your face and name.';
+  $('#joinGo').hidden = false;
+  $('#joinGo').onclick = () => needProfile(() => { $('#joinGo').hidden = true; connectTo(code, token); });
+}
+function connectTo(code, token) {
+  const infoEl = $('#joinInfo');
+  show('#menu'); $('#joinBox').hidden = false; $('#menuBtns').hidden = true;
+  if (!window.Peer) { infoEl.textContent = 'Loading…'; return whenPeer(() => window.Peer ? connectTo(code, token) : noNet(infoEl)); }
   infoEl.textContent = '📶 Connecting to the host…';
   mode = 'guest'; hostCode = code;
-  const invited = token.length === 10;   // invite link: over the internet; QR code: same Wi-Fi
-  peer = new Peer(invited ? PEER_NET : PEER_OPTS);
-  const timer = setTimeout(() => { if (!lobbyJoined) infoEl.innerHTML = invited
-    ? "Still trying to reach the host… Make sure their match is still open on the lobby screen. If it won't connect, try both of you on home Wi-Fi (some mobile data and work Wi-Fi blocks games)."
-    : "Couldn't reach the host. Make sure you're on the <b>same Wi-Fi</b> as them. Some school or guest Wi-Fi blocks phones talking to each other — if so, the host turns on their phone's <b>hotspot</b> and everyone joins that."; }, invited ? 20000 : 12000);
+  peer = new Peer(PEER_NET);
+  const timer = setTimeout(() => { if (!lobbyJoined) infoEl.textContent = "Still trying to reach your friend… Make sure their match is still open on the lobby screen. If it won't connect, try both of you on home Wi-Fi (some mobile data and work Wi-Fi blocks games)."; }, 20000);
   let lobbyJoined = false, helloSent = false, lastLobby = null;
   const sayHello = () => { helloSent = true; conn.send({t:'hello', name:profile.name, faces:profile.faces, boss:profile.boss || ''}); infoEl.textContent = 'Joined! Waiting for the lobby…'; show('#menu');
                            if (lastLobby) { renderLobby(lastLobby); show('#lobby'); } };
@@ -2108,7 +2088,7 @@ function join(code, token) {
     });
     conn.on('close', () => { toast('Lost connection to the host'); setTimeout(() => location.href = location.pathname, 1500); });
   });
-  peer.on('error', e => { clearTimeout(timer); infoEl.textContent = e.type === 'peer-unavailable' ? (invited ? "That match isn't open any more. Ask your friend to send a new invite link." : "No match with that code. Check it, or ask the host to start one.") : 'Connection problem: ' + e.type; });
+  peer.on('error', e => { clearTimeout(timer); infoEl.textContent = e.type === 'peer-unavailable' ? "That match isn't open any more. Ask your friend to send a new link." : 'Connection problem: ' + e.type; });
 }
 
 /* ---------- Boot ---------- */
@@ -2116,10 +2096,11 @@ const isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
 if (!isTouch) $('#bigScreenTip').hidden = false;   // computers and consoles: host on the big screen, or be the TV
 {
   showMenuProfile(); show('#menu'); showGfx(); if (GFX === '3d') load3D();
-  if (EMBEDDED) { $('#goHost').hidden = true; $('#goInvite').hidden = true; $('#goTV').hidden = true;
+  if (EMBEDDED) { $('#goHost').hidden = true; $('#goTV').hidden = true;
     $('#menuBtns').insertAdjacentHTML('beforeend', `<div class="small center">To play with friends, open the website on your phones: <b style="color:var(--text)">${HOME.replace('https://', '')}</b></div>`); }
-  const link = location.hash.match(/join=([A-Za-z]{4})\.([A-Za-z]{10}|[A-Za-z]{6})/);
-  if (link) { history.replaceState(null, '', location.pathname); join(link[1].toUpperCase(), link[2].toUpperCase()); }
+  const link = location.hash.match(/join=([A-Za-z]{4})\.([A-Za-z]{10})(?:&from=([^&]*))?/);
+  if (link) { history.replaceState(null, '', location.pathname); let from = ''; try { from = decodeURIComponent(link[3] || '').slice(0, 16); } catch (e) {}
+    join(link[1].toUpperCase(), link[2].toUpperCase(), from); }
   else if (!profile.name) openProfile(() => show('#menu'));
 }
 </script>
