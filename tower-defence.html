@@ -275,9 +275,9 @@ const ENEMIES = {
   riot:    {name:'Riot Zombie',  hp:80,   shield:110, spd:1.05, cost:35, reward:9, leak:1, r:.3, desc:'Shield soaks hits. ✹ Splash breaks it 2× faster'},
   medic:   {name:'Medic Zombie', hp:95,   spd:1.05, cost:35,  reward:9,  leak:1, r:.3,  heal:10, desc:'Heals zombies around it'},
   brute:   {name:'Brute',        hp:320,  spd:.7,   cost:45,  reward:13, leak:2, r:.38, armor:5, desc:'Armour blocks 5 dmg per hit'},
-  erad:    {name:'Eradicator',   hp:900,  shield:200, spd:.5, cost:110, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
+  erad:    {name:'Eradicator',   hp:900,  shield:200, spd:.5, cost:1000, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
             desc:'Rocket burst knocks out nearby towers'},
-  erad2:   {name:'Eradicator MK II', hp:1500, shield:350, spd:.45, cost:200, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
+  erad2:   {name:'Eradicator MK II', hp:1500, shield:350, spd:.45, cost:2000, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
             fury:true, splashRes:.3, desc:'Resists splash 30%. Rages at half HP'},
 };
 const TAGS = E => [E.boss && ['BOSS','#ff4d4d'], E.stealth && ['HIDDEN','#a371f7'], E.fly && ['FLYING','#58a6ff'],
@@ -377,7 +377,7 @@ function step(g, dt) {
 
   g.t += dt;
   g.gold += 4*dt;
-  g.energy = Math.min(400, g.energy + income(g)*dt);
+  g.energy = Math.min(2500, g.energy + income(g)*dt);
 
   g.spawnT -= dt;
   if (g.queue.length && g.spawnT <= 0) {
@@ -690,7 +690,13 @@ function draw(v) {
 
   for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun);
   const sel = v.tw.find(t => t.id === selTower);
-  if (sel) ring(sel.x+.5, sel.y+.5, sel.range, 'rgba(88,166,255,.9)', 'rgba(88,166,255,.08)');
+  if (sel) {
+    const pulse = .5 + .5*Math.sin(performance.now()/250);
+    ctx.beginPath(); ctx.arc((sel.x+.5)*TS, (sel.y+.5)*TS, sel.range*TS, 0, 7);
+    ctx.fillStyle = 'rgba(88,166,255,.16)'; ctx.fill();
+    ctx.setLineDash([TS*.25, TS*.15]); ctx.lineWidth = 3; ctx.strokeStyle = `rgba(150,200,255,${.7 + .3*pulse})`; ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; rrect(sel.x*TS+2, sel.y*TS+2, TS-4, TS-4, TS*.2); ctx.stroke();
+  }
 
   const now = performance.now();
   const ems = v.em.slice().sort((a, b) => (ENEMIES[a[1]].fly ? 1 : 0) - (ENEMIES[b[1]].fly ? 1 : 0));
@@ -776,7 +782,8 @@ function hud(v) {
   const sel = v.tw.find(t => t.id === selTower);
   if (!sel) selTower = null;
   $('#selInfo').hidden = !sel;
-  if (sel) $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]} — sells for 💰 ${sel.sell}`;
+  $('#btnSell').hidden = !isDef();
+  if (sel) $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]}${sel.spec.det ? '📡' : ''} · range ${sel.range} tiles` + (isDef() ? ` · sells for 💰 ${sel.sell}` : '');
 
   let html = '';
   const dim = 'style="color:var(--muted)"';
@@ -872,10 +879,11 @@ function tileAt(ev) {
 cv.addEventListener('pointermove', ev => { hover = ev.pointerType === 'mouse' ? tileAt(ev) : null; });
 cv.addEventListener('pointerleave', () => hover = null);
 cv.addEventListener('pointerdown', ev => {
-  const p = tileAt(ev); if (!p || !view || !isDef()) return;
+  const p = tileAt(ev); if (!p || !view) return;
   const [x, y] = p, t = view.tw.find(t => t.x === x && t.y === y);
   if (t) { selTower = selTower === t.id ? null : t.id; return; }
   if (selTower != null) { selTower = null; return; }
+  if (!isDef()) return;
   if (!PATH.has(x+','+y)) issue({type:'place', x, y, spec:designs()[selDesign]});
 });
 $('#btnSell').onclick = () => { if (selTower != null) { issue({type:'sell', id:selTower}); selTower = null; } };
