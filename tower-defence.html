@@ -76,6 +76,9 @@ details p,details li{color:var(--muted)}
 .card .meta{color:var(--muted);font-size:12px}
 .card .cost{color:var(--gold);font-weight:600}
 .card .ecost{color:var(--energy);font-weight:600}
+.card canvas{width:44px;height:44px;flex:none;margin:-4px 0 -4px -4px}
+.tags{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0}
+.tag{font-size:9px;font-weight:800;letter-spacing:.5px;border:1px solid;border-radius:4px;padding:0 4px}
 .card .del{position:absolute;top:2px;right:4px;border:0;background:none;padding:2px 6px;color:var(--muted)}
 .card.add{border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--def);min-height:64px}
 #selInfo{margin-top:10px;display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--panel2);border-radius:10px;padding:8px 10px}
@@ -104,7 +107,7 @@ details p,details li{color:var(--muted)}
 
 <div id="menu">
   <h1><span>Tower</span> <b>Defence</b></h1>
-  <p class="sub">Two players. One sends the monsters, one builds the towers.</p>
+  <p class="sub">Two players. One sends the enemies, one builds the towers.</p>
 
   <div id="mMain" class="stack">
     <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
@@ -115,8 +118,8 @@ details p,details li{color:var(--muted)}
       <ul>
         <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
         <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. Tap a built tower to sell it.</li>
-        <li><b style="color:var(--atk)">👾 Monster sender</b>: spend energy to send monsters down the path. Energy refills faster as the game goes on. Mix fast, tough and healing monsters to break through.</li>
-        <li>Monsters win if the castle's lives reach 0. Towers win by lasting 4 minutes. Then swap sides!</li>
+        <li><b style="color:var(--atk)">👾 Enemy sender</b>: spend energy to send enemies. <b>HIDDEN</b> Shadows can only be shot by 📡 sensor towers. <b>FLYING</b> Skull Drones skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Mega Mech fires EMPs that stun towers and rages at half health.</li>
+        <li>Enemies win if the base's lives reach 0. Towers win by lasting 4 minutes. Then swap sides!</li>
       </ul>
       <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
     </details>
@@ -127,7 +130,7 @@ details p,details li{color:var(--muted)}
       <p style="margin:0">Which side do you want to play?</p>
       <div class="row">
         <button class="primary" data-role="def">🛡 Build towers</button>
-        <button class="danger" data-role="atk">👾 Send monsters</button>
+        <button class="danger" data-role="atk">👾 Send enemies</button>
       </div>
     </div>
     <div id="hostInvite" class="invite" hidden>
@@ -173,7 +176,7 @@ details p,details li{color:var(--muted)}
       <div id="selInfo" hidden><span id="selText"></span><button class="danger" id="btnSell">Sell</button></div>
     </div>
     <div class="panel atk" id="atkPanel">
-      <h3>👾 Send monsters <span class="hint" style="margin:0" id="qInfo"></span></h3>
+      <h3>👾 Send enemies <span class="hint" style="margin:0" id="qInfo"></span></h3>
       <div class="cards" id="enemyCards"></div>
     </div>
   </div>
@@ -200,6 +203,8 @@ details p,details li{color:var(--muted)}
       <button data-sp="slow">❄ Freeze</button>
       <button data-sp="splash">✹ Splash</button>
     </div>
+    <label>Stealth sensor</label>
+    <div class="seg"><button id="bDet"></button></div>
     <div id="bStats"></div>
     <div class="row">
       <button id="bCancel">Cancel</button>
@@ -233,16 +238,25 @@ function posAt(d) {
   const s = SEG[SEG.length-1]; return [s.bx, s.by];
 }
 
-/* ---------- Enemies ---------- */
+// Flying enemies skip the road and fly straight from the portal to the base.
+const FLY = {ax:WAY[0][0], ay:WAY[0][1], bx:WAY[WAY.length-1][0], by:WAY[WAY.length-1][1]};
+const FLYLEN = Math.hypot(FLY.bx-FLY.ax, FLY.by-FLY.ay);
+const flyAt = d => { const f = Math.min(1, d/FLYLEN); return [FLY.ax + (FLY.bx-FLY.ax)*f, FLY.ay + (FLY.by-FLY.ay)*f]; };
+
+/* ---------- Enemies (TDX-style: hidden, flying, shielded, armoured, boss phases) ---------- */
 const ENEMIES = {
-  scout:  {name:'Bunny',  em:'🐇', hp:30,   spd:2.3,  cost:10,  reward:3,  leak:1, col:'#7ee787', r:.26, desc:'Super fast, fragile'},
-  grunt:  {name:'Gloop',  em:'👾', hp:75,   spd:1.35, cost:15,  reward:5,  leak:1, col:'#f2cc60', r:.3,  desc:'All-rounder'},
-  swarm:  {name:'Bees',   em:'🐝', hp:16,   spd:1.9,  cost:24,  reward:1,  leak:1, col:'#ff9bce', r:.2,  count:6, desc:'6 bees at once'},
-  ghost:  {name:'Ghost',  em:'👻', hp:65,   spd:1.6,  cost:22,  reward:5,  leak:1, col:'#b8c7ff', r:.28, noSlow:true, desc:'Can\'t be frozen'},
-  medic:  {name:'Fairy',  em:'🧚', hp:95,   spd:1.1,  cost:35,  reward:9,  leak:1, col:'#56d4dd', r:.3,  heal:10, desc:'Heals nearby monsters'},
-  tank:   {name:'Turtle', em:'🐢', hp:280,  spd:.75,  cost:40,  reward:12, leak:2, col:'#ff7b72', r:.36, armor:4, desc:'Shell blocks 4 dmg/hit'},
-  boss:   {name:'Dragon', em:'🐉', hp:1100, spd:.55,  cost:130, reward:40, leak:6, col:'#d2a8ff', r:.46, armor:6, desc:'Huge! Costs 6 lives'},
+  soldier: {name:'Soldier',    hp:75,   spd:1.35, cost:15,  reward:5,  leak:1, r:.3,  desc:'Basic trooper'},
+  runner:  {name:'Runner',     hp:35,   spd:2.4,  cost:10,  reward:3,  leak:1, r:.28, desc:'Super fast, fragile'},
+  shadow:  {name:'Shadow',     hp:60,   spd:1.6,  cost:25,  reward:6,  leak:1, r:.28, stealth:true, desc:'Hidden! Only 📡 towers can see it'},
+  drone:   {name:'Skull Drone',hp:35,   spd:1.5,  cost:30,  reward:3,  leak:1, r:.28, fly:true, count:3, desc:'Flies straight over the map'},
+  shield:  {name:'Shield Bot', hp:80,   shield:110, spd:1.1, cost:35, reward:9, leak:1, r:.3, desc:'Energy shield. ✹ Splash breaks it 2× faster'},
+  medic:   {name:'Medic',      hp:95,   spd:1.1,  cost:35,  reward:9,  leak:1, r:.3,  heal:10, desc:'Heals enemies around it'},
+  jugg:    {name:'Juggernaut', hp:320,  spd:.7,   cost:45,  reward:13, leak:2, r:.38, armor:5, desc:'Heavy armour blocks 5 dmg per hit'},
+  boss:    {name:'Mega Mech',  hp:1200, shield:300, spd:.5, cost:150, reward:50, leak:8, r:.5, armor:6, boss:true,
+            desc:'EMP stuns towers. Rages at half HP'},
 };
+const TAGS = E => [E.boss && ['BOSS','#ff4d4d'], E.stealth && ['HIDDEN','#a371f7'], E.fly && ['FLYING','#58a6ff'],
+  E.shield && ['SHIELD','#3ee6ff'], E.armor && ['ARMOUR','#8b949e'], E.heal && ['HEALER','#3fb950'], E.spd > 2 && ['FAST','#f2cc60']].filter(Boolean);
 
 /* ---------- Towers ---------- */
 const DMG = [0,8,14,22,32,45], RNG = [0,1.6,2.1,2.6,3.2,3.9], RATE = [0,.7,1,1.4,2,2.8];
@@ -255,11 +269,12 @@ function cleanSpec(s) {
     col: /^#[0-9a-f]{6}$/i.test(s.col) ? s.col : '#58a6ff',
     d: c(s.d), r: c(s.r), s: c(s.s),
     sp: ['none','slow','splash'].includes(s.sp) ? s.sp : 'none',
+    det: !!s.det,
   };
 }
 function stats(s) {
   const dmg = DMG[s.d], range = RNG[s.r], rate = RATE[s.s], dps = dmg * rate;
-  const extra = s.sp === 'slow' ? 25 : s.sp === 'splash' ? 35 : 0;
+  const extra = (s.sp === 'slow' ? 25 : s.sp === 'splash' ? 35 : 0) + (s.det ? 25 : 0);
   const cost = Math.round((20 + dps*1.6 + range*range*6 + extra) / 5) * 5;
   return {dmg, range, rate, dps, cost};
 }
@@ -267,16 +282,16 @@ const PRESETS = [
   {name:'Pebble', col:'#58a6ff', d:2, r:2, s:2, sp:'none'},
   {name:'Frost',  col:'#79c0ff', d:1, r:3, s:2, sp:'slow'},
   {name:'Boomer', col:'#ffa657', d:3, r:2, s:1, sp:'splash'},
-  {name:'Sniper', col:'#e6edf3', d:5, r:5, s:1, sp:'none'},
+  {name:'Sniper', col:'#e6edf3', d:5, r:5, s:1, sp:'none', det:true},
 ];
 
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0) {
-  return {t:0, status:'countdown', cd:5, lives:20, gold:150, energy:60, towers:[], enemies:[], shots:[], fx:[],
+  return {t:0, status:'countdown', cd:5, lives:20, gold:200, energy:60, towers:[], enemies:[], shots:[], fx:[],
           queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0, paused:false, epoch};
 }
 const income = g => 6 + g.t/25;
-const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1};
+const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8};
 const addFx = (g, k, x, y, txt) => g.fx.push({id:g.id++, k, x, y, txt, ttl:FX_LIFE[k]});
 
 function applyCmd(g, role, c) {
@@ -305,17 +320,26 @@ function applyCmd(g, role, c) {
   }
 }
 
+// Shields soak damage first (splash hits them twice as hard); armour cuts each hit after that.
+function damage(g, o, amt, isSplash) {
+  if (o.sh > 0) {
+    o.sh -= amt * (isSplash ? 2 : 1);
+    if (o.sh <= 0) { o.sh = 0; addFx(g, 'shieldbreak', o.x, o.y); }
+    return;
+  }
+  o.hp -= Math.max(1, amt - (ENEMIES[o.k].armor || 0));
+}
 function hit(g, t, e) {
-  const sp = t.spec.sp;
-  const dmgTo = (o, mult) => {
-    const E = ENEMIES[o.k];
-    o.hp -= Math.max(1, t.st.dmg*mult - (E.armor || 0));
-    if (sp === 'slow' && !E.noSlow) o.slow = 1.6;
+  const sp = t.spec.sp, splash = sp === 'splash';
+  const one = (o, mult) => {
+    damage(g, o, t.st.dmg*mult, splash);
+    if (sp === 'slow' && !ENEMIES[o.k].boss) o.slow = 1.6;
   };
-  dmgTo(e, 1);
-  if (sp === 'splash') for (const o of g.enemies) if (o !== e && o.hp > 0 && Math.hypot(o.x-e.x, o.y-e.y) < .95) dmgTo(o, .6);
+  one(e, 1);
+  if (splash) for (const o of g.enemies) if (o !== e && o.hp > 0 && Math.hypot(o.x-e.x, o.y-e.y) < .95) one(o, .6);
   g.shots.push({id:g.id++, x1:t.x+.5, y1:t.y+.5, x2:e.x, y2:e.y, c:t.spec.col, sp, ttl:.15});
 }
+const routeLen = e => ENEMIES[e.k].fly ? FLYLEN : PATHLEN;
 
 function step(g, dt) {
   if (g.status === 'over' || g.paused) return;
@@ -326,22 +350,33 @@ function step(g, dt) {
   if (g.status === 'countdown') { g.cd -= dt; if (g.cd <= 0) g.status = 'play'; return; }
 
   g.t += dt;
-  g.gold += 3*dt;
+  g.gold += 4*dt;
   g.energy = Math.min(400, g.energy + income(g)*dt);
 
   g.spawnT -= dt;
   if (g.queue.length && g.spawnT <= 0) {
     const k = g.queue.shift(), E = ENEMIES[k];
-    g.enemies.push({id:g.id++, k, d:0, hp:E.hp, m:E.hp, slow:0, x:WAY[0][0], y:WAY[0][1]});
-    g.spawnT = E.count ? .18 : .35;
-    if (k === 'boss') addFx(g, 'roar', 1, WAY[0][1]);
+    g.enemies.push({id:g.id++, k, d:0, hp:E.hp, m:E.hp, sh:E.shield || 0, shm:E.shield || 0, slow:0, emp:4, fury:false,
+                    x:WAY[0][0], y:WAY[0][1]});
+    g.spawnT = E.count ? .3 : .35;
+    if (E.boss) addFx(g, 'roar', 1, WAY[0][1], 'BOSS!');
   }
 
   for (const e of g.enemies) {
     const E = ENEMIES[e.k];
     e.slow = Math.max(0, e.slow - dt);
-    e.d += E.spd * (e.slow > 0 ? .5 : 1) * dt;
-    [e.x, e.y] = posAt(e.d);
+    e.d += E.spd * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : 1) * dt;
+    [e.x, e.y] = E.fly ? flyAt(e.d) : posAt(e.d);
+    if (E.boss) {
+      // Phase 2: at half health the boss rages, recharging its shield and speeding up.
+      if (!e.fury && e.hp < e.m/2) { e.fury = true; e.sh = e.shm; addFx(g, 'fury', e.x, e.y, 'RAGE!'); }
+      e.emp -= dt;
+      if (e.emp <= 0) {
+        e.emp = 7;
+        for (const t of g.towers) if (Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 2.2) t.stun = 2.5;
+        addFx(g, 'emp', e.x, e.y, 'EMP!');
+      }
+    }
   }
   for (const e of g.enemies) {
     const heal = ENEMIES[e.k].heal;
@@ -349,7 +384,7 @@ function step(g, dt) {
       if (o !== e && o.hp > 0 && Math.hypot(o.x-e.x, o.y-e.y) < 1.6) o.hp = Math.min(o.m, o.hp + heal*dt);
   }
   g.enemies = g.enemies.filter(e => {
-    if (e.d >= PATHLEN) {
+    if (e.d >= routeLen(e)) {
       const leak = ENEMIES[e.k].leak;
       g.lives -= leak; addFx(g, 'leak', 14.5, 7.5, '-' + leak + '❤️');
       return false;
@@ -358,12 +393,16 @@ function step(g, dt) {
   });
 
   for (const t of g.towers) {
+    if (t.stun > 0) { t.stun -= dt; continue; }
     t.cd -= dt;
     if (t.cd > 0) continue;
     const cx = t.x+.5, cy = t.y+.5;
-    let best = null;
-    for (const e of g.enemies)
-      if (e.hp > 0 && Math.hypot(e.x-cx, e.y-cy) <= t.st.range && (!best || e.d > best.d)) best = e;
+    let best = null, bestP = -1;
+    for (const e of g.enemies) {
+      if (e.hp <= 0 || (ENEMIES[e.k].stealth && !t.spec.det) || Math.hypot(e.x-cx, e.y-cy) > t.st.range) continue;
+      const prog = e.d / routeLen(e);
+      if (prog > bestP) { best = e; bestP = prog; }
+    }
     if (!best) { t.cd = 0; continue; }
     t.cd = 1 / t.st.rate;
     hit(g, t, best);
@@ -387,8 +426,8 @@ function snap(g) {
     t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g),
     w:g.winner, dur:g.dur, q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
-    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, sell:Math.floor(t.spent*.7)})),
-    em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0]),
+    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0})),
+    em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0]),
     sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl), s.id]),
   };
 }
@@ -434,7 +473,7 @@ function renderDesigns() {
   designs().forEach((d, i) => {
     const st = stats(d), b = document.createElement('button');
     b.className = 'card' + (i === selDesign ? ' sel' : '');
-    b.innerHTML = `<div class="nm"><span class="sw" style="background:${d.col}"></span>${esc(d.name)} ${SP_ICON[d.sp]}</div>
+    b.innerHTML = `<div class="nm"><span class="sw" style="background:${d.col}"></span>${esc(d.name)} ${SP_ICON[d.sp]}${d.det ? '📡' : ''}</div>
       <div class="meta">DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s</div><div class="cost">💰 ${st.cost}</div>`;
     b.onclick = () => { selDesign = i; selTower = null; renderDesigns(); };
     if (i >= PRESETS.length) {
@@ -456,9 +495,14 @@ function renderEnemies() {
   const box = $('#enemyCards'); box.innerHTML = '';
   Object.entries(ENEMIES).forEach(([k, E], i) => {
     const b = document.createElement('button'); b.className = 'card';
-    b.innerHTML = `<div class="nm"><span style="font-size:20px">${E.em}</span>${E.name}${E.count ? ' ×' + E.count : ''}</div>
-      <div class="meta"><span class="key">${i+1}</span>${E.desc}</div><div class="meta">HP ${E.hp}${E.armor ? ' · armour ' + E.armor : ''}</div>
+    const tags = TAGS(E).map(([t, c]) => `<span class="tag" style="color:${c};border-color:${c}">${t}</span>`).join('');
+    b.innerHTML = `<div class="nm"><canvas width="88" height="88"></canvas><span>${E.name}${E.count ? ' ×' + E.count : ''}</span></div>
+      <div class="tags">${tags}</div>
+      <div class="meta"><span class="key">${i+1}</span>${E.desc}</div>
+      <div class="meta">HP ${E.hp}${E.shield ? ' + 🛡' + E.shield : ''}</div>
       <div class="ecost">⚡ ${E.cost}</div>`;
+    const ic = b.querySelector('canvas').getContext('2d');
+    ic.scale(2, 2); drawUnit(ic, k, 22, E.fly ? 22 : 25, E.boss ? 34 : 38, .8, false);
     b.onclick = () => issue({type:'send', kind:k});
     enemyBtns[k] = b; box.appendChild(b);
   });
@@ -468,7 +512,7 @@ function renderEnemies() {
 const SWATCHES = ['#58a6ff','#79c0ff','#3fb950','#a5d6a7','#f2cc60','#ffa657','#ff7b72','#ff9bce','#d2a8ff','#e6edf3'];
 let draft = null;
 function openBuilder() {
-  draft = cleanSpec({name:'My Tower', col:SWATCHES[(custom.length + 2) % SWATCHES.length], d:3, r:3, s:3, sp:'none'});
+  draft = cleanSpec({name:'My Tower', col:SWATCHES[(custom.length + 2) % SWATCHES.length], d:3, r:3, s:3, sp:'none', det:false});
   $('#bName').value = draft.name;
   ['d','r','s'].forEach(k => $('#b' + k.toUpperCase()).value = draft[k]);
   $('#builder').hidden = false;
@@ -489,12 +533,15 @@ function updBuilder() {
     $('#bSw').appendChild(b);
   });
   document.querySelectorAll('#bSp button').forEach(b => b.classList.toggle('sel', b.dataset.sp === draft.sp));
+  $('#bDet').classList.toggle('sel', draft.det);
+  $('#bDet').textContent = draft.det ? '📡 Sensor ON: sees hidden enemies' : '📡 Add sensor to see hidden enemies (+💰25)';
   const spTxt = {none:'—', slow:'Slows enemies 50%', splash:'Hits nearby enemies too'}[draft.sp];
   $('#bStats').innerHTML = `<span>Damage per second</span><b>${st.dps.toFixed(1)}</b>
     <span>Special</span><b>${spTxt}</b><span>Cost</span><b style="color:var(--gold)">💰 ${st.cost}</b>`;
 }
 ['#bD','#bR','#bS','#bName'].forEach(s => $(s).addEventListener('input', updBuilder));
 document.querySelectorAll('#bSp button').forEach(b => b.onclick = () => { draft.sp = b.dataset.sp; updBuilder(); });
+$('#bDet').onclick = () => { draft.det = !draft.det; updBuilder(); };
 $('#bCancel').onclick = () => $('#builder').hidden = true;
 $('#bSave').onclick = () => {
   custom.push(cleanSpec(draft)); if (custom.length > 8) custom.shift();
@@ -516,17 +563,84 @@ addEventListener('resize', resize);
 
 function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 
-function drawTower(x, y, spec, alpha = 1) {
+function drawTower(x, y, spec, alpha = 1, stunned = 0) {
   const p = TS*.12;
   ctx.globalAlpha = alpha;
   ctx.fillStyle = '#0d1117'; rrect(x*TS+p, y*TS+p, TS-2*p, TS-2*p, TS*.18); ctx.fill();
   ctx.strokeStyle = spec.col; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = spec.col; ctx.beginPath(); ctx.arc((x+.5)*TS, (y+.5)*TS, TS*(.14 + spec.d*.03), 0, 7); ctx.fill();
-  if (spec.sp !== 'none') {
-    ctx.fillStyle = '#fff'; ctx.font = `${TS*.3}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(SP_ICON[spec.sp], (x+.78)*TS, (y+.24)*TS);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${TS*.28}px sans-serif`;
+  if (spec.sp !== 'none') ctx.fillText(SP_ICON[spec.sp], (x+.78)*TS, (y+.24)*TS);
+  if (spec.det) ctx.fillText('📡', (x+.24)*TS, (y+.76)*TS);
+  if (stunned) {
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; rrect(x*TS+p, y*TS+p, TS-2*p, TS-2*p, TS*.18); ctx.fill();
+    ctx.font = `${TS*.45}px sans-serif`; ctx.fillText('⚡', (x+.5)*TS, (y+.5)*TS);
   }
   ctx.globalAlpha = 1;
+}
+
+// Blocky, Roblox-style enemy models drawn with rectangles. (x, y) is the centre, s the model height in px.
+function drawUnit(c, k, x, y, s, ph, fury) {
+  c.save(); c.translate(x, y);
+  const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
+  const sw = Math.sin(ph) * .07;
+  const human = o => {
+    R(-.2, .12 + sw, .17, .36, o.pants); R(.03, .12 - sw, .17, .36, o.pants);
+    R(-.38, -.2 - sw*.6, .14, .34, o.arm); R(.24, -.2 + sw*.6, .14, .34, o.arm);
+    R(-.24, -.22, .48, .38, o.shirt);
+    R(-.16, -.5, .32, .28, o.skin);
+    R(-.09, -.4, .05, .05, o.eye || '#111'); R(.04, -.4, .05, .05, o.eye || '#111');
+    if (o.hat) R(-.19, -.55, .38, .12, o.hat);
+  };
+  const Y = '#f5cd30';  // classic blocky yellow skin
+  switch (k) {
+    case 'soldier':
+      human({shirt:'#4b5d3a', pants:'#33392b', skin:Y, arm:'#4b5d3a', hat:'#2f3b27'});
+      R(-.24, -.12, .48, .05, '#2f3b27'); R(.3, -.04, .34, .07, '#1b1f23'); break;
+    case 'runner':
+      human({shirt:'#e5534b', pants:'#1b1f23', skin:Y, arm:Y, hat:'#b62324'});
+      R(-.19, -.47, .38, .04, '#fff'); break;
+    case 'shadow':
+      human({shirt:'#1c1530', pants:'#120d20', skin:'#2b2140', arm:'#1c1530', hat:'#120d20', eye:'#e0aaff'});
+      R(-.04, -.22, .08, .38, '#3b2a5c'); break;
+    case 'medic':
+      human({shirt:'#e6edf3', pants:'#6e7681', skin:Y, arm:'#e6edf3', hat:'#e6edf3'});
+      R(-.04, -.17, .08, .26, '#e5534b'); R(-.13, -.08, .26, .08, '#e5534b'); R(-.03, -.55, .06, .12, '#e5534b'); break;
+    case 'jugg':
+      human({shirt:'#6e7681', pants:'#484f58', skin:'#8b949e', arm:'#6e7681', hat:'#484f58'});
+      R(-.16, -.42, .32, .07, '#ff4040'); R(-.3, -.26, .6, .1, '#8b949e'); R(-.42, -.24, .18, .14, '#8b949e'); R(.24, -.24, .18, .14, '#8b949e'); break;
+    case 'shield':
+      R(-.18, .1 + sw, .14, .38, '#484f58'); R(.04, .1 - sw, .14, .38, '#484f58');
+      R(-.36, -.2 - sw*.5, .1, .3, '#6e7681'); R(.26, -.2 + sw*.5, .1, .3, '#6e7681');
+      R(-.28, -.24, .56, .38, '#8b949e'); R(-.18, -.14, .36, .06, '#3ee6ff');
+      R(-.2, -.56, .4, .3, '#6e7681'); R(-.13, -.46, .26, .08, '#3ee6ff');
+      R(-.02, -.7, .04, .14, '#6e7681'); R(-.05, -.75, .1, .06, '#3ee6ff'); break;
+    case 'drone': {
+      c.strokeStyle = '#484f58'; c.lineWidth = s*.06;
+      for (const [dx, dy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
+        c.beginPath(); c.moveTo(0, 0); c.lineTo(dx*s*.32, dy*s*.22); c.stroke();
+        c.fillStyle = 'rgba(200,210,220,.6)'; c.beginPath();
+        c.ellipse(dx*s*.32, dy*s*.22, s*.2*Math.abs(Math.cos(ph*3 + dx)) + 1, s*.05, 0, 0, 7); c.fill();
+      }
+      c.fillStyle = '#e6edf3'; c.beginPath(); c.arc(0, 0, s*.2, 0, 7); c.fill();
+      c.fillStyle = '#111';
+      c.beginPath(); c.arc(-s*.07, -s*.02, s*.055, 0, 7); c.fill();
+      c.beginPath(); c.arc(s*.07, -s*.02, s*.055, 0, 7); c.fill();
+      R(-.07, .08, .14, .04, '#111'); R(-.02, .08, .02, .07, '#e6edf3'); R(.02, .08, .02, .07, '#e6edf3');
+      break;
+    }
+    case 'boss':
+      if (fury) { c.fillStyle = 'rgba(255,60,40,.3)'; c.beginPath(); c.arc(0, 0, s*.72, 0, 7); c.fill(); }
+      R(-.32, .1 + sw*.5, .2, .42, '#30363d'); R(.12, .1 - sw*.5, .2, .42, '#30363d');
+      R(-.4, .44, .3, .08, '#21262d'); R(.1, .44, .3, .08, '#21262d');
+      R(-.38, -.3, .76, .44, '#5a2a2a'); R(-.34, -.26, .68, .06, '#7d3a3a'); R(-.38, .06, .76, .08, '#3d1f1f');
+      c.fillStyle = fury ? '#ff3b30' : '#ff9a3c'; c.beginPath(); c.arc(0, -.08*s, .1*s, 0, 7); c.fill();
+      R(-.64, -.24, .26, .13, '#30363d'); R(.38, -.24, .26, .13, '#30363d');
+      R(-.7, -.26, .08, .17, '#111'); R(.62, -.26, .08, .17, '#111');
+      R(-.16, -.52, .32, .22, '#3d1f1f'); R(-.12, -.45, .24, .06, fury ? '#ff3b30' : '#ffb000');
+      break;
+  }
+  c.restore();
 }
 function ring(x, y, r, stroke, fill) {
   ctx.beginPath(); ctx.arc(x*TS, y*TS, r*TS, 0, 7);
@@ -544,25 +658,33 @@ function draw(v) {
   ctx.strokeStyle = 'rgba(255,230,180,.12)'; ctx.lineWidth = TS*.08; ctx.setLineDash([TS*.2, TS*.2]);
   ctx.beginPath(); WAY.forEach(([x,y], i) => i ? ctx.lineTo(x*TS, y*TS) : ctx.moveTo(x*TS, y*TS)); ctx.stroke(); ctx.setLineDash([]);
   ctx.font = `${TS*.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('👾', .5*TS, 1.5*TS); ctx.fillText('🏰', 14.5*TS, 7.5*TS);
+  ctx.fillText('🌀', .5*TS, 1.5*TS); ctx.fillText('🏰', 14.5*TS, 7.5*TS);
   if (!v) return;
 
-  for (const t of v.tw) drawTower(t.x, t.y, t.spec);
+  for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun);
   const sel = v.tw.find(t => t.id === selTower);
   if (sel) ring(sel.x+.5, sel.y+.5, sel.range, 'rgba(88,166,255,.9)', 'rgba(88,166,255,.08)');
 
-  for (const [, k, x, y, hp, m, slow] of v.em) {
-    const E = ENEMIES[k], r = E.r*TS;
-    ctx.beginPath(); ctx.arc(x*TS, y*TS, r, 0, 7);
-    ctx.fillStyle = E.col + '55'; ctx.fill();
-    if (E.armor) { ctx.lineWidth = 3; ctx.strokeStyle = '#8b949e'; ctx.stroke(); }
-    if (E.heal) ring(x, y, 1.6, 'rgba(86,212,221,.25)');
-    ctx.font = `${r*1.6}px sans-serif`; ctx.fillText(E.em, x*TS, y*TS + r*.08);
-    if (slow) ring(x, y, E.r + .06, '#a5d6ff');
-    if (hp < m) {
-      const bw = Math.max(TS*.4, r*2), bx = x*TS - bw/2, by = y*TS - r - 7;
+  const now = performance.now();
+  const ems = v.em.slice().sort((a, b) => (ENEMIES[a[1]].fly ? 1 : 0) - (ENEMIES[b[1]].fly ? 1 : 0));
+  for (const [id, k, x, y, hp, m, slow, sh, shm, fury] of ems) {
+    const E = ENEMIES[k], s = E.r*2.3*TS, px = x*TS, py = y*TS;
+    if (E.heal) ring(x, y, 1.6, 'rgba(63,185,80,.25)');
+    if (E.fly) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(px, py + s*.5, s*.32, s*.1, 0, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = E.stealth ? .4 + .15*Math.sin(now/200 + id) : 1;
+    drawUnit(ctx, k, px, E.fly ? py - s*.2 : py, s, now/1000*E.spd*7 + id, fury);
+    ctx.globalAlpha = 1;
+    if (sh > 0) {
+      ctx.beginPath(); ctx.arc(px, py, s*.62, 0, 7);
+      ctx.fillStyle = `rgba(62,230,255,${.06 + .12*sh/shm})`; ctx.fill();
+      ctx.strokeStyle = `rgba(62,230,255,${.35 + .5*sh/shm})`; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (slow) ring(x, y, E.r + .1, '#a5d6ff');
+    if (hp < m || shm) {
+      const bw = Math.max(TS*.45, s*.8), bx = px - bw/2, by = py - s*.62 - 6;
       ctx.fillStyle = '#000a'; ctx.fillRect(bx, by, bw, 4);
       ctx.fillStyle = hp/m > .5 ? '#3fb950' : hp/m > .25 ? '#f2cc60' : '#ff7b72'; ctx.fillRect(bx, by, bw*hp/m, 4);
+      if (sh > 0) { ctx.fillStyle = '#3ee6ff'; ctx.fillRect(bx, by - 5, bw*sh/shm, 3); }
     }
   }
 
@@ -580,9 +702,12 @@ function draw(v) {
     if (k === 'pop') ring(x, y, .2 + p*.5, '#fff');
     if (k === 'build') ring(x, y, .3 + p*.6, '#3fb950');
     if (k === 'leak' || k === 'roar') ring(x, y, .3 + p*1.2, k === 'leak' ? '#ff7b72' : '#d2a8ff');
+    if (k === 'shieldbreak') ring(x, y, .3 + p*.6, '#3ee6ff');
+    if (k === 'fury') ring(x, y, .4 + p*1.5, '#ff3b30');
+    if (k === 'emp') { ring(x, y, 2.2*p, '#79c0ff', 'rgba(121,192,255,.12)'); }
     if (txt) {
       ctx.font = `bold ${TS*.4}px system-ui,sans-serif`;
-      ctx.fillStyle = k === 'leak' ? '#ff7b72' : '#f2cc60';
+      ctx.fillStyle = {leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff'}[k] || '#f2cc60';
       ctx.fillText(txt, x*TS, (y - .3 - p*.7)*TS);
     }
     ctx.globalAlpha = 1;
@@ -605,7 +730,7 @@ function guestView() {
   const pm = new Map(prevS.em.map(e => [e[0], e]));
   return {...curS, em: curS.em.map(e => {
     const p = pm.get(e[0]); if (!p) return e;
-    return [e[0], e[1], p[2] + (e[2]-p[2])*a, p[3] + (e[3]-p[3])*a, e[4], e[5], e[6]];
+    const n = e.slice(); n[2] = p[2] + (e[2]-p[2])*a; n[3] = p[3] + (e[3]-p[3])*a; return n;
   })};
 }
 
@@ -629,12 +754,12 @@ function hud(v) {
   let html = '';
   const dim = 'style="color:var(--muted)"';
   if (v.st === 'countdown') {
-    const tip = myRole === 'both' ? 'Towers: build now! Monsters: get ready…' : isDef() ? 'Tap a tower, then tap the grass. Build now!' : 'Tap a monster to send it. Get ready…';
+    const tip = myRole === 'both' ? 'Towers: build now! Enemies: get ready…' : isDef() ? 'Tap a tower, then tap the grass. Build now!' : 'Tap an enemy to send it. Get ready…';
     html = `<div class="big">${Math.max(1, Math.ceil(v.cd))}</div><div>${tip}</div>`;
   } else if (v.st === 'over') {
-    const who = v.w === 'def' ? '🛡 Towers win!' : '👾 Monsters win!';
+    const who = v.w === 'def' ? '🛡 Towers win!' : '👾 Enemies win!';
     const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:22px;font-weight:700">🎉 You win!</div>' : '<div style="color:var(--atk);font-size:18px;font-weight:700">You lose. Swap sides for revenge!</div>');
-    html = `<h2>${who}</h2>${me}<div ${dim}>${v.k} monsters popped · lasted ${fmt(v.t)}</div>
+    html = `<h2>${who}</h2>${me}<div ${dim}>${v.k} enemies popped · lasted ${fmt(v.t)}</div>
       <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center">
         ${mode === 'local' ? '' : '<button class="danger" id="btnSwap">🔁 Swap sides</button>'}
         <button class="primary" id="btnAgain">Play again</button><button id="btnMenu">Menu</button></div>`;
@@ -678,6 +803,9 @@ const SFX = {
   leak:   () => tone(220, 70, .35, 'sawtooth', .08),
   build:  () => { tone(300, 450, .08, 'triangle', .1); tone(450, 700, .08, 'triangle', .08, .08); },
   roar:   () => tone(110, 45, .8, 'sawtooth', .1),
+  shieldbreak: () => tone(1400, 300, .2, 'square', .05),
+  fury:   () => { tone(120, 420, .5, 'sawtooth', .1); tone(90, 300, .6, 'square', .05, .1); },
+  emp:    () => tone(60, 1800, .35, 'sine', .08),
   win:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, .18, 'triangle', .1, i*.13)),
   lose:   () => [392, 330, 262, 196].forEach((f, i) => tone(f, f*.98, .22, 'triangle', .1, i*.16)),
 };
@@ -750,7 +878,7 @@ function applyRoleUI() {
   $('#defPanel').hidden = !isDef(); $('#atkPanel').hidden = !isAtk();
   $('#pGold').hidden = !isDef(); $('#pEnergy').hidden = !isAtk();
   $('#panels').classList.toggle('both', myRole === 'both');
-  $('#hRole').textContent = {def:'You build 🛡 towers', atk:'You send 👾 monsters', both:'Two players, one phone'}[myRole];
+  $('#hRole').textContent = {def:'You build 🛡 towers', atk:'You send 👾 enemies', both:'Two players, one phone'}[myRole];
   renderDesigns(); renderEnemies();
 }
 function startGame() {
@@ -775,8 +903,8 @@ const isOnline = () => /^https?:$/.test(location.protocol);
 async function sendInvite() {
   const url = inviteUrl();
   const text = myRole === 'def'
-    ? "Let's play Tower Defence! I'm building towers 🛡 — you send the monsters 👾 Tap to play:"
-    : "Let's play Tower Defence! I'm sending monsters 👾 — you build the towers 🛡 Tap to play:";
+    ? "Let's play Tower Defence! I'm building towers 🛡 — you send the enemies 👾 Tap to play:"
+    : "Let's play Tower Defence! I'm sending enemies 👾 — you build the towers 🛡 Tap to play:";
   if (navigator.share) {
     try { await navigator.share({title:'Tower Defence', text, url}); return; }
     catch (e) { if (e.name === 'AbortError') return; }
