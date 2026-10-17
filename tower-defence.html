@@ -1073,6 +1073,36 @@ function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
       c.moveTo(.0, -.39*s); c.lineTo(.015*s, -.42*s); c.lineTo(-.005*s, -.45*s);
       c.moveTo(.07*s, -.39*s); c.lineTo(.05*s, -.42*s); c.lineTo(.065*s, -.45*s); c.stroke(); });
   };
+  // Eradicator MK II: a hunched olive siege walker with four multi-barrel rocket pods, a missile box on its back,
+  // a small angled head with one red eye.
+  const mk2 = () => {
+    const OL = '#5a6e3a', OD = '#3e4d29', OLL = '#7d9450', ST = '#3a3d44', STL = '#5c616b', BK = '#1c1e22';
+    const glow = (col, blur, f) => { c.shadowColor = col; c.shadowBlur = s*blur; f(); c.shadowBlur = 0; };
+    const poly = (cx, cy, r, n, rot, col, stroke) => { c.beginPath(); for (let i = 0; i < n; i++) { const a = rot + i*2*Math.PI/n; c.lineTo((cx + Math.cos(a)*r)*s, (cy + Math.sin(a)*r)*s); } c.closePath();
+      if (stroke) { c.strokeStyle = col; c.lineWidth = s*.014; c.stroke(); } else { c.fillStyle = col; c.fill(); } };
+    const pod = (cx, cy, r) => { poly(cx, cy, r, 8, Math.PI/8, BK); poly(cx, cy, r*.9, 8, Math.PI/8, '#2b2e33', true);
+      for (let i = 0; i < 6; i++) { const a = ph*.4 + i*Math.PI/3, hx = cx + Math.cos(a)*r*.58, hy = cy + Math.sin(a)*r*.58; poly(hx, hy, r*.24, 6, 0, '#08090b'); poly(hx, hy, r*.24, 6, 0, '#9aa0a8', true); } };
+    if (fury) { c.fillStyle = 'rgba(255,60,40,.3)'; c.beginPath(); c.arc(0, 0, s*.8, 0, 7); c.fill(); }
+    // missile box on the back, poking up behind the head, and a tube cluster / warning light on the shoulders
+    R(-.15, -.74, .24, .3, STL); c.fillStyle = '#2b2e33'; c.fillRect(-.035*s, -.74*s, .012*s, .3*s); c.fillRect(-.15*s, -.6*s, .24*s, .012*s);
+    for (const tx of [-.36, -.3, -.24]) { R(tx, -.58, .05, .08, BK); R(tx + .01, -.585, .03, .02, STL); }
+    glow('#ff2a1a', .1, () => R(.24, -.58, .07, .05, '#ff4a3a'));
+    // stubby armoured legs and big feet
+    for (const [lx, b] of [[-.25, sw*.4], [.05, -sw*.4]]) { R(lx, .14 + b, .2, .18, ST); R(lx - .01, .26 + b, .22, .16, OL); R(lx + .02, .28 + b, .16, .04, OLL); R(lx - .04, .41 + b, .28, .08, BK); }
+    R(-.22, .02, .44, .15, ST); R(.04, .05, .13, .08, '#1b1d21');
+    if (s > 40) { c.fillStyle = '#d8dde6'; c.font = `bold ${Math.round(s*.06)}px monospace`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('02', .105*s, .09*s); }
+    // body: steel chest between striped olive flanks and two tall shoulder blocks
+    R(-.18, -.36, .36, .4, ST); R(-.08, -.22, .16, .2, STL); for (const gy of [-.18, -.13, -.08]) R(-.06, gy, .12, .015, '#2b2e33');
+    for (const d of [-1, 1]) { const x0 = d < 0 ? -.4 : .2; R(x0, -.14, .2, .26, OL); R(x0 + .04, -.12, .04, .22, OLL); R(x0 + .12, -.12, .04, .22, OD); }
+    for (const d of [-1, 1]) { const x0 = d < 0 ? -.44 : .18; R(x0, -.54, .26, .4, OL); R(x0 + .04, -.48, .18, .24, OD); R(x0, -.54, .26, .04, OLL); }
+    if (fury) glow('#ff3b1f', .1, () => { c.strokeStyle = '#ff5a2a'; c.lineWidth = s*.02; c.beginPath(); c.moveTo(-.12*s, -.3*s); c.lineTo(-.04*s, -.2*s); c.lineTo(-.1*s, -.08*s); c.moveTo(.12*s, -.28*s); c.lineTo(.05*s, -.14*s); c.stroke(); });
+    // arms: black limbs carrying a rocket pod at the shoulder and another on the forearm
+    for (const d of [-1, 1]) { R(d < 0 ? -.62 : .5, -.26, .12, .4, BK); pod(d*.58, -.34, .16); pod(d*.6, .14, .15); }
+    // small angled head sunk between the shoulders: green crest light, one red eye
+    poly(0, -.38, .12, 6, Math.PI/6, '#2e3138'); poly(.0, -.34, .08, 6, Math.PI/6, '#474c55');
+    glow('#8dff4a', .1, () => R(-.08, -.5, .16, .03, '#8dff4a'));
+    glow('#ff2a1a', .16, () => { c.fillStyle = '#ff3b2a'; c.beginPath(); c.arc(-.06*s, -.4*s, .045*s, 0, 7); c.fill(); });
+  };
   switch (k) {
     case 'zombie':  zomb({shirt:'#3d6fb6', pants:'#5b4636', skin:G, tear:1}); break;
     case 'speedy':  zomb({shirt:'#e5534b', pants:'#1b1f23', skin:'#8fc26a', tear:1}); R(-.19, -.47, .38, .04, '#fff'); break;
@@ -1123,7 +1153,7 @@ function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
       c.fillStyle = '#d2a8ff'; c.beginPath(); c.arc(0, -.05*s, .09*s, 0, 7); c.fill();
       R(-.25, .35 + sw, .12, .12, '#1a0d2b'); R(.13, .35 - sw, .12, .12, '#1a0d2b');
       break;
-    case 'erad2': mech({main:'#17191e', dark:'#0b0c0f', plate:'#2e323b', accent:'#ffc23a', brass:'#d4a537', twin:true}); break;
+    case 'erad2': mk2(); break;
   }
   c.restore();
 }
@@ -1463,7 +1493,62 @@ function mechTpl(o) {
   const reactor = new T.Group(); reactor.name = 'reactor'; torso.add(reactor);
   for (const z of [-.08, .08]) { cyl(.05, .1, black, -.24, .17, z, torso); const f = new T.Mesh(new T.CircleGeometry(.04, 12), accent); f.position.set(-.24, .115, z); f.rotation.x = Math.PI/2; reactor.add(f); }
   const rage = new T.Sprite(new T.SpriteMaterial({map:G3.dot, color:0xff3b30, transparent:true, blending:T.AdditiveBlending, depthWrite:false})); rage.scale.set(2.2, 2.2, 1); rage.position.y = .6; rage.visible = false; rage.name = 'rage'; g.add(rage);
-  g.userData = {mech:true, coreCol:o.lava}; return g;
+  g.userData = {mech:true, coreCol:o.lava, flame:'#ff7a1a'}; return g;
+}
+// Eradicator MK II: a hunched olive-green siege walker. Four spinning multi-barrel rocket pods (shoulders and forearms),
+// a missile box on its back, a small angled head sunk between the shoulders with one red eye. Same named parts as mechTpl
+// (hip±1, knee±1, torso, gun±1/gun±2, reactor, core, rage) so the walk animation drives it.
+function mk2Tpl() {
+  const T = THREE, g = new T.Group(), L = c => new T.MeshLambertMaterial({color:c});
+  const olive = L('#5a6e3a'), oliveD = L('#3e4d29'), oliveL = L('#7d9450'), steel = L('#3a3d44'), steelL = L('#5c616b'), black = L('#1c1e22'), hole = new T.MeshBasicMaterial({color:0x050506});
+  const red = new T.MeshBasicMaterial({color:0xff2a1a}), green = new T.MeshBasicMaterial({color:0x8dff4a}), amber = new T.MeshBasicMaterial({color:0xffb03a});
+  const box = (w, h, d, m, x, y, z, parent, rx = 0, ry = 0, rz = 0) => { const b = new T.Mesh(new T.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.rotation.set(rx, ry, rz); b.castShadow = true; parent.add(b); return b; };
+  const cyl = (r, h, m, x, y, z, parent, seg = 12) => { const c = new T.Mesh(new T.CylinderGeometry(r, r, h, seg), m); c.position.set(x, y, z); c.rotation.z = Math.PI/2; c.castShadow = true; parent.add(c); return c; };
+  const face = (geo, m, x, y, z, parent) => { const f = new T.Mesh(geo, m); f.position.set(x, y, z); f.rotation.y = Math.PI/2; parent.add(f); return f; };
+  const label = (txt, w, h, x, y, z, parent) => { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const x2 = cv.getContext('2d');
+    x2.fillStyle = '#1b1d21'; x2.fillRect(0, 0, 128, 64); x2.fillStyle = '#d8dde6'; x2.font = 'bold 40px monospace'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText(txt, 64, 34);
+    const tx = new T.CanvasTexture(cv); tx.encoding = T.sRGBEncoding; face(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({map:tx}), x, y, z, parent); };
+  // stubby armoured legs and big flat feet
+  for (const side of [-1, 1]) {
+    const hip = new T.Group(); hip.position.set(0, .42, side*.17); hip.name = 'hip' + side; g.add(hip);
+    box(.22, .2, .2, steel, 0, -.1, 0, hip); box(.03, .14, .16, oliveL, .12, -.1, 0, hip);
+    const knee = new T.Group(); knee.position.y = -.2; knee.name = 'knee' + side; hip.add(knee);
+    box(.24, .17, .23, olive, .02, -.07, 0, knee); box(.03, .12, .03, oliveL, .15, -.07, -.05, knee); box(.03, .12, .03, oliveD, .15, -.07, .05, knee);
+    box(.36, .07, .27, black, .05, -.185, 0, knee); box(.1, .05, .25, steelL, .2, -.17, 0, knee);
+  }
+  box(.3, .16, .5, steel, 0, .45, 0, g); label('02', .12, .06, .152, .45, .12, g);   // hip block with its unit number
+  const torso = new T.Group(); torso.position.y = .52; torso.name = 'torso'; g.add(torso);
+  // steel chest with a grille, striped olive flanks, two tall shoulder blocks
+  box(.32, .34, .38, steel, 0, .2, 0, torso); box(.03, .16, .14, steelL, .17, .16, 0, torso);
+  for (const y of [.12, .16, .2]) box(.01, .012, .11, black, .187, y, 0, torso);
+  label('CM 02', .12, .05, .162, .3, -.13, torso);
+  for (const sd of [-1, 1]) { box(.3, .22, .14, olive, 0, .1, sd*.26, torso); for (const dz of [-.035, .035]) box(.01, .2, .03, dz*sd > 0 ? oliveD : oliveL, .155, .1, sd*.26 + dz, torso);
+    box(.34, .3, .22, olive, -.02, .42, sd*.3, torso); box(.02, .18, .15, oliveD, .155, .42, sd*.3, torso); box(.35, .03, .23, oliveL, -.02, .58, sd*.3, torso); }
+  // missile box on the back with a gridded face and launch hatches; a tube cluster and a warning light on the shoulders
+  box(.22, .3, .28, steelL, -.17, .62, -.04, torso);
+  box(.01, .3, .012, black, -.055, .62, -.04, torso); box(.01, .012, .28, black, -.055, .62, -.04, torso);
+  for (const [dx, dz] of [[-.21, -.1], [-.21, .02], [-.13, -.1], [-.13, .02]]) box(.06, .01, .08, hole, dx, .775, dz, torso);
+  for (const z of [-.25, -.31, -.37]) { cyl(.025, .1, black, .02, .63, z, torso, 8); face(new T.CircleGeometry(.018, 8), hole, .071, .63, z, torso); }
+  const warn = new T.Mesh(new T.CylinderGeometry(.03, .03, .04, 10), red); warn.position.set(.04, .62, .34); torso.add(warn);
+  // small angled head sunk between the shoulders: green crest light and a single red eye (the eye is the core that flares in a rage)
+  box(.18, .15, .17, steel, .1, .4, 0, torso);
+  for (const sd of [-1, 1]) box(.03, .12, .1, steelL, .2, .41, sd*.04, torso, 0, sd*.55);
+  box(.08, .06, .1, steelL, .16, .31, 0, torso);
+  box(.12, .022, .15, green, .09, .485, 0, torso);
+  const core = face(new T.CircleGeometry(.04, 12), red, .225, .43, -.06, torso); core.name = 'core';
+  // exhausts on the back, under the missile box
+  const reactor = new T.Group(); reactor.name = 'reactor'; torso.add(reactor);
+  for (const z of [-.08, .08]) { cyl(.045, .06, black, -.18, .22, z, torso); const f = face(new T.CircleGeometry(.035, 12), amber, -.212, .22, z, reactor); f.rotation.y = -Math.PI/2; }
+  // arms: black limbs, each carrying an octagonal rocket pod at the shoulder and another on the forearm; pods spin like gatlings
+  const pod = (name, x, y, z, r) => {
+    const gun = new T.Group(); gun.position.set(x, y, z); gun.name = name; torso.add(gun);
+    cyl(r, .26, black, 0, 0, 0, gun, 8); cyl(r*1.06, .05, oliveD, -.1, 0, 0, gun, 8);
+    for (let i = 0; i < 6; i++) { const a = i*Math.PI/3, py = Math.cos(a)*r*.58, pz = Math.sin(a)*r*.58;
+      cyl(r*.24, .04, steelL, .14, py, pz, gun, 6); face(new T.CircleGeometry(r*.16, 6), hole, .161, py, pz, gun); }
+  };
+  for (const sd of [-1, 1]) { box(.12, .34, .12, black, .02, .25, sd*.44, torso); pod('gun' + sd*2, .06, .44, sd*.5, .14); pod('gun' + sd, .14, .08, sd*.46, .13); }
+  const rage = new T.Sprite(new T.SpriteMaterial({map:G3.dot, color:0xff3b30, transparent:true, blending:T.AdditiveBlending, depthWrite:false})); rage.scale.set(2.4, 2.4, 1); rage.position.y = .6; rage.visible = false; rage.name = 'rage'; g.add(rage);
+  g.userData = {mech:true, coreCol:0xff2a1a, flame:'#ffb03a'}; return g;
 }
 function voidTpl() {
   const T = THREE, g = new T.Group();
@@ -1501,7 +1586,7 @@ function enemyTpl(k) {
       const e = new T.Mesh(new T.SphereGeometry(.09, 10, 6), new T.MeshBasicMaterial({color:0xd2a8ff})); e.position.set(.28, .48, 0); g.add(e); g.userData = {}; return g; },
     bat: batTpl,
     erad: () => mechTpl({main:'#3b4150', dark:'#23262e', plate:'#5d6472', brass:'#b08a4a', accent:0xff7a1a, lava:0xff2a10, horn:.16}),
-    erad2: () => mechTpl({main:'#17191e', dark:'#0b0c0f', plate:'#2e323b', brass:'#d4a537', accent:0xffc23a, lava:0xff4020, horn:.26, twin:true}),
+    erad2: mk2Tpl,
     void: voidTpl,
   }[k] || (() => zombieTpl({shirt:'#555', pants:'#333', skin:G}));
   return (G3.enemyTpl[k] = t());
@@ -1514,7 +1599,7 @@ function makeEnemy(k) {
   const u = tpl.userData;
   if (u.mech) {
     const n = x => g.getObjectByName(x);
-    g.userData = {mech:true, legs:[n('hip-1'), n('hip1')], shins:[n('knee-1'), n('knee1')], torso:n('torso'), guns:[n('gun-1'), n('gun1')].filter(Boolean), reactor:n('reactor'), core:n('core'), rage:n('rage'), coreCol:u.coreCol};
+    g.userData = {mech:true, legs:[n('hip-1'), n('hip1')], shins:[n('knee-1'), n('knee1')], torso:n('torso'), guns:['gun-1', 'gun1', 'gun-2', 'gun2'].map(n).filter(Boolean), reactor:n('reactor'), core:n('core'), rage:n('rage'), coreCol:u.coreCol, flame:u.flame};
     g.userData.core.material = g.userData.core.material.clone();
   } else g.userData = {legs:u.legs && u.legs.map(pick), arms:u.arms && pick(u.arms), wings:u.wings && u.wings.map(pick), tent:u.tent && u.tent.map(pick), core:u.core && pick(u.core), rage:u.rage && pick(u.rage), coreCol:u.coreCol, float:u.float, fly:u.fly};
   if (g.userData.core && !u.mech) g.userData.core.material = g.userData.core.material.clone();
@@ -1626,7 +1711,7 @@ function render3D(v) {
       for (const gn of U.guns) gn.rotation.x += dt*(hold ? 30 : 2.5);
       U.reactor.scale.set(1 + .25*Math.sin(t*9), 1, 1 + .25*Math.sin(t*9));
       if (Math.random() < dt*(hold ? 4 : 14)) { const r = g.rotation.y, bx = x - Math.cos(r)*.3*vis, by = y + Math.sin(r)*.3*vis;   // jetpack flames
-        spawn3(bx, by, .72*vis, [(Math.random() - .5)*.3, -.8, (Math.random() - .5)*.3], .35, .12*vis, .04*vis, Math.random() < .5 ? '#ffb040' : U.coreCol === 0xff4020 ? '#ffc23a' : '#ff7a1a'); }
+        spawn3(bx, by, .72*vis, [(Math.random() - .5)*.3, -.8, (Math.random() - .5)*.3], .35, .12*vis, .04*vis, Math.random() < .5 ? '#ffb040' : U.flame); }
       let aim = 0;
       if (hold && v.tw.length) {
         const tw = v.tw.reduce((b, o) => Math.hypot(o.x+.5-x, o.y+.5-y) < Math.hypot(b.x+.5-x, b.y+.5-y) ? o : b);
