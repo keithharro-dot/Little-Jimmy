@@ -69,11 +69,12 @@ h2{margin:0 0 6px;font-size:20px}
 #banner .g{font:900 54px system-ui;color:var(--gold);text-shadow:0 4px 0 #000,0 0 24px #000}
 #banner img{width:96px;height:96px;border-radius:50%;border:5px solid #fff;display:block;margin:8px auto}
 #banner .n{font:800 20px system-ui;text-shadow:0 2px 6px #000}
+#banner .boss{display:flex;flex-direction:column;gap:6px;font:900 24px system-ui;text-shadow:0 3px 0 #000;animation:pop .5s .3s both}#banner .boss .b0{color:#93c5fd}#banner .boss .b1{color:#fca5a5}#banner .boss .vs{font-size:18px;color:var(--gold)}
 #banner .pu{margin:14px auto 0;max-width:300px;border-radius:16px;padding:10px 12px;background:#000c;border:3px solid;animation:pop .5s .8s both}
 #banner .pu.t0{border-color:#3b82f6}#banner .pu.t1{border-color:#ef4444}
 #banner .pu1{font:800 15px system-ui;color:var(--gold)}#banner .pu2{font:900 26px system-ui;margin:4px 0}#banner .pu3{font:600 14px system-ui;opacity:.85}
 @keyframes pop{from{transform:scale(.3);opacity:0}70%{transform:scale(1.12)}to{transform:scale(1);opacity:1}}
-#pw{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 46px);display:flex;justify-content:space-between;padding:0 10px;pointer-events:none;font-size:16px;letter-spacing:1px}
+#pw{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 46px);display:flex;justify-content:space-between;padding:0 10px;pointer-events:none;font-size:13px}
 #pwb,#pwr{background:#0008;border-radius:10px;padding:0 4px}#pwb:empty,#pwr:empty{display:none}#pwr{margin-left:auto}
 #endbox{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:420px;margin:0 auto;text-align:center}
 </style>
@@ -108,11 +109,10 @@ h2{margin:0 0 6px;font-size:20px}
     <div class="small" id="joinInfo"></div>
     <button id="joinCancel">Cancel</button>
   </div>
-  </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
     <p class="small">Drag your players (the ones with a glow) with your finger. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
-    <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, tennis rackets, a ball cannon, magnet boots, a freeze ray, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
+    <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
   </details>
 </div>
 
@@ -120,7 +120,9 @@ h2{margin:0 0 6px;font-size:20px}
   <h2>Your player</h2>
   <div class="center" style="margin:10px 0 14px"><img class="face xl" id="profFace" alt="Your face"></div>
   <div class="stack">
-    <input id="name" maxlength="12" placeholder="Your name">
+    <input id="name" maxlength="16" placeholder="Your name or nickname">
+    <div class="row" style="align-items:center"><input id="bossName" maxlength="28" placeholder="Your boss name" style="flex:1"><button id="bossDice" style="flex:none" aria-label="Random boss name">🎲</button></div>
+    <div class="small" style="margin-top:-6px">Your name when you turn into a giant in the boss round.</div>
     <div class="row">
       <button id="pickMe">📷 Change face</button>
     </div>
@@ -168,7 +170,7 @@ h2{margin:0 0 6px;font-size:20px}
   </div>
   <div class="card stack" style="margin-top:12px">
     <div class="row" style="align-items:center"><b>Players <span id="pCount"></span></b><span class="small" style="text-align:right" id="sizeInfo"></span></div>
-    <div class="small">Tap a team badge to switch teams.</div>
+    <div class="small" id="lobbyHint">Tap a team badge to switch teams.</div>
     <div class="plist" id="plist"></div>
   </div>
   <div class="card stack" style="margin-top:12px" id="settingsBox">
@@ -247,17 +249,26 @@ function buildWidgets(players, size) {
 // Every goal powers up the team that let it in. Powers stack, so the match escalates into total chaos.
 const POWERS = [
   {id:'turbo',  icon:'👟', name:'Turbo boots',        desc:'Your players run faster'},
+  {id:'banana', icon:'🍌', name:'Banana peels',       desc:'You drop bananas — they slip on them'},
+  {id:'cannon', icon:'💣', name:'Human cannon',       desc:'Suck the ball in… then FIRE it at goal'},
   {id:'racket', icon:'🎾', name:'Tennis rackets',     desc:'Bigger players that smash the ball'},
-  {id:'cannon', icon:'💣', name:'Ball cannon',        desc:'Touch the ball to blast it at goal'},
-  {id:'magnet', icon:'🧲', name:'Magnet boots',       desc:'The ball sticks to your players'},
+  {id:'ghost',  icon:'👻', name:'Ghost curse',        desc:"Their players turn to ghosts and can't touch the ball"},
   {id:'freeze', icon:'❄️', name:'Freeze ray',         desc:"Zaps the other team so they can't move"},
+  {id:'magnet', icon:'🧲', name:'Magnet boots',       desc:'The ball sticks to your players'},
   {id:'wall',   icon:'🧱', name:'Brick wall',         desc:'A sliding wall guards your goal'},
   {id:'rocket', icon:'🚀', name:'Homing rocket ball', desc:'Your shots chase their goal'},
   {id:'nuke',   icon:'☢️', name:'Nuclear ball',       desc:'Your touch arms it… then KABOOM'},
 ];
+// Boss round: the last 45 seconds (or match point in "first to 5"). One player per team becomes a giant.
+const BOSS_NAMES = ['Eradicator the Dedicator', 'The Big Chad', 'Mega Mauler', 'Sir Smashalot', 'Captain Kaboom', 'The Unstoppable Gary',
+  'Lord Thunderboots', 'Goalzilla', 'The Destroyer of Nets', 'Big Bad Barry', 'Doctor Dribble', 'The Meatball', 'King Kongo', 'Turbo Tank'];
+const randomBoss = () => BOSS_NAMES[Math.floor(Math.random()*BOSS_NAMES.length)];
+const BOSS_SIZE = 2.2;
+const CANNON = [1.2, 5];     // [shot speed × normal max, seconds between shots]
 const PW = Object.fromEntries(POWERS.map((p, i) => [p.id, i]));
 const has = (lv, team, id) => !!lv && lv[team] > PW[id];
-const halfOf = (lv, w) => F.r*(w.role !== 'GK' && has(lv, w.team, 'racket') ? 1.35 : 1);   // half the width of a player's square (keepers stay normal)
+const halfOf = (lv, w) => F.r*(w.boss ? BOSS_SIZE : w.role !== 'GK' && has(lv, w.team, 'racket') ? 1.35 : 1);   // half the width of a player's square (keepers stay normal)
+const ghosted = (g, w) => g.ghost && g.ghost[w.team] > 0 && w.role !== 'GK';
 const wallX = (t, team) => 50 + Math.sin(t*1.3 + team*2)*F.goalW*.3;     // centre of a team's sliding brick wall
 const WALL_HW = () => F.goalW/5;
 // Where power shots aim: the side of the goal away from the keeper.
@@ -269,10 +280,8 @@ function addFx(g, f) { f.id = ++g.fxN; f.a = 0; g.fx.push(f); }
 function powerTouch(g, w) {
   const b = g.ball, T = w.team, cool = g.cool[T];
   if (b.home && b.home !== T + 1) b.home = 0;   // the other team knocks a rocket off course
-  if (has(g.lv, T, 'cannon') && !(cool.cannon > 0)) {
-    const dx = aimX(g, T) - b.x, dy = oppGoalY(T) - b.y, d = Math.hypot(dx, dy) || 1;
-    b.vx = dx/d*BALL_MAX*1.5; b.vy = dy/d*BALL_MAX*1.5; b.boost = .6; cool.cannon = 3;
-    addFx(g, {k:'boom', x:r1(b.x), y:r1(b.y)});
+  if (has(g.lv, T, 'cannon') && !(cool.cannon > 0) && w.role !== 'GK' && Math.abs(b.y - oppGoalY(T)) < 80) {   // slurp! in their half the ball goes inside the player
+    b.held = {w:w.id, t:.6}; b.vx = b.vy = 0; cool.cannon = CANNON[1]; addFx(g, {k:'suck', x:r1(w.x), y:r1(w.y)});
   }
   if (has(g.lv, T, 'rocket') && w.role !== 'GK' && !(cool.rocket > 0)) { b.home = T + 1; b.homeT = 1.5; b.homeX = aimX(g, T); cool.rocket = 2.5; }
   if (has(g.lv, T, 'nuke') && !b.nuke && !(cool.nuke > 0)) { b.nuke = {team:T, t:1.2}; cool.nuke = 8; }
@@ -282,13 +291,13 @@ function powerStep(g, dt) {
   const b = g.ball;
   for (const T of [0, 1]) {
     const cool = g.cool[T]; for (const k in cool) cool[k] -= dt;
-    if (has(g.lv, T, 'magnet')) for (const w of g.widgets) if (w.team === T && !(w.frz > 0)) {
+    if (has(g.lv, T, 'magnet') && Math.hypot(b.vx, b.vy) < 70 && Math.abs(b.y - ownGoalY(T)) > 35) for (const w of g.widgets) if (w.team === T && !(w.frz > 0)) {
       const dx = w.x - b.x, dy = w.y - b.y, d = Math.hypot(dx, dy);
       if (d < 24 && d > halfOf(g.lv, w) + F.ballR + .5) { b.vx += dx/d*160*dt; b.vy += dy/d*160*dt; }
     }
     if (has(g.lv, T, 'freeze') && !(cool.freeze > 0)) {   // zap the opponent nearest the ball
       const near = (list, x, y) => list.sort((a, c) => Math.hypot(a.x - x, a.y - y) - Math.hypot(c.x - x, c.y - y))[0];
-      const tgt = near(g.widgets.filter(w => w.team !== T && !(w.frz > 0)), b.x, b.y);
+      const tgt = near(g.widgets.filter(w => w.team !== T && !(w.frz > 0) && !w.boss), b.x, b.y);
       if (tgt) { const src = near(g.widgets.filter(w => w.team === T), tgt.x, tgt.y); tgt.frz = 1.6;
                  addFx(g, {k:'zap', x:r1(src.x), y:r1(src.y), x2:r1(tgt.x), y2:r1(tgt.y)}); }
       cool.freeze = 4;
@@ -303,6 +312,39 @@ function powerStep(g, dt) {
       }
     }
   }
+  if (b.held) {   // cannon: the ball rides inside the player, then shoots out
+    const w = g.widgets[b.held.w], T = w.team, k = Math.min(1, dt*18);
+    b.x += (w.x - b.x)*k; b.y += (w.y - b.y)*k; b.vx = b.vy = 0;
+    if ((b.held.t -= dt) <= 0) {
+      const dx = aimX(g, T) - w.x, dy = oppGoalY(T) - w.y, d = Math.hypot(dx, dy) || 1, h = halfOf(g.lv, w) + F.ballR + 1;
+      b.x = w.x + dx/d*h; b.y = w.y + dy/d*h; b.vx = dx/d*BALL_MAX*CANNON[0]; b.vy = dy/d*BALL_MAX*CANNON[0]; b.boost = .7; b.held = null; b.pierce = T + 1;
+      g.lastTouch = w.id; g.kicks++; addFx(g, {k:'boom', x:r1(b.x), y:r1(b.y)});
+    }
+  }
+  for (const T of [0, 1]) {
+    if (g.ghost[1 - T] > 0) g.ghost[1 - T] -= dt;
+    if (has(g.lv, T, 'ghost') && !(g.cool[T].ghost > 0)) {   // curse the other team: ghosts for 10 seconds
+      g.ghost[1 - T] = 10; g.cool[T].ghost = 40; addFx(g, {k:'ghost', x:50, y:80, team:1 - T});
+    }
+    if (has(g.lv, T, 'banana') && !(g.cool[T].banana > 0)) {   // drop a banana behind one of your players
+      const mine = g.widgets.filter(w => w.team === T && w.role !== 'GK');
+      if (g.bananas.filter(n => n.team === T).length < 4 && mine.length) {
+        const w = mine[Math.floor(Math.random()*mine.length)], back = T ? -12 : 12;
+        const x = clamp(w.x + (Math.random() - .5)*10, 10, 90), y = clamp(w.y + back, F.boxD + 6, 160 - F.boxD - 6);
+        g.bananas.push({x:r1(x), y:r1(y), team:T});
+      }
+      g.cool[T].banana = 5;
+    }
+  }
+  g.bananas = g.bananas.filter(n => {   // anyone from the other team who steps on one goes flying
+    const w = g.widgets.find(w => w.team !== n.team && w.role !== 'GK' && !w.boss && !ghosted(g, w) &&
+                                   Math.abs(w.x - n.x) < halfOf(g.lv, w) + 2 && Math.abs(w.y - n.y) < halfOf(g.lv, w) + 2);
+    if (!w) return true;
+    const a = Math.random()*Math.PI*2; w.kx = Math.cos(a)*110; w.ky = Math.sin(a)*110; w.frz = 1.3; w.slip = 1.3;
+    if (b.held && b.held.w === w.id) b.held.t = 0;
+    addFx(g, {k:'slip', x:n.x, y:n.y}); return false;
+  });
+  for (const w of g.widgets) if (w.slip > 0) w.slip -= dt;
   if (b.home) {   // homing rocket: steer towards the goal
     b.homeT -= dt;
     if (b.homeT <= 0) b.home = 0;
@@ -313,7 +355,7 @@ function powerStep(g, dt) {
     const T = b.nuke.team; b.nuke = null;
     for (const w of g.widgets) if (w.team !== T) {
       const dx = w.x - b.x, dy = w.y - b.y, d = Math.hypot(dx, dy) || 1;
-      if (d < 45) { const f = 260*(1 - d/45) + 60; w.kx = dx/d*f; w.ky = dy/d*f; w.frz = 1.4; }
+      if (d < 45) { const f = (260*(1 - d/45) + 60)*(w.boss ? .4 : 1); w.kx = dx/d*f; w.ky = dy/d*f; if (!w.boss) w.frz = 1.4; }
     }
     const dx = aimX(g, T) - b.x, dy = oppGoalY(T) - b.y, d = Math.hypot(dx, dy) || 1;
     b.vx = dx/d*BALL_MAX*1.3; b.vy = dy/d*BALL_MAX*1.3; b.boost = .5;
@@ -323,26 +365,39 @@ function powerStep(g, dt) {
   g.fx = g.fx.filter(f => (f.a += dt) < 1.2);
 }
 
+function startBoss(g) {
+  g.boss = [];
+  for (const T of [0, 1]) {
+    const field = g.widgets.filter(w => w.team === T && w.role !== 'GK');
+    const people = g.players.filter(p => p.team === T).sort((a, c) => (g.goals[c.pid] || 0) - (g.goals[a.pid] || 0));
+    const w = (people.length && field.find(w => w.ctl === people[0].pid)) || field.find(w => w.ctl) || field[field.length - 1];
+    const owner = g.players.find(p => p.pid === w.ctl);
+    w.boss = true; w.frz = w.slip = 0;
+    g.boss.push([w.id, String((owner && owner.boss) || randomBoss()).slice(0, 28)]);
+  }
+  g.status = 'boss'; g.cd = 3.6;
+}
+
 /* ---------- Simulation (host / single phone only) ---------- */
 function newMatch(players, len) {
   const size = teamSize(players); F.goalW = goalWidth(size);
   const g = {players, size, widgets: buildWidgets(players, size), ball:{x:50, y:80, vx:0, vy:0},
              score:[0, 0], t:0, len, status:'kickoff', cd:2.2, kicks:0, lastTouch:null, scorer:null, epoch:(Math.random()*1e6)|0,
-             goals:{}, targets:{}, holder:{}, lv:CHAOS ? [0, 0] : null, pu:null, cool:[{}, {}], fx:[], fxN:0};
+             goals:{}, targets:{}, holder:{}, lv:CHAOS ? [0, 0] : null, pu:null, cool:[{}, {}], fx:[], fxN:0, ghost:[0, 0], bananas:[], boss:null};
   resetKickoff(g, null);
   return g;
 }
 function resetKickoff(g, concededBy) {
-  for (const w of g.widgets) { w.x = w.hx; w.y = w.hy; w.vx = w.vy = 0; w.frz = w.kx = w.ky = 0; }
-  g.ball = {x:50, y:80, vx:0, vy:0}; g.fx = []; g.pu = null;
+  for (const w of g.widgets) { w.x = w.hx; w.y = w.hy; w.vx = w.vy = 0; w.frz = w.kx = w.ky = w.slip = 0; }
+  g.ball = {x:50, y:80, vx:0, vy:0}; g.fx = []; g.pu = null; g.bananas = [];
   if (concededBy !== null) g.ball.y = concededBy === 0 ? 92 : 68;   // team that conceded gets the ball nudged their way
   g.status = 'kickoff'; g.cd = 2.2; g.targets = {}; g.lastTouch = null;
 }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ownGoalY = team => team ? 0 : 160, oppGoalY = team => team ? 160 : 0;
 
-function confine(w) {
-  const r = F.r, bx0 = 50 - F.boxW/2, bx1 = 50 + F.boxW/2;
+function confine(w, r = F.r) {
+  const bx0 = 50 - F.boxW/2, bx1 = 50 + F.boxW/2;
   w.x = clamp(w.x, r, 100 - r); w.y = clamp(w.y, r, 160 - r);
   if (w.role === 'GK') {   // keepers stay in their own box
     w.x = clamp(w.x, bx0 + r*.5, bx1 - r*.5);
@@ -385,6 +440,7 @@ function step(g, dt) {
     if (g.status !== 'play') return;
   }
   g.t += dt;
+  if (g.lv && !g.boss && (g.len ? g.len - g.t <= 45 : Math.max(...g.score) >= 4)) { startBoss(g); return; }
   const b = g.ball;
   // computer players: per team, the field player nearest the ball chases it
   const chasers = [0, 1].map(team => {
@@ -400,6 +456,7 @@ function step(g, dt) {
     if (w.ctl === null && !g.targets[w.id]) { [tx, ty, shoot] = aiTarget(g, w, w === chasers[w.team], w.team === attackTeam); vmax = shoot ? VMAX_AI*1.5 : w.role === 'GK' ? VMAX_AI*.72 : VMAX_AI; }
     else if (g.targets[w.id]) ({x:tx, y:ty} = g.targets[w.id]);
     if (has(g.lv, w.team, 'turbo')) vmax *= 1.35;
+    if (w.boss) vmax *= .85;
     if (w.frz > 0) { w.frz -= dt; tx = null; w.vx = w.vy = 0; }
     if (tx !== null) {
       let vx = (tx - w.x) / .06, vy = (ty - w.y) / .06; const sp = Math.hypot(vx, vy);
@@ -409,16 +466,18 @@ function step(g, dt) {
     const ox = w.x, oy = w.y;
     w.x += w.vx*dt; w.y += w.vy*dt;
     if (w.kx || w.ky) { w.x += w.kx*dt; w.y += w.ky*dt; const k = Math.exp(-3*dt); w.kx *= k; w.ky *= k; if (Math.abs(w.kx) + Math.abs(w.ky) < 2) w.kx = w.ky = 0; }
-    confine(w);
+    confine(w, halfOf(g.lv, w));
     w.vx = (w.x - ox)/dt; w.vy = (w.y - oy)/dt;
   }
   // players bump each other apart
   for (let i = 0; i < g.widgets.length; i++) for (let j = i + 1; j < g.widgets.length; j++) {
     // players are squares: push apart along whichever side overlaps least
-    const a = g.widgets[i], c = g.widgets[j], dx = c.x - a.x, dy = c.y - a.y, hs = halfOf(g.lv, a) + halfOf(g.lv, c), ox = hs - Math.abs(dx), oy = hs - Math.abs(dy);
+    const a = g.widgets[i], c = g.widgets[j];
+    if (ghosted(g, a) || ghosted(g, c) || a.slip > 0 || c.slip > 0) continue;   // ghosts and spinning players slide through everyone
+    const dx = c.x - a.x, dy = c.y - a.y, hs = halfOf(g.lv, a) + halfOf(g.lv, c), ox = hs - Math.abs(dx), oy = hs - Math.abs(dy);
     if (ox > 0 && oy > 0) {
       if (ox < oy) { const p = ox/2*(dx < 0 ? -1 : 1); a.x -= p; c.x += p; } else { const p = oy/2*(dy < 0 ? -1 : 1); a.y -= p; c.y += p; }
-      confine(a); confine(c);
+      confine(a, halfOf(g.lv, a)); confine(c, halfOf(g.lv, c));
     }
   }
   // ball: roll, slow down, bounce off players and walls
@@ -426,7 +485,9 @@ function step(g, dt) {
   const fr = Math.exp(-.75*dt); b.vx *= fr; b.vy *= fr;
   // players are square paddles, like Pong: flat sides bounce the ball straight back,
   // and the further from the middle of a side it hits, the more it angles off that way
-  for (const w of g.widgets) {
+  if (!b.held) for (const w of g.widgets) {
+    if (ghosted(g, w) || w.slip > 0) continue;   // ghosts and players spinning on a banana can't touch the ball
+    if (b.pierce && b.boost > 0 && w.team !== b.pierce - 1 && w.role !== 'GK' && !w.boss) continue;   // a cannonball blasts through defenders
     const h = halfOf(g.lv, w), px = clamp(b.x, w.x - h, w.x + h), py = clamp(b.y, w.y - h, w.y + h);
     let dx = b.x - px, dy = b.y - py, d = Math.hypot(dx, dy), nx, ny;
     if (d >= F.ballR) continue;
@@ -440,9 +501,12 @@ function step(g, dt) {
     const rvx = b.vx - w.vx, rvy = b.vy - w.vy, vn = rvx*nx + rvy*ny;
     if (vn < 0) {
       b.vx -= 1.7*vn*nx; b.vy -= 1.7*vn*ny; g.kicks++;
+      if (b.boost > 0) {   // a power shot that hits someone dies: no rocket-speed rebounds
+        b.boost = 0; b.pierce = 0; const sp = Math.hypot(b.vx, b.vy), cap = BALL_MAX*.55; if (sp > cap) { b.vx *= cap/sp; b.vy *= cap/sp; }
+      }
       const off = Math.abs(ny) > .9 ? (b.x - w.x)/h : Math.abs(nx) > .9 ? (b.y - w.y)/h : 0;   // -1..1 along the side
       if (Math.abs(ny) > .9) b.vx += off*Math.abs(vn)*.6; else if (Math.abs(nx) > .9) b.vy += off*Math.abs(vn)*.6;
-      if (has(g.lv, w.team, 'racket')) { b.vx *= 1.25; b.vy *= 1.25; }
+      if (w.boss) { b.vx *= 1.4; b.vy *= 1.4; b.boost = .3; } else if (has(g.lv, w.team, 'racket')) { b.vx *= 1.25; b.vy *= 1.25; }
       powerTouch(g, w);
     }
     g.lastTouch = w.id;
@@ -473,8 +537,10 @@ function step(g, dt) {
     g.lastConceded = 1 - scoringTeam;
     g.status = 'goal'; g.cd = 2.6;
     if (g.lv) {   // the team that let it in powers up
-      const L = g.lastConceded; if (g.lv[L] < POWERS.length) g.lv[L]++;
-      g.pu = {team:L, i:g.lv[L] - 1, max:g.lv[L] >= POWERS.length}; g.cd = 3.4;
+      // a team 2+ goals behind gets two powers at once, so it can claw back
+      const L = g.lastConceded, behind = g.score[1 - L] - g.score[L], from = g.lv[L];
+      g.lv[L] = Math.min(POWERS.length, g.lv[L] + (behind >= 2 ? 2 : 1));
+      g.pu = {team:L, i:g.lv[L] - 1, two:g.lv[L] - from === 2 ? from : null, max:g.lv[L] >= POWERS.length && from === POWERS.length}; g.cd = 3.4;
     }
     b.vx = b.vy = 0;
     if (g.len === 0 && g.score[scoringTeam] >= 5) { g.status = 'over'; }
@@ -487,10 +553,12 @@ function snap(g) {
   return {st:g.status, cd:r1(g.cd), t:r1(g.t), len:g.len, sc:g.score, b:[r1(g.ball.x), r1(g.ball.y)], k:g.kicks, ep:g.epoch,
           w:g.widgets.map(w => [r1(w.x), r1(w.y)]), sco:g.scorer, goals:g.goals,
           lv:g.lv, pu:g.pu, fz:g.widgets.filter(w => w.frz > 0).map(w => w.id), bv:[r1(g.ball.vx), r1(g.ball.vy)],
-          bn:g.ball.nuke ? 1 : 0, bh:g.ball.home || 0, fx:g.fx.map(f => ({...f, a:r1(f.a)}))};
+          bn:g.ball.nuke ? 1 : 0, bh:g.ball.home || 0, fx:g.fx.map(f => ({...f, a:r1(f.a)})),
+          hd:g.ball.held ? [g.ball.held.w, r1(g.ball.held.t)] : null, gh:g.ghost.map(v => v > 0 ? Math.ceil(v) : 0), na:g.bananas.map(n => [n.x, n.y]),
+          sl:g.widgets.filter(w => w.slip > 0).map(w => w.id), bs:g.boss};
 }
 // Static match info sent once at kick-off: who controls which player, and which face it wears.
-const matchInfo = g => ({size:g.size, len:g.len, players:g.players.map(p => ({pid:p.pid, name:p.name, team:p.team})),
+const matchInfo = g => ({size:g.size, len:g.len, players:g.players.map(p => ({pid:p.pid, name:p.name, team:p.team, boss:p.boss})),
                          widgets:g.widgets.map(w => ({id:w.id, team:w.team, role:w.role, ctl:w.ctl, grab:w.grab, face:w.face, num:w.num}))});
 // Move a player for pid: their own players, or their team's keeper (whoever grabbed it last has it).
 function applyInput(g, pid, wid, x, y, local) {
@@ -593,7 +661,7 @@ const SCREENS = ['#phoneOnly', '#menu', '#profile', '#picker', '#maker', '#lobby
 function show(id) { for (const s of SCREENS) $(s).hidden = s !== id; window.scrollTo(0, 0); }
 
 function renderProfile() {
-  $('#profFace').src = profile.faces[0]; $('#name').value = profile.name;
+  $('#profFace').src = profile.faces[0]; $('#name').value = profile.name; $('#bossName').value = profile.boss || '';
   const box = $('#friendFaces'); box.innerHTML = '';
   profile.faces.slice(1).forEach((url, i) => {
     const d = document.createElement('div'); d.className = 'faceslot';
@@ -609,7 +677,9 @@ function renderProfile() {
 }
 let afterProfile = null;
 function openProfile(then) { afterProfile = then || null; renderProfile(); show('#profile'); }
-$('#name').addEventListener('input', e => { profile.name = e.target.value.trim().slice(0, 12); saveProfile(); });
+$('#name').addEventListener('input', e => { profile.name = e.target.value.trim().slice(0, 16); saveProfile(); });
+$('#bossName').addEventListener('input', e => { profile.boss = e.target.value.trim().slice(0, 28); saveProfile(); });
+$('#bossDice').onclick = () => { profile.boss = randomBoss(); $('#bossName').value = profile.boss; saveProfile(); };
 $('#pickMe').onclick = () => openPicker(0);
 $('#editProfile').onclick = () => openProfile();
 $('#profDone').onclick = () => {
@@ -688,6 +758,10 @@ const SFX = {
   boom: () => { noise(.5, 300, .5); tone(120, 40, .4, 'sawtooth', .25); },
   zap: () => { tone(1800, 300, .35, 'sawtooth', .08); tone(2400, 600, .3, 'square', .04, .05); },
   nuke: () => { noise(2.5, 120, .8); noise(1.2, 600, .4); tone(90, 25, 2, 'sawtooth', .35); },
+  suck: () => { tone(200, 1400, .45, 'sawtooth', .1); noise(.45, 1800, .15); },
+  slip: () => { tone(900, 150, .5, 'triangle', .2); tone(1200, 200, .4, 'sine', .1, .1); },
+  ghost: () => { tone(500, 700, .9, 'sine', .12); tone(700, 450, .9, 'sine', .1, .5); tone(450, 300, 1, 'triangle', .08, 1); },
+  boss: () => { noise(2.2, 90, .7); tone(70, 40, 2.4, 'sawtooth', .35); tone(110, 55, 2, 'square', .12, .4); [196, 185, 175, 165].forEach((f, i) => tone(f, f, .5, 'sawtooth', .12, 1 + i*.45)); },
   power: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, f*1.01, .18, 'square', .06, .9 + i*.08)),
   end: () => { tone(2600, 2500, .25, 'sine', .12); tone(2600, 2500, .25, 'sine', .12, .32); tone(2600, 2300, .8, 'sine', .12, .64); },
 };
@@ -751,7 +825,16 @@ function drawPitch() {
 
 function drawWidget(wi, x, y, mine, holding) {
   const [sx, sy] = toScreen(x, y), r = halfOf(view && view.lv, wi)*sc, T = TEAMS[wi.team];
-  const frozen = view && view.fz && view.fz.includes(wi.id);
+  const frozen = view && view.fz && view.fz.includes(wi.id) && !(view.sl && view.sl.includes(wi.id));
+  const ghost = view && view.gh && view.gh[wi.team] > 0 && wi.role !== 'GK', slipping = view && view.sl && view.sl.includes(wi.id);
+  const charging = view && view.hd && view.hd[0] === wi.id;
+  ctx.save();
+  if (ghost) ctx.globalAlpha = .35 + .1*Math.sin(performance.now()/200);
+  if (slipping) { ctx.translate(sx, sy); ctx.rotate(performance.now()/70); ctx.translate(-sx, -sy); }
+  if (charging) {   // cannon charging: growing orange glow
+    const k = 1 - view.hd[1]/.6; ctx.fillStyle = `rgba(249,115,22,${.3 + .4*k})`;
+    ctx.beginPath(); ctx.arc(sx, sy, r*(1.4 + k*.8 + .1*Math.sin(performance.now()/30)), 0, 7); ctx.fill();
+  }
   const sq = (cx, cy, half, rad) => { ctx.beginPath(); ctx.moveTo(cx - half + rad, cy - half);
     ctx.arcTo(cx + half, cy - half, cx + half, cy + half, rad); ctx.arcTo(cx + half, cy + half, cx - half, cy + half, rad);
     ctx.arcTo(cx - half, cy + half, cx - half, cy - half, rad); ctx.arcTo(cx - half, cy - half, cx + half, cy - half, rad); ctx.closePath(); };
@@ -774,8 +857,22 @@ function drawWidget(wi, x, y, mine, holding) {
   if (wi.role === 'GK') { ctx.fillStyle = '#facc15'; ctx.font = `900 ${r*.5}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('GK', sx, sy + r*1.2); }
   if (mine && info) {
     const p = info.players.find(p => p.pid === wi.ctl);
-    if (p) { ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.max(10, r*.42)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.name, sx, sy - r*1.25); }
+    if (p && !wi.boss) { ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.max(10, r*.42)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.name, sx, sy - r*1.25); }
   }
+  if (wi.boss) {   // horns and the boss name
+    ctx.fillStyle = '#e5e7eb'; ctx.strokeStyle = '#111'; ctx.lineWidth = 2;
+    for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sx + d*r*.55, sy - r*.85); ctx.quadraticCurveTo(sx + d*r*1.15, sy - r*1.15, sx + d*r*1.05, sy - r*1.6); ctx.lineTo(sx + d*r*.3, sy - r*.9); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    const nm = (view.bs.find(b => b[0] === wi.id) || [])[1] || '';
+    ctx.font = `900 ${Math.max(13, F.r*sc*.62)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tx = clamp(sx, ctx.measureText(nm).width/2 + 4, innerWidth - ctx.measureText(nm).width/2 - 4), ty = sy + (sy < innerHeight/2 ? r*1.35 : -r*1.85);
+    ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(nm, tx, ty); ctx.fillStyle = T.col === '#3b82f6' ? '#93c5fd' : '#fca5a5'; ctx.fillText(nm, tx, ty);
+  }
+  if (ghost) { ctx.font = `${r*.8}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('👻', sx + r*.7, sy - r*.7); }
+  ctx.restore();
+}
+function drawBananas(v) {
+  ctx.font = `${7*sc}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const [x, y] of v.na || []) { const [sx, sy] = toScreen(x, y); ctx.fillText('🍌', sx, sy); }
 }
 function drawWalls(v) {
   for (const T of [0, 1]) if (has(v.lv, T, 'wall')) {
@@ -789,6 +886,7 @@ function drawWalls(v) {
 function drawFx(v) {
   for (const f of v.fx || []) {
     const [sx, sy] = toScreen(f.x, f.y), t = f.a/1.2;
+    if (f.k === 'ghost' && f.a > .9) continue;
     ctx.save(); ctx.globalAlpha = Math.max(0, 1 - t); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (f.k === 'boom') {
       ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.arc(sx, sy, (4 + t*14)*sc, 0, 7); ctx.fill();
@@ -799,6 +897,16 @@ function drawFx(v) {
       ctx.beginPath(); ctx.moveTo(sx, sy);
       for (let i = 1; i < 8; i++) ctx.lineTo(sx + (ex - sx)*i/8 + (Math.random() - .5)*12, sy + (ey - sy)*i/8 + (Math.random() - .5)*12);
       ctx.lineTo(ex, ey); ctx.stroke();
+    } else if (f.k === 'suck') {
+      ctx.strokeStyle = '#fdba74'; ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) { const a = i*Math.PI/4, r0 = (16 - t*14)*sc; ctx.beginPath(); ctx.moveTo(sx + Math.cos(a)*r0, sy + Math.sin(a)*r0); ctx.lineTo(sx + Math.cos(a)*r0*.6, sy + Math.sin(a)*r0*.6); ctx.stroke(); }
+      ctx.fillStyle = '#fff'; ctx.font = `900 ${6*sc}px system-ui`; ctx.fillText('SLURP!', clamp(sx, 16*sc, innerWidth - 16*sc), sy - 12*sc);
+    } else if (f.k === 'slip') {
+      ctx.fillStyle = '#fde047'; ctx.font = `900 ${6*sc}px system-ui`; ctx.fillText('WHOOPS!', clamp(sx, 18*sc, innerWidth - 18*sc), sy - (6 + t*8)*sc);
+    } else if (f.k === 'ghost') {
+      ctx.fillStyle = 'rgba(168,85,247,.35)'; ctx.fillRect(0, 0, innerWidth, innerHeight);
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.font = `900 ${9*sc}px system-ui`;
+      const txt = '👻 ' + TEAMS[f.team].name.toUpperCase() + ' ARE GHOSTS!'; ctx.strokeText(txt, innerWidth/2, innerHeight*.3); ctx.fillText(txt, innerWidth/2, innerHeight*.3);
     } else if (f.k === 'nuke') {
       const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, (6 + t*55)*sc);
       g.addColorStop(0, '#ffffff'); g.addColorStop(.3, '#fde047'); g.addColorStop(.6, '#f97316'); g.addColorStop(1, 'rgba(132,204,22,0)');
@@ -812,7 +920,7 @@ function drawFx(v) {
   if (nk) { ctx.fillStyle = `rgba(255,255,255,${.85*(1 - nk.a/.35)})`; ctx.fillRect(0, 0, innerWidth, innerHeight); }
 }
 function drawBall(x, y) {
-  const [sx, sy] = toScreen(x, y), r = F.ballR*sc;
+  const [sx, sy] = toScreen(x, y), r = F.ballR*sc*(view && view.hd ? Math.max(.35, view.hd[1]/.6) : 1);
   if (view && view.bh && view.bv) {   // rocket flame behind the ball
     const sp = Math.hypot(view.bv[0], view.bv[1]) || 1, dx = -view.bv[0]/sp*(flip ? -1 : 1), dy = -view.bv[1]/sp*(flip ? -1 : 1);
     for (let i = 4; i >= 1; i--) { ctx.fillStyle = i > 2 ? 'rgba(239,68,68,.5)' : 'rgba(250,204,21,.8)';
@@ -852,7 +960,8 @@ function frame() {
   ctx.save(); if (quake) ctx.translate((Math.random() - .5)*14*(1 - quake.a/.8), (Math.random() - .5)*14*(1 - quake.a/.8));
   drawPitch();
   if (view && info) {
-    drawWalls(view);
+    drawWalls(view); drawBananas(view);
+    info.widgets.forEach(wi => wi.boss = !!(view.bs && view.bs.some(b => b[0] === wi.id)));
     view.w.forEach(([x, y], i) => { const wi = info.widgets[i]; drawWidget(wi, x, y, isMine(wi), Object.values(holds).includes(i)); });
     drawBall(view.b[0], view.b[1]);
     drawFx(view);
@@ -868,6 +977,7 @@ function frame() {
       if (view.st === 'kickoff') SFX.whistle();
       if (view.st === 'goal') { SFX.goal(); if (view.pu) SFX.power(); }
       if (view.st === 'over') SFX.end();
+      if (view.st === 'boss') SFX.boss();
       lastSt = view.st;
     }
     showBanner(view);
@@ -883,7 +993,11 @@ function showBanner(v) {
     const who = v.sco.own ? 'Own goal!' : p ? p.name + ' scores!' : TEAMS[v.sco.team].name + ' scores!';
     html = `<div class="g">GOAL!</div>${img ? `<img src="${img}" alt="">` : ''}<div class="n">${esc(who)}</div>`;
     if (v.pu) { const P = POWERS[v.pu.i];
-      html += `<div class="pu t${v.pu.team}"><div class="pu1">⚡ ${TEAMS[v.pu.team].name} powers up!</div><div class="pu2">${P.icon} ${esc(P.name.toUpperCase())}</div><div class="pu3">${v.pu.max ? 'Fully loaded — TOTAL CHAOS!' : esc(P.desc)}</div></div>`; }
+      const Q = v.pu.two !== null && v.pu.two !== undefined ? POWERS[v.pu.two] : null;
+      html += `<div class="pu t${v.pu.team}"><div class="pu1">⚡ ${TEAMS[v.pu.team].name} ${Q ? 'DOUBLE powers up!' : 'powers up!'}</div>${Q ? `<div class="pu2">${Q.icon} ${esc(Q.name.toUpperCase())}</div>` : ''}<div class="pu2">${P.icon} ${esc(P.name.toUpperCase())}</div><div class="pu3">${v.pu.max ? 'Fully loaded — TOTAL CHAOS!' : Q ? 'Way behind? Catch up!' : esc(P.desc)}</div></div>`; }
+  } else if (v.st === 'boss' && v.bs) {
+    const nm = t => esc((v.bs[t] || [])[1] || '');
+    html = `<div class="g" style="font-size:40px;color:#f87171">⚠️ BOSS ROUND ⚠️</div><div class="boss"><span class="b0">${nm(0)}</span><span class="vs">VS</span><span class="b1">${nm(1)}</span></div>`;
   } else if (v.st === 'kickoff') html = `<div class="g" style="font-size:40px">${v.t < 1 ? 'Kick off!' : 'Ready…'}</div>`;
   if (html !== bannerShown) { bannerShown = html; $('#banner').innerHTML = html; $('#banner').hidden = !html; }
   const endHtml = v.st === 'over' ? endScreen(v) : '';
@@ -946,11 +1060,11 @@ function runSim() {
   let last = performance.now();
   simTimer = setInterval(() => { const now = performance.now(), dt = Math.min(.05, (now - last)/1000); last = now; step(game, dt/2); step(game, dt/2); }, 16);
 }
-function me() { return {pid:'me', name:profile.name || 'You', team:0, faces:profile.faces.map(addFace)}; }
+function me() { return {pid:'me', name:profile.name || 'You', team:0, faces:profile.faces.map(addFace), boss:profile.boss || ''}; }
 function startLocal(kind) {
   mode = kind; myPid = 'me'; flip = false;
   const players = [me()];
-  if (kind === 'local2') players.push({pid:'p2', name:'Player 2', team:1, faces:[]});
+  if (kind === 'local2') players.push({pid:'p2', name:'Player 2', team:1, faces:[], boss:randomBoss()});
   game = newMatch(players, 180); info = matchInfo(game);
   runSim(); startView();
 }
@@ -1048,7 +1162,7 @@ function hostOnData(pid, m) {
   if (m.t === 'hello' && lobby) {
     const faces = (m.faces || []).slice(0, 8).filter(u => typeof u === 'string' && u.startsWith('data:image/') && u.length < 60000).map(addFace);
     const counts = [0, 1].map(t => lobby.players.filter(p => p.team === t).length);
-    lobby.players.push({pid, name:String(m.name || 'Player').slice(0, 12), team: counts[0] <= counts[1] ? 0 : 1, faces});
+    lobby.players.push({pid, name:String(m.name || 'Player').slice(0, 16), team: counts[0] <= counts[1] ? 0 : 1, faces, boss:String(m.boss || '').slice(0, 28)});
     syncLobby();
   } else if (m.t === 'team' && lobby) {
     const p = lobby.players.find(p => p.pid === pid); if (p) { p.team = 1 - p.team; syncLobby(); }
@@ -1080,6 +1194,7 @@ function renderLobby(list) {
   const players = list || lobby.players.map(p => ({pid:p.pid, name:p.name, team:p.team, face:p.faces[0]}));
   const host = mode === 'host';
   $('#lobbyTitle').textContent = host ? 'Your match' : 'Match lobby';
+  $('#lobbyHint').textContent = host ? 'Tap a team badge to switch teams. Tap a name to give them a nickname.' : 'Tap a team badge to switch teams.';
   $('#pCount').textContent = `(${players.length}/${MAX_PLAYERS})`;
   const size = teamSize(players);
   $('#sizeInfo').textContent = `${size + 1}-a-side (${size} + keeper) · grab your keeper to save shots · empty spots played by the computer`;
@@ -1087,6 +1202,10 @@ function renderLobby(list) {
   for (const p of players) {
     const row = document.createElement('div'); row.className = 'prow';
     row.innerHTML = `<img class="face" src="${faceUrl(p.face)}" alt=""><span class="nm">${esc(p.name)}${p.pid === myPid ? ' (you)' : ''}</span><button class="tag t${p.team}">${TEAMS[p.team].name}</button>`;
+    if (host) row.querySelector('.nm').onclick = () => {
+      const lp = lobby.players.find(x => x.pid === p.pid); if (!lp) return;
+      const nn = prompt('Nickname for ' + lp.name + ':', lp.name); if (nn && nn.trim()) { lp.name = nn.trim().slice(0, 16); syncLobby(); }
+    };
     row.querySelector('button').onclick = () => {
       if (host) { const lp = lobby.players.find(x => x.pid === p.pid); lp.team = 1 - lp.team; syncLobby(); }
       else if (p.pid === myPid && conn && conn.open) conn.send({t:'team'});
@@ -1128,7 +1247,7 @@ function join(code, token) {
   peer = new Peer(PEER_OPTS);
   const timer = setTimeout(() => { if (!lobbyJoined) infoEl.innerHTML = "Couldn't reach the host. Make sure you're on the <b>same Wi-Fi</b> as them. Some school or guest Wi-Fi blocks phones talking to each other — if so, the host turns on their phone's <b>hotspot</b> and everyone joins that."; }, 12000);
   let lobbyJoined = false, helloSent = false, lastLobby = null;
-  const sayHello = () => { helloSent = true; conn.send({t:'hello', name:profile.name, faces:profile.faces}); infoEl.textContent = 'Joined! Waiting for the lobby…'; show('#menu');
+  const sayHello = () => { helloSent = true; conn.send({t:'hello', name:profile.name, faces:profile.faces, boss:profile.boss || ''}); infoEl.textContent = 'Joined! Waiting for the lobby…'; show('#menu');
                            if (lastLobby) { renderLobby(lastLobby); show('#lobby'); } };
   peer.on('open', () => {
     conn = peer.connect(PFX + code, {reliable:true, serialization:'json'});
