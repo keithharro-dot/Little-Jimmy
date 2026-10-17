@@ -210,8 +210,8 @@ const OUTFIELD = {
   8: [['DEF',25,130],['DEF',50,133],['DEF',75,130],['MID',33,112],['MID',67,112],['FWD',25,94],['FWD',50,90],['FWD',75,94]],
 };
 const teamSize = players => Math.min(8, Math.max(1, ...[0, 1].map(t => players.filter(p => p.team === t).length)));
-// Small teams get wider goals, or a lone striker can never get past the keeper.
-const goalWidth = size => [0, 44, 42, 38, 34][size] || 32;
+// Crowded pitches get slightly wider goals so big matches still have goals in them.
+const goalWidth = size => [32, 32, 32, 32, 32, 32, 34, 36, 38][size] || 32;
 const MAX_PLAYERS = 16;
 
 // Split each team's players into groups (keeper + defenders first, strikers last); nobody = computer.
@@ -320,20 +320,36 @@ function step(g, dt) {
   }
   // players bump each other apart
   for (let i = 0; i < g.widgets.length; i++) for (let j = i + 1; j < g.widgets.length; j++) {
-    const a = g.widgets[i], c = g.widgets[j], dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy), min = F.r*2;
-    if (d > 0 && d < min) { const push = (min - d)/2, nx = dx/d, ny = dy/d; a.x -= nx*push; a.y -= ny*push; c.x += nx*push; c.y += ny*push; confine(a); confine(c); }
+    // players are squares: push apart along whichever side overlaps least
+    const a = g.widgets[i], c = g.widgets[j], dx = c.x - a.x, dy = c.y - a.y, ox = F.r*2 - Math.abs(dx), oy = F.r*2 - Math.abs(dy);
+    if (ox > 0 && oy > 0) {
+      if (ox < oy) { const p = ox/2*(dx < 0 ? -1 : 1); a.x -= p; c.x += p; } else { const p = oy/2*(dy < 0 ? -1 : 1); a.y -= p; c.y += p; }
+      confine(a); confine(c);
+    }
   }
   // ball: roll, slow down, bounce off players and walls
   b.x += b.vx*dt; b.y += b.vy*dt;
   const fr = Math.exp(-.75*dt); b.vx *= fr; b.vy *= fr;
+  // players are square paddles, like Pong: flat sides bounce the ball straight back,
+  // and the further from the middle of a side it hits, the more it angles off that way
   for (const w of g.widgets) {
-    const dx = b.x - w.x, dy = b.y - w.y, d = Math.hypot(dx, dy), min = F.r + F.ballR;
-    if (d < min && d > 0) {
-      const nx = dx/d, ny = dy/d; b.x = w.x + nx*min; b.y = w.y + ny*min;
-      const rvx = b.vx - w.vx, rvy = b.vy - w.vy, vn = rvx*nx + rvy*ny;
-      if (vn < 0) { b.vx -= 1.7*vn*nx; b.vy -= 1.7*vn*ny; g.kicks++; }
-      g.lastTouch = w.id;
+    const h = F.r, px = clamp(b.x, w.x - h, w.x + h), py = clamp(b.y, w.y - h, w.y + h);
+    let dx = b.x - px, dy = b.y - py, d = Math.hypot(dx, dy), nx, ny;
+    if (d >= F.ballR) continue;
+    if (d > 0) { nx = dx/d; ny = dy/d; }
+    else {   // ball centre inside the square: pop it out of the nearest side
+      const ex = h - Math.abs(b.x - w.x), ey = h - Math.abs(b.y - w.y);
+      if (ex < ey) { nx = b.x < w.x ? -1 : 1; ny = 0; } else { nx = 0; ny = b.y < w.y ? -1 : 1; }
     }
+    if (d > 0) { b.x = px + nx*F.ballR; b.y = py + ny*F.ballR; }
+    else { b.x = nx ? w.x + nx*(h + F.ballR) : b.x; b.y = ny ? w.y + ny*(h + F.ballR) : b.y; }
+    const rvx = b.vx - w.vx, rvy = b.vy - w.vy, vn = rvx*nx + rvy*ny;
+    if (vn < 0) {
+      b.vx -= 1.7*vn*nx; b.vy -= 1.7*vn*ny; g.kicks++;
+      const off = Math.abs(ny) > .9 ? (b.x - w.x)/h : Math.abs(nx) > .9 ? (b.y - w.y)/h : 0;   // -1..1 along the side
+      if (Math.abs(ny) > .9) b.vx += off*Math.abs(vn)*.6; else if (Math.abs(nx) > .9) b.vy += off*Math.abs(vn)*.6;
+    }
+    g.lastTouch = w.id;
   }
   const sp = Math.hypot(b.vx, b.vy); if (sp > BALL_MAX) { b.vx *= BALL_MAX/sp; b.vy *= BALL_MAX/sp; }
   // angled corners
@@ -628,12 +644,15 @@ function drawPitch() {
 
 function drawWidget(wi, x, y, mine, holding) {
   const [sx, sy] = toScreen(x, y), r = F.r*sc, T = TEAMS[wi.team];
-  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(sx + r*.12, sy + r*.25, r, r*.85, 0, 0, 7); ctx.fill();
-  if (mine) { ctx.fillStyle = holding ? 'rgba(250,204,21,.55)' : 'rgba(250,204,21,.3)'; ctx.beginPath(); ctx.arc(sx, sy, r*1.35, 0, 7); ctx.fill(); }
-  ctx.save(); ctx.beginPath(); ctx.arc(sx, sy, r*.86, 0, 7); ctx.clip();
+  const sq = (cx, cy, half, rad) => { ctx.beginPath(); ctx.moveTo(cx - half + rad, cy - half);
+    ctx.arcTo(cx + half, cy - half, cx + half, cy + half, rad); ctx.arcTo(cx + half, cy + half, cx - half, cy + half, rad);
+    ctx.arcTo(cx - half, cy + half, cx - half, cy - half, rad); ctx.arcTo(cx - half, cy - half, cx + half, cy - half, rad); ctx.closePath(); };
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; sq(sx + r*.15, sy + r*.25, r, r*.2); ctx.fill();
+  if (mine) { ctx.fillStyle = holding ? 'rgba(250,204,21,.55)' : 'rgba(250,204,21,.3)'; sq(sx, sy, r*1.3, r*.35); ctx.fill(); }
+  ctx.save(); sq(sx, sy, r*.9, r*.12); ctx.clip();
   const f = wi.face && faceStore[wi.face] && faceStore[wi.face].img.complete ? faceStore[wi.face].img : botFace(wi);
-  ctx.drawImage(f, sx - r*.86, sy - r*.86, r*1.72, r*1.72); ctx.restore();
-  ctx.strokeStyle = T.col; ctx.lineWidth = r*.22; ctx.beginPath(); ctx.arc(sx, sy, r*.93, 0, 7); ctx.stroke();
+  ctx.drawImage(f, sx - r*.9, sy - r*.9, r*1.8, r*1.8); ctx.restore();
+  ctx.strokeStyle = T.col; ctx.lineWidth = r*.2; sq(sx, sy, r*.9, r*.12); ctx.stroke();
   if (wi.role === 'GK') { ctx.fillStyle = '#facc15'; ctx.font = `900 ${r*.5}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('GK', sx, sy + r*1.2); }
   if (mine && info) {
     const p = info.players.find(p => p.pid === wi.ctl);
