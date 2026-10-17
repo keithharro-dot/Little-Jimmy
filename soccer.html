@@ -73,6 +73,8 @@ body.tv #lobby,body.tv #tv,body.tv #records{zoom:1.35}
 #hud .sc{font:800 22px system-ui;background:#000a;border-radius:12px;padding:4px 12px;display:flex;gap:10px;align-items:center}
 #hud .b{color:#93c5fd}#hud .r{color:#fca5a5}
 #hud .clock{font:700 15px ui-monospace,monospace;background:#000a;border-radius:10px;padding:5px 10px}
+.nowplaying{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 12px}.nowplaying img{width:40px;height:40px;border-radius:6px;flex:none;border:2px solid #b87333}.nowplaying span:nth-child(2){flex:1;font-size:13px}#musicState{font-size:12px;opacity:.8}
+#gameMusic{position:absolute;top:calc(6px + env(safe-area-inset-top));left:calc(8px + env(safe-area-inset-left));width:38px;height:38px;padding:0;border-radius:50%;z-index:5;background:var(--brass);border:2px solid #6b4513}
 #quit{position:absolute;top:calc(6px + env(safe-area-inset-top));right:calc(8px + env(safe-area-inset-right));width:38px;height:38px;padding:0;border-radius:50%;background:#000a;z-index:5}
 #banner{position:absolute;left:0;right:0;top:40%;transform:translateY(-50%);text-align:center;pointer-events:none}
 #banner .g{font:900 54px system-ui;color:var(--gold);text-shadow:0 4px 0 #000,0 0 24px #000}
@@ -138,6 +140,7 @@ details summary{color:var(--gold)}
     <button class="big" id="goTV">📺 TV screen</button>
     <div class="card small" id="bigScreenTip" hidden>💻🎮 <b>On a computer or Xbox?</b> Tap <b>Host a match</b> to put the game on this screen — friends scan the QR code with their phones to join. Play with the mouse or an Xbox controller (left stick moves your player, right stick your keeper). Or tap <b>TV screen</b> to just show a match that a phone is hosting.</div>
     <div class="seg chaosSeg"><button data-chaos="1">⚡ Chaos power-ups</button><button data-chaos="0">⚽ Normal soccer</button></div>
+    <button id="musicChip" class="nowplaying"><img src="music/dikshifter-cover.jpg" alt=""><span>🎵 Theme: <b>Dikshifter — The 2nd Take</b></span><span id="musicState">On</span></button>
     <div class="seg gfxSeg"><button data-gfx="3d">🎩 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
   </div>
   <div id="joinBox" class="card stack center" hidden>
@@ -243,6 +246,7 @@ details summary{color:var(--gold)}
 <div id="game" hidden>
   <canvas id="cv3" hidden></canvas>
   <canvas id="cv"></canvas>
+  <button id="gameMusic" aria-label="Music on/off">🎵</button>
   <div id="hud"><span class="sc"><span class="b" id="sb">0</span><span>–</span><span class="r" id="sr">0</span></span><span class="clock" id="clock">3:00</span></div>
   <div id="pw"><span id="pwb"></span><span id="pwr"></span></div>
   <button id="quit" title="Leave">✕</button>
@@ -791,7 +795,7 @@ function showMenuProfile() { $('#menuFace').src = profile.faces[0]; $('#menuName
 
 /* ---------- Screens ---------- */
 const SCREENS = ['#tv', '#menu', '#records', '#profile', '#picker', '#maker', '#lobby', '#game'];
-function show(id) { for (const s of SCREENS) $(s).hidden = s !== id; window.scrollTo(0, 0); }
+function show(id) { for (const s of SCREENS) $(s).hidden = s !== id; window.scrollTo(0, 0); if (typeof themeForScreen === 'function') themeForScreen(); }
 
 function renderProfile() {
   $('#profFace').src = profile.faces[0]; $('#name').value = profile.name; $('#bossName').value = profile.boss || '';
@@ -870,8 +874,30 @@ $('#makerUse').onclick = () => { pickImg = null; pickUrl = toonUrl(toon); $('#pi
 
 /* ---------- Sound ---------- */
 let AC = null;
-function unlockAudio() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } } if (AC.state === 'suspended') AC.resume(); }
+function unlockAudio() { const first = !AC; if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } } if (AC.state === 'suspended') AC.resume(); if (first) themeForScreen(); }
 addEventListener('pointerdown', unlockAudio); addEventListener('touchend', unlockAudio);
+/* ---------- Theme music: "Dikshifter — The 2nd Take" ---------- */
+// One looping track, routed through Web Audio so it can fade (iPhones ignore audio.volume). It starts on the first tap.
+const THEME = {url:'music/dikshifter-the-2nd-take.mp3', el:null, gain:null, want:0, failed:false};
+function themeTo(vol) {
+  THEME.want = vol;
+  if (!AC || THEME.failed) return;
+  if (!THEME.el) {
+    const el = THEME.el = new Audio(THEME.url); el.loop = true; el.preload = 'auto';
+    el.addEventListener('error', () => { THEME.failed = true; });
+    try { const src = AC.createMediaElementSource(el); THEME.gain = AC.createGain(); THEME.gain.gain.value = 0; src.connect(THEME.gain).connect(AC.destination); } catch (e) { THEME.gain = null; }
+  }
+  const t = AC.currentTime, g = THEME.gain;
+  if (g) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(vol, t + 1); }
+  else THEME.el.volume = vol;
+  if (vol > 0) THEME.el.play().catch(() => {});
+  else setTimeout(() => { if (THEME.want === 0 && THEME.el) THEME.el.pause(); }, 1100);
+}
+let musicOn = true; try { musicOn = localStorage.getItem('ps_music') !== '0'; } catch (e) {}
+// Full volume on the menus, quieter under the action during a match.
+function themeForScreen() { themeTo(!musicOn ? 0 : $('#game').hidden ? .55 : .28); $('#musicState').textContent = musicOn ? 'On' : 'Off'; $('#gameMusic').textContent = musicOn ? '🎵' : '🔇'; }
+function toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('ps_music', musicOn ? '1' : '0'); } catch (e) {} themeForScreen(); }
+
 function tone(f1, f2, dur, type, vol, delay = 0) {
   if (!AC) return; const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
   o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur);
@@ -1677,6 +1703,7 @@ document.querySelectorAll('.chaosSeg button').forEach(b => b.onclick = () => { C
 showChaos();
 function showGfx() { document.querySelectorAll('.gfxSeg button').forEach(b => b.classList.toggle('sel', b.dataset.gfx === GFX)); }
 document.querySelectorAll('.gfxSeg button').forEach(b => b.onclick = () => { GFX = b.dataset.gfx; try { localStorage.setItem('ps_gfx', GFX); } catch (e) {} showGfx(); if (GFX === '3d') load3D(); });
+$('#musicChip').onclick = toggleMusic; $('#gameMusic').onclick = toggleMusic;
 $('#goPractice').onclick = () => needProfile(() => startLocal('practice'));
 $('#goLocal2').onclick = () => needProfile(() => startLocal('local2'));
 function needProfile(then) { if (!profile.name) openProfile(then); else then(); }
