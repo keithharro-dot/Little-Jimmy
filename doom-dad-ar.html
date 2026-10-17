@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Doom Dad in AR</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<style>
+/* Single dark theme, matching the games. */
+:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--line:#30363d;--text:#e6edf3;--muted:#8b949e;--olive:#7d9450;--red:#8dff4a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom))}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+h1 span{color:var(--red)}
+header a{color:var(--muted);font-size:14px}
+model-viewer{flex:1;min-height:320px;width:100%;margin:10px 0;border-radius:14px;background:radial-gradient(circle at 50% 40%,#2a313b,#10141a 75%);--poster-color:transparent}
+#arBtn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);border:0;border-radius:999px;padding:14px 22px;font:600 17px system-ui,sans-serif;
+  background:var(--olive);color:#0d1117;box-shadow:0 6px 20px rgba(0,0,0,.45);white-space:nowrap}
+#arBtn:active{transform:translateX(-50%) scale(.97)}
+.help{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px}
+.help p{margin:0 0 6px}.help p:last-child{margin:0}
+.muted{color:var(--muted)}
+#noAR{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Doom <span>Dad</span></h1>
+  <a href="tower-defence.html">Fight him on wave 45 →</a>
+</header>
+
+<model-viewer id="mv" src="models/doom-dad.glb" ios-src="models/doom-dad.usdz" alt="Doom Dad, a cartoon space marine in green armour holding a glowing plasma cannon, with a real face in his helmet"
+  ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="auto"
+  camera-controls touch-action="pan-y" auto-rotate auto-rotate-delay="1500" rotation-per-second="18deg"
+  camera-orbit="20deg 80deg 4.6m" min-camera-orbit="auto auto 1.2m" max-camera-orbit="auto auto 9m"
+  shadow-intensity="1" shadow-softness=".8" exposure="1.1" environment-image="neutral">
+  <button slot="ar-button" id="arBtn">📱 View in your room</button>
+</model-viewer>
+
+<div class="help">
+  <p><b>In your lounge room:</b> tap <b>View in your room</b>, point your phone at the floor and move it slowly until he appears. He's life size, about 2.1&nbsp;m tall.</p>
+  <p class="muted">Stand next to him for a photo. Walk round the back to see his pack. Drag to move him, twist with two fingers to turn him, pinch to shrink him.</p>
+  <p id="noAR" class="muted">This screen can't do AR. Open this page on an iPhone, iPad or Android phone. You can still spin and zoom him here.</p>
+</div>
+
+<script>
+// model-viewer hides the AR button by itself when the device can't do AR; also explain why.
+const mv = document.getElementById('mv');
+mv.addEventListener('load', () => { if (!mv.canActivateAR) document.getElementById('noAR').style.display = 'block'; });
+</script>
+</body>
+</html>

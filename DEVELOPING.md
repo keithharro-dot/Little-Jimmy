@@ -95,9 +95,9 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
 - **Maps** (`MAPS`: Graveyard, Frozen, Desert): road waypoints, colours and scenery.
 - **Enemies** (`ENEMIES`):
   - Zombies, speedy, phantom (hidden; only 📡 towers see it), bats (fly straight), riot (shield), medic (heals), brute (armour).
-  - Bosses: Eradicator, MK II (rages at half health) and the Void (mind control, Voidlings, stomp), plus minions (Avatars, Voidlings).
+  - Bosses: Eradicator, MK II (rages at half health), Doom Dad and the Void (mind control, Voidlings, stomp), plus minions (Avatars, Voidlings).
 - **Towers:** design your own (`stats`, `cleanSpec`) or use the `PRESETS`. Levels 1–4 change the soldier's uniform colour (`LEVEL_UNIFORM`). Reviver and DJ are support towers.
-- **Waves** (`WAVES = 50`): an Eradicator on wave 20, an MK II on 40, the Void on 50. The zombie sender's economy is in `ECO`.
+- **Waves** (`WAVES = 50`): an Eradicator on wave 20, an MK II on 40, Doom Dad on 45, the Void on 50. The zombie sender's economy is in `ECO`.
 - **LEO BOMB** (`LEO`, the gold first card in the tower list): the most powerful weapon. It charges over time (`g.leo` toward `g.leoNeed`: 180 s for the first, then 300 s). Tap the card, then the board: `{type:'leo', x, y}` kicks it from the castle (fx `leoK`, 1.3 s flight), and on landing (`p.leo` in `g.proj`) it does 9000 damage within 1.2 tiles, fading to 30% at 3.2 tiles, straight through shields and armour, flyers included (fx `leo`). The snapshot sends the charge as `lb` (0–1).
 - **Launcher tower** (`role:'launcher'`, the last preset): one tower whose weapon changes with each upgrade, up to level 5 (`maxLvl`). The `LAUNCHER` table holds each level's weapon, damage, rate, range, blast radius, whether it hits flyers (`air`) and hidden zombies (`det`), and the upgrade price: Mortar → Missile pod → Twin pods → Laser → ANNIHILATOR (death ray plus a 6-missile `swarm` salvo).
   - Shells and missiles: `launch` aims where the target will be when it lands (zombies follow a fixed route, so `posAt`/`flyAt` give it exactly) and puts it in `g.proj`. `step` blasts everything nearby when it lands. Clients draw the flight from the `shell`/`msl` fx (start, end, time left), so no positions travel over the network; 3D reuses `launchMissile` (a ball for shells).
@@ -165,6 +165,12 @@ Both of you work in this one repo as collaborators. Don't fork: a fork drifts ap
 
 - Before pushing: run `node tests/smoke.mjs`, plus a syntax check (e.g. parse the last `<script>` with acorn).
 - Keep the code style of the surrounding code: compact functions, short comments explaining *why*.
+
+- **Doom Dad** (`doom`, `doomAbilities`, `DOOM`): the ultimate boss of wave 45 (also sendable, 2500 energy), a cartoon space marine with the repo owner's face in the helmet. The face is pixel art (56×85) embedded as the `DOOM_FACE` data URI; `doomDad` in `drawUnit` draws it in 2D and `doomTpl` puts it on the 3D helmet as a texture. Every 10 s he charges his BFG (`holdK` 8, 1.4 s) at the biggest group of towers within 7 tiles, then the blast (fx `bfg`, a green plasma ball) stuns and cracks every tower within 1.8 tiles. Every 5 s a super shotgun (fx `sgun`) knocks out the 3 closest towers within 2.6 tiles for 1.5 s, no crack. At half HP he goes BERSERK (`e.zerk`, `holdK` 9): shield refilled, 1.7× speed, BFG every 6 s. Unlike the MK II's rage, berserk doesn't halve income. The snapshot's fury flag covers both. His face is public with the game; to change it, make a new 56×85 PNG and replace the data URI and `models/doomdad-face.png` (8× nearest-neighbour upscale, dark green background).
+
+## Doom Dad in AR (`doom-dad-ar.html`, `models/build_doomdad.py`)
+
+`python models/build_doomdad.py [--render <dir>]` builds him in Blender with `arlib.py` (2.1 m tall, the face from `models/doomdad-face.png`) and writes `models/doom-dad.glb` and `.usdz`.
 
 ## Eradicator in AR (`eradicator-ar.html`, `models/`)
 
