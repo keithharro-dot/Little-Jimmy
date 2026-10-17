@@ -105,7 +105,7 @@ h2{margin:0 0 6px;font-size:20px}
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
     <p class="small">Drag your players (the ones with a glow) with your finger. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
-    <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. With more players, teams are split: e.g. 4 players = defence and strikers on each side.</p>
+    <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.</p>
   </details>
 </div>
 
@@ -197,29 +197,38 @@ const EMBEDDED = !!window.PS_EMBEDDED;   // copy inside the Claude app: no netwo
 const F = {w:100, h:160, goalW:32, boxW:50, boxD:22, r:6, ballR:3.2, cut:10};   // cut: corners are angled off so the ball can't wedge in
 const TEAMS = [{name:'Blue', col:'#3b82f6', dark:'#1e3a8a'}, {name:'Red', col:'#ef4444', dark:'#7f1d1d'}];
 const VMAX = 95, VMAX_AI = 58, BALL_MAX = 170;
-// Blue's formation by team size (Red mirrors it). [role, x, y]
-const FORMATIONS = {
-  5: [['GK',50,153],['DEF',30,128],['DEF',70,128],['FWD',35,98],['FWD',65,98]],
-  6: [['GK',50,153],['DEF',25,130],['DEF',50,133],['DEF',75,130],['FWD',35,98],['FWD',65,98]],
-  7: [['GK',50,153],['DEF',25,130],['DEF',50,133],['DEF',75,130],['MID',50,113],['FWD',35,96],['FWD',65,96]],
-  8: [['GK',50,153],['DEF',25,130],['DEF',50,133],['DEF',75,130],['MID',33,112],['MID',67,112],['FWD',35,94],['FWD',65,94]],
+// Each side gets one outfield player per person on the bigger team (at least 1), plus a keeper
+// that anyone on the team can grab. Blue's spots by outfield count (Red mirrors them). [role, x, y]
+const OUTFIELD = {
+  1: [['FWD',50,108]],
+  2: [['DEF',50,128],['FWD',50,100]],
+  3: [['DEF',30,128],['DEF',70,128],['FWD',50,98]],
+  4: [['DEF',30,128],['DEF',70,128],['FWD',35,98],['FWD',65,98]],
+  5: [['DEF',25,130],['DEF',50,133],['DEF',75,130],['FWD',35,98],['FWD',65,98]],
+  6: [['DEF',25,130],['DEF',50,133],['DEF',75,130],['MID',50,113],['FWD',35,96],['FWD',65,96]],
+  7: [['DEF',25,130],['DEF',50,133],['DEF',75,130],['MID',33,112],['MID',67,112],['FWD',35,94],['FWD',65,94]],
+  8: [['DEF',25,130],['DEF',50,133],['DEF',75,130],['MID',33,112],['MID',67,112],['FWD',25,94],['FWD',50,90],['FWD',75,94]],
 };
-const teamSize = nPlayers => Math.min(8, Math.max(5, Math.ceil(nPlayers / 2)));
+const teamSize = players => Math.min(8, Math.max(1, ...[0, 1].map(t => players.filter(p => p.team === t).length)));
+// Small teams get wider goals, or a lone striker can never get past the keeper.
+const goalWidth = size => [0, 44, 42, 38, 34][size] || 32;
 const MAX_PLAYERS = 16;
 
 // Split each team's players into groups (keeper + defenders first, strikers last); nobody = computer.
 function buildWidgets(players, size) {
   const widgets = [];
   for (const team of [0, 1]) {
-    const form = FORMATIONS[size].map(([role, x, y]) => team ? [role, 100 - x, 160 - y] : [role, x, y]);
+    const form = OUTFIELD[size].map(([role, x, y]) => team ? [role, 100 - x, 160 - y] : [role, x, y]);
     const tp = players.filter(p => p.team === team), k = tp.length, n = form.length;
+    // the keeper belongs to nobody: the computer plays it until a teammate grabs it
+    widgets.push({id: widgets.length, team, role:'GK', hx:50, hy:team ? 7 : 153, x:50, y:team ? 7 : 153, vx:0, vy:0, ctl:null, grab:k > 0, face:null, num:1});
     let start = 0;
     const groups = tp.map((p, i) => { const len = Math.floor(n / k) + (i < n % k ? 1 : 0); const g = [start, start + len]; start += len; return g; });
     form.forEach(([role, x, y], j) => {
       const gi = groups.findIndex(([a, b]) => j >= a && j < b), owner = gi >= 0 ? tp[gi] : null;
       const faces = owner && owner.faces && owner.faces.length ? owner.faces : null;
       widgets.push({id: widgets.length, team, role, hx:x, hy:y, x, y, vx:0, vy:0,
-        ctl: owner ? owner.pid : null, face: faces ? faces[(j - groups[gi][0]) % faces.length] : null, num: j + 1});
+        ctl: owner ? owner.pid : null, face: faces ? faces[(j - groups[gi][0]) % faces.length] : null, num: j + 2});
     });
   }
   return widgets;
@@ -227,10 +236,10 @@ function buildWidgets(players, size) {
 
 /* ---------- Simulation (host / single phone only) ---------- */
 function newMatch(players, len) {
-  const size = teamSize(players.length);
+  const size = teamSize(players); F.goalW = goalWidth(size);
   const g = {players, size, widgets: buildWidgets(players, size), ball:{x:50, y:80, vx:0, vy:0},
              score:[0, 0], t:0, len, status:'kickoff', cd:2.2, kicks:0, lastTouch:null, scorer:null, epoch:(Math.random()*1e6)|0,
-             goals:{}, targets:{}};
+             goals:{}, targets:{}, holder:{}};
   resetKickoff(g, null);
   return g;
 }
@@ -298,7 +307,7 @@ function step(g, dt) {
   const attackTeam = dist(chasers[0]) <= dist(chasers[1]) ? 0 : 1;
   for (const w of g.widgets) {
     let tx = null, ty = null, vmax = VMAX, shoot = false;
-    if (w.ctl === null) { [tx, ty, shoot] = aiTarget(g, w, w === chasers[w.team], w.team === attackTeam); vmax = shoot ? VMAX_AI*1.5 : w.role === 'GK' ? VMAX_AI*.72 : VMAX_AI; }
+    if (w.ctl === null && !g.targets[w.id]) { [tx, ty, shoot] = aiTarget(g, w, w === chasers[w.team], w.team === attackTeam); vmax = shoot ? VMAX_AI*1.5 : w.role === 'GK' ? VMAX_AI*.72 : VMAX_AI; }
     else if (g.targets[w.id]) ({x:tx, y:ty} = g.targets[w.id]);
     if (tx !== null) {
       let vx = (tx - w.x) / .06, vy = (ty - w.y) / .06; const sp = Math.hypot(vx, vy);
@@ -363,7 +372,15 @@ function snap(g) {
 }
 // Static match info sent once at kick-off: who controls which player, and which face it wears.
 const matchInfo = g => ({size:g.size, len:g.len, players:g.players.map(p => ({pid:p.pid, name:p.name, team:p.team})),
-                         widgets:g.widgets.map(w => ({id:w.id, team:w.team, role:w.role, ctl:w.ctl, face:w.face, num:w.num}))});
+                         widgets:g.widgets.map(w => ({id:w.id, team:w.team, role:w.role, ctl:w.ctl, grab:w.grab, face:w.face, num:w.num}))});
+// Move a player for pid: their own players, or their team's keeper (whoever grabbed it last has it).
+function applyInput(g, pid, wid, x, y, local) {
+  const w = g.widgets[wid]; if (!w) return;
+  const p = g.players.find(p => p.pid === pid);
+  if (w.ctl !== pid && !(w.grab && (local || (p && p.team === w.team)))) return;
+  if (x === null) { if (w.ctl === pid || g.holder[wid] === pid) { delete g.targets[wid]; delete g.holder[wid]; } }
+  else { g.targets[wid] = {x:+x, y:+y}; if (w.grab) g.holder[wid] = pid; }
+}
 
 /* ---------- Faces ---------- */
 // Faces are small 96x96 JPEG data URLs. Each has an id (a hash) so phones only send it once.
@@ -632,7 +649,9 @@ function drawBall(x, y) {
   ctx.beginPath(); ctx.arc(sx, sy, r*.3, 0, 7); ctx.fill();
 }
 
-const isMine = wi => wi.ctl !== null && (wi.ctl === myPid || (mode === 'local2' && (wi.ctl === 'me' || wi.ctl === 'p2')));
+const myTeam = () => { const p = info && info.players.find(p => p.pid === myPid); return p ? p.team : 0; };
+const isMine = wi => wi.grab ? (mode === 'local2' || wi.team === myTeam())
+                             : wi.ctl !== null && (wi.ctl === myPid || (mode === 'local2' && (wi.ctl === 'me' || wi.ctl === 'p2')));
 const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':' + String(s % 60).padStart(2, '0'); };
 
 function currentView() {
@@ -702,9 +721,7 @@ function setTarget(wid, x, y) {
   if (mode === 'guest') {
     const now = performance.now();
     if (x === null || !sendTimer[wid] || now - sendTimer[wid] > 30) { sendTimer[wid] = now; if (conn && conn.open) conn.send({t:'in', w:wid, x, y}); }
-  } else if (game) {
-    if (x === null) delete game.targets[wid]; else game.targets[wid] = {x, y};
-  }
+  } else if (game) applyInput(game, myPid, wid, x, y, mode === 'local2');
 }
 cv.addEventListener('pointerdown', ev => {
   if (!view) return;
@@ -841,14 +858,13 @@ function hostOnData(pid, m) {
   } else if (m.t === 'team' && lobby) {
     const p = lobby.players.find(p => p.pid === pid); if (p) { p.team = 1 - p.team; syncLobby(); }
   } else if (m.t === 'in' && game) {
-    const w = game.widgets[m.w]; if (!w || w.ctl !== pid) return;
-    if (m.x === null) delete game.targets[m.w]; else game.targets[m.w] = {x:+m.x, y:+m.y};
+    applyInput(game, pid, m.w, m.x, m.y, false);
   }
 }
 function hostLost(pid) {
   delete conns[pid];
   if (lobby) { lobby.players = lobby.players.filter(p => p.pid !== pid); syncLobby(); }
-  if (game) for (const w of game.widgets) if (w.ctl === pid) { w.ctl = null; delete game.targets[w.id]; }   // the computer takes over
+  if (game) for (const w of game.widgets) if (w.ctl === pid || game.holder[w.id] === pid) { if (w.ctl === pid) w.ctl = null; delete game.targets[w.id]; delete game.holder[w.id]; }   // the computer takes over
 }
 const broadcast = msg => { for (const c of Object.values(conns)) if (c.open) c.send(msg); };
 const sentFaces = {};   // pid -> Set of face ids already sent
@@ -870,8 +886,8 @@ function renderLobby(list) {
   const host = mode === 'host';
   $('#lobbyTitle').textContent = host ? 'Your match' : 'Match lobby';
   $('#pCount').textContent = `(${players.length}/${MAX_PLAYERS})`;
-  const size = teamSize(players.length);
-  $('#sizeInfo').textContent = `${size}-a-side · empty spots played by the computer`;
+  const size = teamSize(players);
+  $('#sizeInfo').textContent = `${size + 1}-a-side (${size} + keeper) · grab your keeper to save shots · empty spots played by the computer`;
   const box = $('#plist'); box.innerHTML = '';
   for (const p of players) {
     const row = document.createElement('div'); row.className = 'prow';
@@ -930,7 +946,7 @@ function join(code, token) {
       else if (m.t === 'lobby') { matchLen = m.len; lastLobby = m.players; if (helloSent) { renderLobby(m.players); if ($('#game').hidden) show('#lobby'); } }
       else if (m.t === 'lobbyback') { info = null; curS = prevS = null; if (helloSent) show('#lobby'); }
       else if (m.t === 'start') {
-        info = m.info; curS = prevS = null;
+        info = m.info; curS = prevS = null; F.goalW = goalWidth(info.size);
         const meP = info.players.find(p => p.pid === myPid); flip = !!(meP && meP.team === 1);
         startView();
       }
