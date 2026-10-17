@@ -409,7 +409,7 @@ function step(g, dt) {
   g.spawnT -= dt;
   if (g.queue.length && g.spawnT <= 0) {
     const k = g.queue.shift(), E = ENEMIES[k];
-    g.enemies.push({id:g.id++, k, d:0, hp:E.hp, m:E.hp, sh:E.shield || 0, shm:E.shield || 0, slow:0, emp:4, fury:false, face:1,
+    g.enemies.push({id:g.id++, k, d:0, hp:E.hp, m:E.hp, sh:E.shield || 0, shm:E.shield || 0, slow:0, emp:4, fury:false, face:1, hold:0, holdK:0,
                     x:WAY[0][0], y:WAY[0][1]});
     g.spawnT = E.count ? .3 : .35;
     if (E.boss) addFx(g, 'roar', 1, WAY[0][1], 'BOSS!');
@@ -418,16 +418,18 @@ function step(g, dt) {
   for (const e of g.enemies) {
     const E = ENEMIES[e.k];
     e.slow = Math.max(0, e.slow - dt);
-    e.d += E.spd * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : 1) * dt;
+    // Bosses stand still while using an ability (holdK 1 = rocket burst, 2 = going into rage).
+    if (e.hold > 0) e.hold = Math.max(0, e.hold - dt);
+    else e.d += E.spd * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : 1) * dt;
     const [nx, ny] = E.fly ? flyAt(e.d) : posAt(e.d);
     if (Math.abs(nx - e.x) > 1e-4) e.face = nx > e.x ? 1 : -1;
     e.x = nx; e.y = ny;
     if (E.boss) {
       // Phase 2 (MK II): at half health it rages, recharging its shield and speeding up.
-      if (E.fury && !e.fury && e.hp < e.m/2) { e.fury = true; e.sh = e.shm; addFx(g, 'fury', e.x, e.y, 'RAGE!'); }
+      if (E.fury && !e.fury && e.hp < e.m/2) { e.fury = true; e.sh = e.shm; e.hold = 2.5; e.holdK = 2; e.emp = Math.max(e.emp, 3); addFx(g, 'fury', e.x, e.y, 'RAGE!'); }
       e.emp -= dt;
       if (e.emp <= 0) {
-        e.emp = E.rocket;
+        e.emp = E.rocket; e.hold = 1.5; e.holdK = 1;
         for (const t of g.towers) if (Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 2.2) t.stun = 2.5;
         addFx(g, 'emp', e.x, e.y, 'ROCKETS!');
       }
@@ -482,7 +484,7 @@ function snap(g) {
     w:g.winner, dur:g.dur, q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
     tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0})),
-    em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0, e.face]),
+    em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0, e.face, e.hold > 0 ? e.holdK : 0]),
     sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl), s.id]),
   };
 }
@@ -729,12 +731,16 @@ function draw(v) {
 
   const now = performance.now();
   const ems = v.em.slice().sort((a, b) => (ENEMIES[a[1]].fly ? 1 : 0) - (ENEMIES[b[1]].fly ? 1 : 0));
-  for (const [id, k, x, y, hp, m, slow, sh, shm, fury, face] of ems) {
+  for (const [id, k, x, y, hp, m, slow, sh, shm, fury, face, hold] of ems) {
     const E = ENEMIES[k], s = E.r*2.3*TS, px = x*TS, py = y*TS;
     if (E.heal) ring(x, y, 1.6, 'rgba(63,185,80,.25)');
     if (E.fly) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(px, py + s*.5, s*.32, s*.1, 0, 0, 7); ctx.fill(); }
     ctx.globalAlpha = E.stealth ? .4 + .15*Math.sin(now/200 + id) : 1;
-    drawUnit(ctx, k, px, E.fly ? py - s*.2 : py, s, now/1000*E.spd*7 + id, fury, face);
+    if (hold) {   // planted and powering up: a pulsing glow, legs still
+      ctx.beginPath(); ctx.arc(px, py, s*(.6 + .08*Math.sin(now/90)), 0, 7);
+      ctx.fillStyle = hold === 2 ? 'rgba(255,59,48,.28)' : 'rgba(255,154,60,.25)'; ctx.fill();
+    }
+    drawUnit(ctx, k, px, E.fly ? py - s*.2 : py, s, hold ? 0 : now/1000*E.spd*7 + id, fury, face);
     ctx.globalAlpha = 1;
     if (sh > 0) {
       ctx.beginPath(); ctx.arc(px, py, s*.62, 0, 7);
@@ -812,9 +818,9 @@ function hud(v) {
   const bosses = v.em.filter(e => ENEMIES[e[1]].boss);
   $('#bossBar').hidden = !bosses.length;
   if (bosses.length) {
-    const [, k, , , hp, m, , sh, shm, fury] = bosses[0];
+    const [, k, , , hp, m, , sh, shm, fury, , hold] = bosses[0];
     $('#bossBar').classList.toggle('rage', !!fury);
-    $('#bbName').textContent = ENEMIES[k].name.toUpperCase() + (fury ? '  RAGE!' : '') + (bosses.length > 1 ? `  ×${bosses.length}` : '');
+    $('#bbName').textContent = ENEMIES[k].name.toUpperCase() + (hold === 1 ? '  FIRING ROCKETS!' : hold === 2 ? '  POWERING UP…' : fury ? '  RAGE!' : '') + (bosses.length > 1 ? `  ×${bosses.length}` : '');
     $('#bbHp').textContent = `${Math.max(0, hp)} HP` + (sh > 0 ? ` + ${sh} shield` : '');
     $('#bbFill').style.width = Math.max(0, hp)/m*100 + '%';
     $('#bbShield').style.width = (shm ? sh/shm*100 : 0) + '%';
