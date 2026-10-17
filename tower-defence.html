@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tower Defence">
+<meta name="theme-color" content="#0d1117">
 <title>Tower Defence</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
@@ -19,6 +23,16 @@ button.primary{background:var(--def);color:#04121f;border-color:transparent;font
 button.danger{background:var(--atk);color:#1f0505;border-color:transparent;font-weight:600}
 input{font:inherit}
 [hidden]{display:none!important}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);touch-action:manipulation;-webkit-user-select:none;user-select:none}
+input{-webkit-user-select:text;user-select:text}
+.invite{display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.big-btn{width:100%;font-size:19px;padding:16px}
+#qr{background:#fff;padding:10px;border-radius:10px;display:inline-block}
+#qr img,#qr canvas{display:block}
+.small{font-size:13px;color:var(--muted)}
+.linkbtn{background:none;border:0;color:var(--def);text-decoration:underline;padding:8px}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:999px;z-index:20;white-space:nowrap}
+#mute{background:none;border:0;padding:2px 6px;font-size:20px}
 
 /* menu */
 #menu{max-width:440px;margin:0 auto;padding:32px 16px}
@@ -46,6 +60,9 @@ details p,details li{color:var(--muted)}
 #overlay button{pointer-events:auto}
 #overlay h2{margin:0;font-size:32px}
 #overlay .big{font-size:72px;font-weight:800}
+@media (max-width:600px){#overlay h2{font-size:22px}#overlay .big{font-size:48px}#overlay{gap:6px;font-size:13px}#overlay button{padding:8px 10px}}
+#rotate{display:none;text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
+@media (max-width:600px) and (orientation:portrait){#rotate{display:block}}
 #panels{display:grid;gap:12px;margin-top:12px}
 @media (min-width:820px){#panels.both{grid-template-columns:1fr 1fr}}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
@@ -87,30 +104,41 @@ details p,details li{color:var(--muted)}
 
 <div id="menu">
   <h1><span>Tower</span> <b>Defence</b></h1>
-  <p class="sub">Two players. One sends the enemies, one builds the towers.</p>
+  <p class="sub">Two players. One sends the monsters, one builds the towers.</p>
 
   <div id="mMain" class="stack">
-    <button class="primary" id="goHost">Host a game</button>
-    <button id="goJoin">Join a game</button>
-    <button id="goLocal">Both players on this device</button>
+    <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
+    <button id="goLocal">📱 Two players, one phone</button>
+    <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
     <details>
       <summary>How to play</summary>
       <ul>
-        <li><b style="color:var(--def)">Defender</b>: tap a tower design, then tap an empty grass square to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. Tap a built tower to sell it.</li>
-        <li><b style="color:var(--atk)">Attacker</b>: spend energy to send enemies down the path. Energy refills faster as the game goes on. Mix fast, tough and healing enemies to break through.</li>
-        <li>The attacker wins if the defender's lives reach 0. The defender wins by surviving for 4 minutes.</li>
+        <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
+        <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. Tap a built tower to sell it.</li>
+        <li><b style="color:var(--atk)">👾 Monster sender</b>: spend energy to send monsters down the path. Energy refills faster as the game goes on. Mix fast, tough and healing monsters to break through.</li>
+        <li>Monsters win if the castle's lives reach 0. Towers win by lasting 4 minutes. Then swap sides!</li>
       </ul>
-      <p>Online play needs both devices on the internet. To play with no internet, use “Both players on this device”.</p>
+      <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
     </details>
   </div>
 
   <div id="mHost" class="stack" hidden>
-    <p style="margin:0">Which side do you want to play?</p>
-    <div class="row">
-      <button class="primary" data-role="def">🛡 Defend</button>
-      <button class="danger" data-role="atk">👾 Attack</button>
+    <div id="hostPick" class="stack">
+      <p style="margin:0">Which side do you want to play?</p>
+      <div class="row">
+        <button class="primary" data-role="def">🛡 Build towers</button>
+        <button class="danger" data-role="atk">👾 Send monsters</button>
+      </div>
     </div>
-    <div id="hostCode" class="codebox" hidden></div>
+    <div id="hostInvite" class="invite" hidden>
+      <button class="primary big-btn" id="btnInvite">📨 Send invite</button>
+      <div class="small">Choose <b>Messages</b> and send it to your friend. When they tap the link, the game starts by itself.</div>
+      <div id="qrWrap" hidden>
+        <div class="small" style="margin-bottom:8px">Friend right next to you? They can scan this with their camera:</div>
+        <div id="qr"></div>
+      </div>
+      <div class="small">Or they can tap <i>Got a code?</i> and type <b id="hostCode" style="letter-spacing:3px;color:var(--text);font-size:16px"></b></div>
+    </div>
     <div id="hostInfo" class="info"></div>
     <button class="back">Back</button>
   </div>
@@ -131,11 +159,13 @@ details p,details li{color:var(--muted)}
     <span class="pill" id="pEnergy">⚡ <span id="hEnergy">0</span> <small id="hInc" style="color:var(--muted)"></small></span>
     <span class="pill">⏱ <span id="hTime">4:00</span></span>
     <span class="role" id="hRole"></span>
+    <button id="mute" title="Sound on/off">🔊</button>
   </div>
   <div id="board">
     <canvas id="cv"></canvas>
     <div id="overlay" hidden></div>
   </div>
+  <div id="rotate">📱↻ Turn your phone sideways for a bigger map</div>
   <div id="panels">
     <div class="panel def" id="defPanel">
       <h3>🛡 Towers <span class="hint" style="margin:0">tap a design, then tap the grass</span></h3>
@@ -143,11 +173,13 @@ details p,details li{color:var(--muted)}
       <div id="selInfo" hidden><span id="selText"></span><button class="danger" id="btnSell">Sell</button></div>
     </div>
     <div class="panel atk" id="atkPanel">
-      <h3>👾 Send enemies <span class="hint" style="margin:0" id="qInfo"></span></h3>
+      <h3>👾 Send monsters <span class="hint" style="margin:0" id="qInfo"></span></h3>
       <div class="cards" id="enemyCards"></div>
     </div>
   </div>
 </div>
+
+<div id="toast" hidden></div>
 
 <div id="builder" hidden>
   <div class="box">
@@ -203,13 +235,13 @@ function posAt(d) {
 
 /* ---------- Enemies ---------- */
 const ENEMIES = {
-  scout:  {name:'Scout',  hp:30,   spd:2.3,  cost:10,  reward:3,  leak:1, col:'#7ee787', r:.22, desc:'Very fast, fragile'},
-  grunt:  {name:'Grunt',  hp:75,   spd:1.35, cost:15,  reward:5,  leak:1, col:'#f2cc60', r:.28, desc:'All-rounder'},
-  swarm:  {name:'Swarm',  hp:16,   spd:1.9,  cost:24,  reward:1,  leak:1, col:'#ff9bce', r:.16, count:6, desc:'6 tiny bugs at once'},
-  ghost:  {name:'Ghost',  hp:65,   spd:1.6,  cost:22,  reward:5,  leak:1, col:'#b8c7ff', r:.25, noSlow:true, desc:'Can\'t be frozen'},
-  medic:  {name:'Medic',  hp:95,   spd:1.1,  cost:35,  reward:9,  leak:1, col:'#56d4dd', r:.27, heal:10, desc:'Heals nearby enemies'},
-  tank:   {name:'Tank',   hp:280,  spd:.75,  cost:40,  reward:12, leak:2, col:'#ff7b72', r:.36, armor:4, desc:'Armour blocks 4 dmg/hit'},
-  boss:   {name:'Boss',   hp:1100, spd:.55,  cost:130, reward:40, leak:6, col:'#d2a8ff', r:.45, armor:6, desc:'Huge. Costs 6 lives'},
+  scout:  {name:'Bunny',  em:'🐇', hp:30,   spd:2.3,  cost:10,  reward:3,  leak:1, col:'#7ee787', r:.26, desc:'Super fast, fragile'},
+  grunt:  {name:'Gloop',  em:'👾', hp:75,   spd:1.35, cost:15,  reward:5,  leak:1, col:'#f2cc60', r:.3,  desc:'All-rounder'},
+  swarm:  {name:'Bees',   em:'🐝', hp:16,   spd:1.9,  cost:24,  reward:1,  leak:1, col:'#ff9bce', r:.2,  count:6, desc:'6 bees at once'},
+  ghost:  {name:'Ghost',  em:'👻', hp:65,   spd:1.6,  cost:22,  reward:5,  leak:1, col:'#b8c7ff', r:.28, noSlow:true, desc:'Can\'t be frozen'},
+  medic:  {name:'Fairy',  em:'🧚', hp:95,   spd:1.1,  cost:35,  reward:9,  leak:1, col:'#56d4dd', r:.3,  heal:10, desc:'Heals nearby monsters'},
+  tank:   {name:'Turtle', em:'🐢', hp:280,  spd:.75,  cost:40,  reward:12, leak:2, col:'#ff7b72', r:.36, armor:4, desc:'Shell blocks 4 dmg/hit'},
+  boss:   {name:'Dragon', em:'🐉', hp:1100, spd:.55,  cost:130, reward:40, leak:6, col:'#d2a8ff', r:.46, armor:6, desc:'Huge! Costs 6 lives'},
 };
 
 /* ---------- Towers ---------- */
@@ -239,15 +271,17 @@ const PRESETS = [
 ];
 
 /* ---------- Simulation (runs on host / local only) ---------- */
-function newGame() {
-  return {t:0, status:'countdown', cd:3, lives:20, gold:150, energy:60, towers:[], enemies:[], shots:[],
-          queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0};
+function newGame(epoch = 0) {
+  return {t:0, status:'countdown', cd:5, lives:20, gold:150, energy:60, towers:[], enemies:[], shots:[], fx:[],
+          queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0, paused:false, epoch};
 }
 const income = g => 6 + g.t/25;
+const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1};
+const addFx = (g, k, x, y, txt) => g.fx.push({id:g.id++, k, x, y, txt, ttl:FX_LIFE[k]});
 
 function applyCmd(g, role, c) {
   if (!g || !c) return;
-  if (c.type === 'restart') { if (g.status === 'over') Object.assign(g, newGame()); return; }
+  if (c.type === 'restart') { if (g.status === 'over') Object.assign(g, newGame(g.epoch + 1)); return; }
   if (g.status === 'over') return;
   const def = role === 'def' || role === 'both', atk = role === 'atk' || role === 'both';
   if (def && c.type === 'place') {
@@ -257,6 +291,7 @@ function applyCmd(g, role, c) {
     if (g.gold < st.cost) return;
     g.gold -= st.cost;
     g.towers.push({id:g.id++, x, y, spec, st, cd:0, spent:st.cost});
+    addFx(g, 'build', x+.5, y+.5);
   } else if (def && c.type === 'sell') {
     const i = g.towers.findIndex(t => t.id === c.id);
     if (i < 0) return;
@@ -279,13 +314,15 @@ function hit(g, t, e) {
   };
   dmgTo(e, 1);
   if (sp === 'splash') for (const o of g.enemies) if (o !== e && o.hp > 0 && Math.hypot(o.x-e.x, o.y-e.y) < .95) dmgTo(o, .6);
-  g.shots.push({x1:t.x+.5, y1:t.y+.5, x2:e.x, y2:e.y, c:t.spec.col, sp, ttl:.15});
+  g.shots.push({id:g.id++, x1:t.x+.5, y1:t.y+.5, x2:e.x, y2:e.y, c:t.spec.col, sp, ttl:.15});
 }
 
 function step(g, dt) {
-  if (g.status === 'over') return;
+  if (g.status === 'over' || g.paused) return;
   for (const s of g.shots) s.ttl -= dt;
+  for (const f of g.fx) f.ttl -= dt;
   g.shots = g.shots.filter(s => s.ttl > 0);
+  g.fx = g.fx.filter(f => f.ttl > 0);
   if (g.status === 'countdown') { g.cd -= dt; if (g.cd <= 0) g.status = 'play'; return; }
 
   g.t += dt;
@@ -297,6 +334,7 @@ function step(g, dt) {
     const k = g.queue.shift(), E = ENEMIES[k];
     g.enemies.push({id:g.id++, k, d:0, hp:E.hp, m:E.hp, slow:0, x:WAY[0][0], y:WAY[0][1]});
     g.spawnT = E.count ? .18 : .35;
+    if (k === 'boss') addFx(g, 'roar', 1, WAY[0][1]);
   }
 
   for (const e of g.enemies) {
@@ -311,7 +349,11 @@ function step(g, dt) {
       if (o !== e && o.hp > 0 && Math.hypot(o.x-e.x, o.y-e.y) < 1.6) o.hp = Math.min(o.m, o.hp + heal*dt);
   }
   g.enemies = g.enemies.filter(e => {
-    if (e.d >= PATHLEN) { g.lives -= ENEMIES[e.k].leak; return false; }
+    if (e.d >= PATHLEN) {
+      const leak = ENEMIES[e.k].leak;
+      g.lives -= leak; addFx(g, 'leak', 14.5, 7.5, '-' + leak + '❤️');
+      return false;
+    }
     return true;
   });
 
@@ -327,7 +369,11 @@ function step(g, dt) {
     hit(g, t, best);
   }
   g.enemies = g.enemies.filter(e => {
-    if (e.hp <= 0) { g.gold += ENEMIES[e.k].reward; g.kills++; return false; }
+    if (e.hp <= 0) {
+      const reward = ENEMIES[e.k].reward;
+      g.gold += reward; g.kills++; addFx(g, 'pop', e.x, e.y, '+' + reward);
+      return false;
+    }
     return true;
   });
 
@@ -339,10 +385,11 @@ const r2 = v => Math.round(v*100)/100;
 function snap(g) {
   return {
     t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g),
-    w:g.winner, dur:g.dur, q:g.queue.length, k:g.kills,
+    w:g.winner, dur:g.dur, q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
+    fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
     tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, sell:Math.floor(t.spent*.7)})),
     em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0]),
-    sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl)]),
+    sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl), s.id]),
   };
 }
 
@@ -355,13 +402,25 @@ let peer = null, conn = null, game = null;
 let prevS = null, curS = null, curAt = 0;
 let view = null;
 let selDesign = 0, selTower = null, hover = null, ended = false;
+let guestRole = null, hostCode = null, joinCode = null, reconnecting = false;
 
 const isDef = () => myRole === 'def' || myRole === 'both';
 const isAtk = () => myRole === 'atk' || myRole === 'both';
 
 function issue(c) {
   if (mode === 'guest') { if (conn && conn.open) conn.send({t:'cmd', c}); }
+  else if (mode === 'host') handleCmd(myRole, c);
   else applyCmd(game, myRole, c);
+}
+// Host only: commands from either player land here.
+function handleCmd(role, c) {
+  if (c && c.type === 'swap') {
+    if (game.status !== 'over') return;
+    [myRole, guestRole] = [guestRole, myRole];
+    applyCmd(game, role, {type:'restart'});
+    if (conn && conn.open) conn.send({t:'hello', role:guestRole});
+    applyRoleUI();
+  } else applyCmd(game, role, c);
 }
 
 /* ---------- Designs (saved per device) ---------- */
@@ -397,7 +456,7 @@ function renderEnemies() {
   const box = $('#enemyCards'); box.innerHTML = '';
   Object.entries(ENEMIES).forEach(([k, E], i) => {
     const b = document.createElement('button'); b.className = 'card';
-    b.innerHTML = `<div class="nm"><span class="sw" style="background:${E.col};border-radius:50%"></span>${E.name}${E.count ? ' ×' + E.count : ''}</div>
+    b.innerHTML = `<div class="nm"><span style="font-size:20px">${E.em}</span>${E.name}${E.count ? ' ×' + E.count : ''}</div>
       <div class="meta"><span class="key">${i+1}</span>${E.desc}</div><div class="meta">HP ${E.hp}${E.armor ? ' · armour ' + E.armor : ''}</div>
       <div class="ecost">⚡ ${E.cost}</div>`;
     b.onclick = () => issue({type:'send', kind:k});
@@ -495,10 +554,10 @@ function draw(v) {
   for (const [, k, x, y, hp, m, slow] of v.em) {
     const E = ENEMIES[k], r = E.r*TS;
     ctx.beginPath(); ctx.arc(x*TS, y*TS, r, 0, 7);
-    ctx.fillStyle = E.col; ctx.fill();
-    ctx.lineWidth = E.armor ? 3 : 1.5; ctx.strokeStyle = E.armor ? '#8b949e' : '#0d1117'; ctx.stroke();
-    if (E.heal) { ctx.fillStyle = '#fff'; ctx.fillRect(x*TS - r*.5, y*TS - r*.15, r, r*.3); ctx.fillRect(x*TS - r*.15, y*TS - r*.5, r*.3, r); }
-    if (k === 'ghost') { ctx.globalAlpha = .5; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x*TS, y*TS, r*.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+    ctx.fillStyle = E.col + '55'; ctx.fill();
+    if (E.armor) { ctx.lineWidth = 3; ctx.strokeStyle = '#8b949e'; ctx.stroke(); }
+    if (E.heal) ring(x, y, 1.6, 'rgba(86,212,221,.25)');
+    ctx.font = `${r*1.6}px sans-serif`; ctx.fillText(E.em, x*TS, y*TS + r*.08);
     if (slow) ring(x, y, E.r + .06, '#a5d6ff');
     if (hp < m) {
       const bw = Math.max(TS*.4, r*2), bx = x*TS - bw/2, by = y*TS - r - 7;
@@ -512,6 +571,20 @@ function draw(v) {
     ctx.strokeStyle = c; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(x1*TS, y1*TS); ctx.lineTo(x2*TS, y2*TS); ctx.stroke();
     if (splash) ring(x2, y2, .95*(1.2 - ttl/.15*.4), c);
+    ctx.globalAlpha = 1;
+  }
+
+  for (const [, k, x, y, ttl, txt] of v.fx) {
+    const p = 1 - ttl/FX_LIFE[k];
+    ctx.globalAlpha = Math.max(0, 1 - p);
+    if (k === 'pop') ring(x, y, .2 + p*.5, '#fff');
+    if (k === 'build') ring(x, y, .3 + p*.6, '#3fb950');
+    if (k === 'leak' || k === 'roar') ring(x, y, .3 + p*1.2, k === 'leak' ? '#ff7b72' : '#d2a8ff');
+    if (txt) {
+      ctx.font = `bold ${TS*.4}px system-ui,sans-serif`;
+      ctx.fillStyle = k === 'leak' ? '#ff7b72' : '#f2cc60';
+      ctx.fillText(txt, x*TS, (y - .3 - p*.7)*TS);
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -554,25 +627,84 @@ function hud(v) {
   if (sel) $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]} — sells for 💰 ${sel.sell}`;
 
   let html = '';
-  if (v.st === 'countdown') html = `<div class="big">${Math.max(1, Math.ceil(v.cd))}</div><div>${isDef() ? 'Build towers now!' : 'Get ready…'}</div>`;
-  else if (v.st === 'over') {
-    const who = v.w === 'def' ? '🛡 Defender wins!' : '👾 Attacker wins!';
-    const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:20px;font-weight:700">You win!</div>' : '<div style="color:var(--atk);font-size:20px;font-weight:700">You lose</div>');
-    html = `<h2>${who}</h2>${me}<div style="color:var(--muted)">${v.k} enemies destroyed · survived ${fmt(v.t)}</div>
-      <div class="row" style="gap:10px"><button class="primary" id="btnAgain">Play again</button><button id="btnMenu">Menu</button></div>`;
-  }
-  if (ended) html = `<h2>Connection lost</h2><div style="color:var(--muted)">The other player left or the link dropped.</div><button class="primary" id="btnMenu">Back to menu</button>`;
+  const dim = 'style="color:var(--muted)"';
+  if (v.st === 'countdown') {
+    const tip = myRole === 'both' ? 'Towers: build now! Monsters: get ready…' : isDef() ? 'Tap a tower, then tap the grass. Build now!' : 'Tap a monster to send it. Get ready…';
+    html = `<div class="big">${Math.max(1, Math.ceil(v.cd))}</div><div>${tip}</div>`;
+  } else if (v.st === 'over') {
+    const who = v.w === 'def' ? '🛡 Towers win!' : '👾 Monsters win!';
+    const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:22px;font-weight:700">🎉 You win!</div>' : '<div style="color:var(--atk);font-size:18px;font-weight:700">You lose. Swap sides for revenge!</div>');
+    html = `<h2>${who}</h2>${me}<div ${dim}>${v.k} monsters popped · lasted ${fmt(v.t)}</div>
+      <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center">
+        ${mode === 'local' ? '' : '<button class="danger" id="btnSwap">🔁 Swap sides</button>'}
+        <button class="primary" id="btnAgain">Play again</button><button id="btnMenu">Menu</button></div>`;
+  } else if (v.p) html = `<h2>⏸ Paused</h2><div ${dim}>Waiting for your friend to come back…</div>`;
+  if (mode === 'host' && !conn) html = `<h2>📵 Your friend left</h2><div ${dim}>The game is paused until they come back (code ${hostCode}).</div>
+      <div class="row" style="gap:10px"><button class="primary" id="btnReinvite">📨 Invite again</button><button id="btnMenu">Menu</button></div>`;
+  if (mode === 'guest' && reconnecting) html = `<h2>📶 Reconnecting…</h2><div ${dim}>Hang on, finding your friend's game again.</div><button id="btnMenu">Give up</button>`;
+  if (ended) html = `<h2>Connection lost</h2><div ${dim}>Couldn't find your friend's game any more.</div><button class="primary" id="btnMenu">Back to menu</button>`;
   if (html !== lastOverlay) {
     lastOverlay = html;
     $('#overlay').innerHTML = html; $('#overlay').hidden = !html;
-    const again = $('#btnAgain'); if (again) again.onclick = () => issue({type:'restart'});
-    const menu = $('#btnMenu'); if (menu) menu.onclick = () => location.reload();
+    const on = (id, f) => { const b = $(id); if (b) b.onclick = f; };
+    on('#btnAgain', () => issue({type:'restart'}));
+    on('#btnSwap', () => issue({type:'swap'}));
+    on('#btnReinvite', sendInvite);
+    on('#btnMenu', () => { location.href = location.pathname + location.search; });
   }
 }
+
+/* ---------- Sound (synthesised, no files) ---------- */
+let AC = null, muted = false;
+try { muted = localStorage.getItem('tc_mute') === '1'; } catch (e) {}
+function unlockAudio() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+  if (AC.state === 'suspended') AC.resume();
+}
+addEventListener('pointerdown', unlockAudio);
+addEventListener('touchend', unlockAudio);
+function tone(f1, f2, dur, type = 'sine', vol = .08, delay = 0) {
+  if (!AC || muted) return;
+  const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur + .02);
+}
+const SFX = {
+  shoot:  () => tone(900, 500, .05, 'square', .015),
+  splash: () => tone(220, 60, .18, 'sawtooth', .04),
+  pop:    () => tone(500, 1100, .09, 'sine', .07),
+  leak:   () => tone(220, 70, .35, 'sawtooth', .08),
+  build:  () => { tone(300, 450, .08, 'triangle', .1); tone(450, 700, .08, 'triangle', .08, .08); },
+  roar:   () => tone(110, 45, .8, 'sawtooth', .1),
+  win:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, .18, 'triangle', .1, i*.13)),
+  lose:   () => [392, 330, 262, 196].forEach((f, i) => tone(f, f*.98, .22, 'triangle', .1, i*.16)),
+};
+let seenId = 0, seenEp = -1, lastShot = 0, lastSt = '';
+function sounds(v) {
+  if (v.ep !== seenEp) { seenEp = v.ep; seenId = 0; }
+  let maxId = seenId;
+  for (const f of v.fx) if (f[0] > seenId) { SFX[f[1]](); maxId = Math.max(maxId, f[0]); }
+  const now = performance.now();
+  for (const s of v.sh) if (s[7] > seenId) {
+    maxId = Math.max(maxId, s[7]);
+    if (now - lastShot > 70) { lastShot = now; (s[5] ? SFX.splash : SFX.shoot)(); }
+  }
+  seenId = maxId;
+  if (v.st === 'over' && lastSt && lastSt !== 'over') (myRole === 'both' || v.w === myRole ? SFX.win : SFX.lose)();
+  lastSt = v.st;
+}
+$('#mute').textContent = muted ? '🔇' : '🔊';
+$('#mute').onclick = () => {
+  muted = !muted; $('#mute').textContent = muted ? '🔇' : '🔊';
+  try { localStorage.setItem('tc_mute', muted ? '1' : '0'); } catch (e) {}
+};
 
 function frame() {
   view = mode === 'guest' ? guestView() : snap(game);
   draw(view); hud(view);
+  if (view) sounds(view);
   requestAnimationFrame(frame);
 }
 
@@ -598,20 +730,32 @@ addEventListener('keydown', ev => {
   if (k) issue({type:'send', kind:k});
 });
 
-/* ---------- Screens & networking ---------- */
+/* ---------- Screens ---------- */
 function show(id) { ['#mMain','#mHost','#mJoin'].forEach(s => $(s).hidden = s !== id); }
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.hidden = true, 2600);
+}
 $('#goHost').onclick = () => { show('#mHost'); $('#hostInfo').textContent = ''; };
 $('#goJoin').onclick = () => { show('#mJoin'); $('#joinCode').focus(); };
-document.querySelectorAll('.back').forEach(b => b.onclick = () => { if (peer) { peer.destroy(); peer = null; } $('#hostCode').hidden = true; show('#mMain'); });
+document.querySelectorAll('.back').forEach(b => b.onclick = () => {
+  if (peer) { peer.destroy(); peer = null; }
+  $('#hostPick').hidden = false; $('#hostInvite').hidden = true; $('#qrWrap').hidden = true;
+  show('#mMain');
+});
 $('#goLocal').onclick = () => { mode = 'local'; myRole = 'both'; game = newGame(); startGame(); };
 
-function startGame() {
-  $('#menu').hidden = true; $('#game').hidden = false;
+function applyRoleUI() {
+  selTower = null;
   $('#defPanel').hidden = !isDef(); $('#atkPanel').hidden = !isAtk();
   $('#pGold').hidden = !isDef(); $('#pEnergy').hidden = !isAtk();
   $('#panels').classList.toggle('both', myRole === 'both');
-  $('#hRole').textContent = {def:'You are the 🛡 Defender', atk:'You are the 👾 Attacker', both:'Same device · 2 players'}[myRole];
-  renderDesigns(); renderEnemies(); resize();
+  $('#hRole').textContent = {def:'You build 🛡 towers', atk:'You send 👾 monsters', both:'Two players, one phone'}[myRole];
+  renderDesigns(); renderEnemies();
+}
+function startGame() {
+  $('#menu').hidden = true; $('#game').hidden = false;
+  applyRoleUI(); resize();
   if (mode !== 'guest') {
     let last = performance.now();
     setInterval(() => { const now = performance.now(); step(game, Math.min(.1, (now - last)/1000)); last = now; }, 33);
@@ -619,61 +763,134 @@ function startGame() {
   if (mode === 'host') setInterval(() => { if (conn && conn.open) conn.send({t:'s', s:snap(game)}); }, SNAP_MS);
   requestAnimationFrame(frame);
 }
-function lost() { if (!$('#game').hidden) ended = true; }
 
+/* ---------- Inviting (host) ---------- */
+// The invite is just this page's address with the room code on the end.
+// Tapping it on another phone opens the page and joins automatically.
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const code4 = () => Array.from({length:4}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
-function noPeer(el) { el.textContent = 'Online play could not load. Check the internet connection, or use “Both players on this device”.'; }
+const inviteUrl = () => location.href.split('#')[0] + '#join=' + hostCode;
+const isOnline = () => /^https?:$/.test(location.protocol);
+
+async function sendInvite() {
+  const url = inviteUrl();
+  const text = myRole === 'def'
+    ? "Let's play Tower Defence! I'm building towers 🛡 — you send the monsters 👾 Tap to play:"
+    : "Let's play Tower Defence! I'm sending monsters 👾 — you build the towers 🛡 Tap to play:";
+  if (navigator.share) {
+    try { await navigator.share({title:'Tower Defence', text, url}); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(text + ' ' + url); toast('Link copied! Paste it in a message.'); }
+  catch (e) { prompt('Copy this link and send it to your friend:', url); }
+}
+$('#btnInvite').onclick = sendInvite;
+
+function showQR() {
+  if (!window.QRCode || !isOnline()) return;
+  $('#qr').innerHTML = '';
+  new QRCode($('#qr'), {text:inviteUrl(), width:180, height:180, correctLevel:QRCode.CorrectLevel.M});
+  $('#qrWrap').hidden = false;
+}
+
+function noPeer(el) { el.textContent = "Couldn't load online play. Check the internet, or use “Two players, one phone”."; }
 
 document.querySelectorAll('#mHost [data-role]').forEach(b => b.onclick = () => hostGame(b.dataset.role));
 function hostGame(role) {
   const info = $('#hostInfo');
   if (!window.Peer) return noPeer(info);
   if (peer) peer.destroy();
-  myRole = role;
+  myRole = role; guestRole = role === 'def' ? 'atk' : 'def';
   const code = code4();
-  info.textContent = 'Creating game…';
+  info.textContent = 'Setting up your game…';
   peer = new Peer(PFX + code);
   peer.on('open', () => {
-    $('#hostCode').textContent = code; $('#hostCode').hidden = false;
-    info.textContent = `You'll ${role === 'def' ? 'defend' : 'attack'}. Tell the other player this code. Waiting for them to join…`;
+    hostCode = code;
+    $('#hostCode').textContent = code;
+    $('#hostPick').hidden = true; $('#hostInvite').hidden = false;
+    showQR();
+    info.textContent = isOnline() ? '⏳ Waiting for your friend…'
+      : '⚠️ This page is opened as a file, so the invite link won\'t work on another phone. Put it on a website first.';
   });
   peer.on('error', e => {
     if (e.type === 'unavailable-id') hostGame(role);
-    else info.textContent = 'Problem: ' + e.type;
+    else if (!game) info.textContent = 'Problem connecting (' + e.type + '). Try again.';
   });
   peer.on('connection', c => {
-    if (conn) { c.on('open', () => c.close()); return; }
-    conn = c;
-    const guestRole = role === 'def' ? 'atk' : 'def';
-    c.on('open', () => { c.send({t:'hello', role:guestRole}); mode = 'host'; game = newGame(); startGame(); });
-    c.on('data', m => { if (m && m.t === 'cmd') applyCmd(game, guestRole, m.c); });
-    c.on('close', lost);
+    // Newest connection wins, so a friend who dropped out can rejoin with the same link.
+    const old = conn; conn = c;
+    if (old) old.close();
+    c.on('open', () => {
+      if (conn !== c) return;
+      c.send({t:'hello', role:guestRole});
+      if (!game) { mode = 'host'; game = newGame(); startGame(); }
+      else game.paused = false;
+    });
+    c.on('data', m => { if (conn === c && m && m.t === 'cmd') handleCmd(guestRole, m.c); });
+    c.on('close', () => {
+      if (conn !== c) return;
+      conn = null;
+      if (game && game.status !== 'over') game.paused = true;
+    });
   });
   peer.on('disconnected', () => { if (peer && !peer.destroyed) peer.reconnect(); });
+}
+
+/* ---------- Joining (guest) ---------- */
+let retryTimer = null, retryUntil = 0;
+function scheduleRetry(ms) { clearTimeout(retryTimer); retryTimer = setTimeout(retry, ms); }
+function retry() {
+  if (!reconnecting) return;
+  if (performance.now() > retryUntil) { reconnecting = false; ended = true; return; }
+  connectGuest();
+}
+function guestLost() {
+  if (mode !== 'guest' || ended) return;
+  if (!reconnecting) { reconnecting = true; retryUntil = performance.now() + 60000; }
+  scheduleRetry(1500);
+}
+function connectGuest() {
+  if (peer) { conn = null; peer.destroy(); }
+  const p = peer = new Peer();
+  if (reconnecting) scheduleRetry(8000);
+  p.on('open', () => {
+    if (peer !== p) return;
+    const c = conn = p.connect(PFX + joinCode, {reliable:true, serialization:'json'});
+    c.on('data', m => {
+      if (!m || conn !== c) return;
+      if (m.t === 'hello') {
+        myRole = m.role;
+        if (reconnecting) { reconnecting = false; clearTimeout(retryTimer); }
+        if (mode !== 'guest') { mode = 'guest'; startGame(); } else applyRoleUI();
+      } else if (m.t === 's') { prevS = curS; curS = m.s; curAt = performance.now(); }
+    });
+    c.on('close', () => { if (conn === c) guestLost(); });
+  });
+  p.on('error', e => {
+    if (peer !== p) return;
+    if (mode === 'guest') { if (reconnecting) scheduleRetry(2500); return; }
+    $('#joinInfo').textContent = e.type === 'peer-unavailable'
+      ? "Couldn't find that game. It may have ended. Ask your friend to send a new invite."
+      : 'Problem connecting (' + e.type + '). Try again.';
+  });
 }
 
 $('#joinCode').addEventListener('input', e => e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''));
 $('#joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
 $('#btnJoin').onclick = () => {
-  const info = $('#joinInfo'), code = $('#joinCode').value;
+  const info = $('#joinInfo'), code = $('#joinCode').value.toUpperCase();
   if (code.length !== 4) { info.textContent = 'The code has 4 letters.'; return; }
   if (!window.Peer) return noPeer(info);
-  if (peer) peer.destroy();
-  info.textContent = 'Connecting…';
-  peer = new Peer();
-  const timer = setTimeout(() => { if (mode !== 'guest') info.textContent = 'Could not reach that game. Check the code and try again.'; }, 15000);
-  peer.on('open', () => {
-    conn = peer.connect(PFX + code, {reliable:true, serialization:'json'});
-    conn.on('data', m => {
-      if (!m) return;
-      if (m.t === 'hello' && mode !== 'guest') { clearTimeout(timer); myRole = m.role; mode = 'guest'; startGame(); }
-      else if (m.t === 's') { prevS = curS; curS = m.s; curAt = performance.now(); }
-    });
-    conn.on('close', lost);
-  });
-  peer.on('error', e => { info.textContent = e.type === 'peer-unavailable' ? 'No game with that code. Check it and try again.' : 'Problem: ' + e.type; });
+  joinCode = code;
+  info.textContent = "🎮 Joining your friend's game…";
+  connectGuest();
+  setTimeout(() => { if (mode !== 'guest' && joinCode === code && !info.textContent.startsWith("Couldn't"))
+    info.textContent = "Still trying… make sure your friend's game is still open."; }, 12000);
 };
+
+// Opened from an invite link? Join straight away.
+const linkCode = (location.hash.match(/join=([A-Za-z]{4})/) || [])[1];
+if (linkCode) { show('#mJoin'); $('#joinCode').value = linkCode.toUpperCase(); $('#btnJoin').click(); }
 </script>
 </body>
 </html>
