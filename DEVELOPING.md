@@ -77,6 +77,7 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
 - **Goal movies** (`CUT`, `cutStart`, `drawCut`; always on, sent as `info.cut`): after every goal the host holds the match for `CUT.len()` (7.1 s with chaos, 3.6 s without) and every phone plays an arcade-style cut scene, drawn at 256×192 on `cutLow` and blown up with hard pixels on `#cutcv`.
   - Scene 1: four cheerleaders in the scorers' colours (`figure` jointed puppets, `cheerPose` star jumps and toe touches, `pompom`) in the floodlit stadium (`stadium`: crowd, boards), with GOAL! and the scorer's face.
   - Scene 2 (chaos only): the camera pans down the sideline, and a player from the team that let it in (a person if there is one, wearing their face) runs to the esky, chugs a stubby and powers up with the power their team just got.
+  - **Kids / 18+** (`AGE`, menu `.ageSeg`, localStorage `ps_age`; the host's choice is sent as `info.adult`): kids (the default) get cheer uniforms and a crate of spinach ("CHOMP!", "SPINACH POWER!", forearms bulge via the figure's `buff`); 18+ gets bikini cheerleaders (`bikini`) and the esky beer chug. 18+ needs a 4-digit parent PIN set on that phone (`ps_pin`, plain localStorage: it stops kids, not a determined adult). A phone in kids mode always sees the kids version, whatever the host picked. 18+ stays party humour: no nudity or sexual content.
   - Text is drawn crisp on top (`mkText`). An announcer says "Goal!" and "Power up!" through the browser's speech. Tap skips it; on the host or a single phone that also ends the pause for everyone.
 - **Boss round** (`startBoss`): in the last 45 s, or at match point in "First to 5", each team's champion (`pickChamp`) becomes a 2.2× giant named with its owner's boss name (profile field, or `BOSS_NAMES`).
 - **Lightsaber duel** (`startDuel`, `duelStep`): a timed match that ends level goes to sudden death.
@@ -91,7 +92,7 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
   - Game controllers work through `pollPads()`: left stick moves your player nearest the ball, right stick moves your keeper.
   - Computers and consoles can host and practise, but can't join a match, since joining means scanning a QR code with a camera.
 - **Steampunk look:** CSS variables in `:root` (brass, copper, rivets, Cinzel fonts); the 2D canvas uses `drawPitch`/`gear`, and the 3D scene is built in `setup3D`.
-- **Saved on the phone:** `ps_profile` (name, faces, boss name), `ps_music`, `ps_records`.
+- **Saved on the phone:** `ps_profile` (name, faces, boss name), `ps_age`, `ps_pin`, `ps_music`, `ps_records`.
 
 ## Tower Defence (`tower-defence.html`)
 
