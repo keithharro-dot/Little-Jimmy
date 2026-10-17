@@ -95,6 +95,12 @@ details p,details li{color:var(--muted)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .card{position:relative;text-align:left;padding:8px 10px;border-radius:10px;background:var(--panel2);border:2px solid transparent}
 .card.sel{border-color:var(--def)}
+/* LEO BOMB card: fills with gold as it charges, glows when it's ready */
+.card.leo{border-color:#8a6d1f;background:linear-gradient(90deg,rgba(242,204,96,.32) var(--p,0%),var(--panel2) var(--p,0%))}
+.card.leo .leoBall{width:32px;flex:none;text-align:center;font-size:22px;line-height:32px;filter:drop-shadow(0 0 4px #ffd23f)}
+.card.leo.ready{border-color:#ffd23f;box-shadow:0 0 14px rgba(255,210,63,.75);animation:leoGlow 1s ease-in-out infinite alternate}
+.card.leo.aim{background:#5a4510;border-color:#fff}
+@keyframes leoGlow{from{box-shadow:0 0 6px rgba(255,210,63,.4)}to{box-shadow:0 0 18px rgba(255,210,63,.95)}}
 .card .nm{font-weight:600;display:flex;align-items:center;gap:6px}
 .card .sw{width:12px;height:12px;border-radius:3px;display:inline-block;flex:none}
 .card .meta{color:var(--muted);font-size:12px}
@@ -464,6 +470,10 @@ const LAUNCHER = [null,
   {w:'anni',    name:'ANNIHILATOR', dmg:20, rate:8,  range:4.6, blast:0,   air:true,  det:true,  up:1000, swarm:{every:2.5, n:6, dmg:50, blast:1.2}},
 ];
 const LAUNCHER_COST = 180;
+// LEO BOMB: the most powerful weapon in the game. A thermonuclear soccer ball that charges up over time (the first in
+// 3 minutes, then 5 between bombs). Kicked from the castle, it lands where you tap and wipes out everything near it:
+// full damage within 1.2 tiles, fading to 30% at the edge, straight through shields and armour, flyers included.
+const LEO = {first:180, again:300, flight:1.3, radius:3.2, core:1.2, dmg:9000};
 const FLIGHT = {shell:.8, msl:.5};   // seconds in the air
 const maxLvl = spec => spec.role === 'launcher' ? LAUNCHER.length - 1 : MAX_LVL;
 const fires = spec => spec.role === 'attack' || spec.role === 'launcher';
@@ -498,7 +508,7 @@ const PRESETS = [
 
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0, map = MAPD.id) {
-  return {map, t:0, status:'countdown', cd:5, lives:BASE_HP, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], proj:[], fx:[],
+  return {map, t:0, status:'countdown', cd:5, lives:BASE_HP, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], proj:[], fx:[], leo:0, leoNeed:LEO.first,
           queue:[], graves:[], spawnT:0, wave:0, waveT:3, wq:[], wspawnT:0, id:1, winner:null, kills:0, paused:false, epoch};
 }
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
@@ -508,7 +518,7 @@ const ECO = {start:5, min:2, max:150, defGold:2};  // defGold: tower gold per se
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const BASE_HP = 150;   // the tower builder's base; each zombie that gets through damages it
-const FX_LIFE = {shell:FLIGHT.shell, msl:FLIGHT.msl, boom:.45, tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4};
+const FX_LIFE = {leoK:LEO.flight, leo:2.6, shell:FLIGHT.shell, msl:FLIGHT.msl, boom:.45, tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4};
 // Every Eradicator stun cracks a tower; the third one destroys it (no refund).
 const STUNS_TO_BREAK = 3;
 // crack = false: knocked out for a moment but not damaged (lasers, missile rain, meltdowns).
@@ -534,6 +544,11 @@ function applyCmd(g, role, c) {
     g.towers.push({id:g.id++, x, y, spec, st, lvl:1, cd:0, spent:st.cost});
     g.graves = g.graves.filter(gr => gr.x !== x || gr.y !== y);   // building over a ghost clears it
     addFx(g, 'build', x+.5, y+.5);
+  } else if (def && c.type === 'leo' && g.status === 'play' && g.leo >= g.leoNeed) {
+    const x = Math.max(.5, Math.min(COLS - .5, +c.x || 0)), y = Math.max(.5, Math.min(ROWS - .5, +c.y || 0)), [cx, cy] = WAY[WAY.length - 1];
+    g.leo = 0; g.leoNeed = LEO.again;
+    g.proj.push({x, y, t:LEO.flight, leo:true});
+    addFx(g, 'leoK', cx + .6, cy, '', x, y);   // kicked from the castle
   } else if (def && c.type === 'upgrade') {
     const t = g.towers.find(t => t.id === c.id);
     if (!t) return;
@@ -626,6 +641,8 @@ function step(g, dt) {
   g.shots = g.shots.filter(s => s.ttl > 0);
   g.fx = g.fx.filter(f => f.ttl > 0);
   if (!g.proj) g.proj = [];
+  if (g.leoNeed === undefined) { g.leo = 0; g.leoNeed = LEO.first; }
+  if (g.status === 'play') g.leo = Math.min(g.leoNeed, g.leo + dt);
   if (g.status === 'countdown') { g.cd -= dt; if (g.cd <= 0) g.status = 'play'; return; }
 
   g.t += dt;
@@ -732,6 +749,14 @@ function step(g, dt) {
   // shells and missiles landing: full damage near the middle of the blast, 60% at the edge (mortar shells can't touch flyers)
   for (const p of g.proj) {
     if ((p.t -= dt) > 0) continue;
+    if (p.leo) {   // thermonuclear
+      for (const o of g.enemies) {
+        const d = Math.hypot(o.x-p.x, o.y-p.y);
+        if (o.hp > 0 && d < LEO.radius) { o.sh = 0; o.hp -= LEO.dmg*(d < LEO.core ? 1 : 1 - .7*(d - LEO.core)/(LEO.radius - LEO.core)); }
+      }
+      addFx(g, 'leo', p.x, p.y, 'LEO BOMB!');
+      continue;
+    }
     for (const o of g.enemies) {
       const d = Math.hypot(o.x-p.x, o.y-p.y);
       if (o.hp > 0 && d < p.blast && (p.air || !ENEMIES[o.k].fly)) damage(g, o, p.dmg*(d < p.blast*.45 ? 1 : .6), true);
@@ -861,7 +886,7 @@ function snap(g) {
     w:g.winner, wv:g.wave, wt:r2(Math.max(0, g.waveT)), wl:g.wq.length, cl:Object.fromEntries(Object.entries(g.cool).map(([k, v]) => [k, r2(v)])), q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '', f.x2 === undefined ? null : r2(f.x2), f.y2 === undefined ? null : r2(f.y2)]),
     gv:g.graves.map(gr => [gr.x, gr.y, gr.spec.col, r2(gr.ttl)]),
-    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:r2((t.eff || t.st).range), dmg:Math.round((t.eff || t.st).dmg), bf:t.buff || 0, cdl:t.spec.role === 'revive' ? r2(Math.max(0, t.cd)) : 0, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, mc:t.mc > 0 ? 1 : 0, fc:t.face || 1, hits:t.stuns || 0})),
+    lb:r2(Math.min(1, g.leo/g.leoNeed)), tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:r2((t.eff || t.st).range), dmg:Math.round((t.eff || t.st).dmg), bf:t.buff || 0, cdl:t.spec.role === 'revive' ? r2(Math.max(0, t.cd)) : 0, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, mc:t.mc > 0 ? 1 : 0, fc:t.face || 1, hits:t.stuns || 0})),
     em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0, e.face, e.hold > 0 ? e.holdK : 0]),
     sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : s.sp === 'laser' ? 2 : s.sp === 'ray' ? 3 : 0, r2(s.ttl), s.id]),
   };
@@ -904,8 +929,18 @@ try { custom = (JSON.parse(localStorage.getItem('tc_designs')) || []).map(cleanS
 const designs = () => PRESETS.concat(custom);
 function saveCustom() { try { localStorage.setItem('tc_designs', JSON.stringify(custom)); } catch (e) {} }
 
+let leoAim = false;   // the next tap on the board fires the LEO BOMB
 function renderDesigns() {
   const box = $('#designCards'); box.innerHTML = '';
+  const lb = document.createElement('button'); lb.className = 'card leo'; lb.id = 'leoCard';
+  lb.innerHTML = `<div class="nm"><span class="leoBall">⚽</span><span>LEO BOMB</span></div><div class="meta">Thermonuclear. Tap, then tap the board</div><div class="cost" id="leoState">⏳ Charging</div>`;
+  lb.onclick = () => {
+    const v = view; if (!v) return;
+    if ((v.lb || 0) < 1) return toast(`The LEO BOMB is charging: ${Math.round((v.lb || 0)*100)}%`);
+    leoAim = !leoAim; selTower = null; updateLeo(v);
+    if (leoAim) toast('☢ Tap where to drop the LEO BOMB');
+  };
+  box.appendChild(lb);
   designs().forEach((d, i) => {
     const st = stats(d), b = document.createElement('button');
     b.className = 'card' + (i === selDesign ? ' sel' : '');
@@ -929,6 +964,14 @@ function launcherInfo(tw) {
   const L = LAUNCHER[tw.lvl];
   return `${L.name}: ${tw.dmg} dmg${L.blast ? ' blast' : ' beam, hits the whole line'} · range ${tw.range}` + (L.swarm ? ` · ${L.swarm.n}-missile swarm every ${L.swarm.every}s` : '')
     + (L.det ? ' · sees hidden' : '') + (L.air ? '' : ' · ground only') + (tw.bf ? ' · ♪ DJ buff' : '');
+}
+function updateLeo(v) {
+  const card = $('#leoCard'); if (!card) return;
+  const p = v.lb || 0, ready = p >= 1 && v.st === 'play';
+  if (!ready) leoAim = false;
+  card.style.setProperty('--p', Math.round(p*100) + '%');
+  card.classList.toggle('ready', ready && !leoAim); card.classList.toggle('aim', leoAim);
+  $('#leoState').textContent = leoAim ? '🎯 Tap the board!' : ready ? '☢ READY' : `⏳ ${Math.round(p*100)}%`;
 }
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -1758,7 +1801,7 @@ function ring3(x, y, r, color, alpha, fill) {
   if (!m) { m = new THREE.Mesh(new THREE.RingGeometry(.9, 1, 40), new THREE.MeshBasicMaterial({transparent:true, depthWrite:false, side:THREE.DoubleSide})); m.rotation.x = -Math.PI/2; G3.world.add(m); G3.rings.push(m); }
   m.userData.used = true; m.visible = true; m.position.set(...W3(x, y, .05)); m.scale.set(r, r, 1); m.material.color.set(color); m.material.opacity = alpha;
 }
-const FX_COL = {boom:'#ffa657', pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
+const FX_COL = {leo:'#ffd23f', boom:'#ffa657', pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
 
 // Camera: a tilted view from the front of the board, sized so the board, gravestone and castle all fit.
 function fit3D() {
@@ -1881,7 +1924,7 @@ function render3D(v) {
   G3.seen = G3.seen || new Set();
   for (const [id, k, x, y, ttl] of v.fx) {
     const p = 1 - ttl/FX_LIFE[k], col = FX_COL[k] || '#f2cc60', a = Math.max(0, 1 - p);
-    const R = {boom:.2 + p*.9, pop:.2 + p*.5, build:.3 + p*.6, leak:.3 + p*1.2, roar:.3 + p*1.2, shieldbreak:.3 + p*.6, fury:.4 + p*1.5, emp:2.2*p, revive:.3 + p*.8, tele:.3 + p*1.3, mind:.4 + p*3, summon:.4 + p*1.2, wreck:.3 + p*.9}[k];
+    const R = {leo:LEO.radius*Math.min(1, p*2), boom:.2 + p*.9, pop:.2 + p*.5, build:.3 + p*.6, leak:.3 + p*1.2, roar:.3 + p*1.2, shieldbreak:.3 + p*.6, fury:.4 + p*1.5, emp:2.2*p, revive:.3 + p*.8, tele:.3 + p*1.3, mind:.4 + p*3, summon:.4 + p*1.2, wreck:.3 + p*.9}[k];
     if (R) ring3(x, y, R, col, a);
     const key = v.ep + ':' + id; if (G3.seen.has(key)) continue; G3.seen.add(key);
     if (k === 'pop') spawnBurst(x, y, .4, 8, 2.2, .45, .14, ['#bfe3a0', '#ffffff']);
@@ -1898,6 +1941,12 @@ function render3D(v) {
     }
     if (k === 'mrain') { const f = v.fx.find(f => f[0] === id); launchMissile(f[6] === null ? x : f[6], f[7] === null ? y : f[7], 2.2, x, y, .85, 3.5); }
     if (k === 'laser') { const f = v.fx.find(f => f[0] === id); if (f[6] !== null) for (let i = 0; i <= 12; i++) { const q = i/12; spawn3(x + (f[6] - x)*q, y + (f[7] - y)*q, .3, [(Math.random() - .5), 1.5 + Math.random(), (Math.random() - .5)], .5, .3, .08, i % 2 ? '#ff3b30' : '#ffd7d3'); } }
+    if (k === 'leoK') { const f = v.fx.find(f => f[0] === id); launchMissile(x, y, 1.8, f[6], f[7], ttl, 3.5, 'leo'); }
+    if (k === 'leo') {   // thermonuclear: the brightest flash, a fireball, a towering column and the hardest shake in the game
+      spawnBurst(x, y, .5, 70, 8, 1.5, .7, ['#ffffff', '#fff2a0', '#ffd23f', '#ff7a1a'], 3);
+      for (let i = 0; i < 26; i++) spawn3(x + (Math.random() - .5)*.6, y + (Math.random() - .5)*.6, .3 + i*.16, [(Math.random() - .5)*.8, 2.2, (Math.random() - .5)*.8], 2.2, .7, 1.9, i < 16 ? '#ffb23a' : '#fff2c0');
+      G3.flashT = 3.5; G3.flash.position.set(...W3(x, y, 2.5)); G3.shake = 1.6;
+    }
     if (k === 'blast') { spawnBurst(x, y, .5, 46, 6, 1.1, .5, ['#ffffff', '#ffd23f', '#ff7a1a', '#ff3d00'], 3);
       for (let i = 0; i < 14; i++) spawn3(x + (Math.random() - .5)*.4, y + (Math.random() - .5)*.4, .3 + i*.12, [(Math.random() - .5)*.6, 1.8, (Math.random() - .5)*.6], 1.6, .5, 1.3, i < 9 ? '#ff9a2e' : '#ffe08a');
       G3.flashT = 2; G3.flash.position.set(...W3(x, y, 2)); G3.shake = 1; }
@@ -1948,7 +1997,9 @@ function launchMissile(fx, fy, fh, tx, ty, dur, arc, shell = false) {
     const ball = new T.Mesh(new T.SphereGeometry(.09, 10, 8), new T.MeshLambertMaterial({color:0x1b1f23})); m.add(ball);   // mortar shell
     G3.world.add(m); G3.missiles.push(m);
   }
-  m.children[0].visible = m.children[1].visible = !shell; m.children[2].visible = shell;
+  const leo = shell === 'leo', b = m.children[2];   // the LEO BOMB rides the same rig: a big glowing ball
+  m.children[0].visible = m.children[1].visible = !shell; b.visible = !!shell;
+  b.scale.setScalar(leo ? 3.4 : 1); b.material.color.setHex(leo ? 0xfff6c8 : 0x1b1f23); b.material.emissive.setHex(leo ? 0xffb020 : 0x000000);
   m.userData = {live:true, a:[fx, fy, fh], b:[tx, ty], t:0, dur, arc, shell}; m.visible = true;
 }
 function stepMissiles(dt) {
@@ -1956,7 +2007,7 @@ function stepMissiles(dt) {
     const u = m.userData; if (!u.live) continue;
     u.t += dt; const k = Math.min(1, u.t/u.dur), at = q => { const x = u.a[0] + (u.b[0] - u.a[0])*q, y = u.a[1] + (u.b[1] - u.a[1])*q; return new THREE.Vector3(...W3(x, y, u.a[2]*(1 - q) + .2*q + Math.sin(Math.PI*q)*u.arc)); };
     const p = at(k); m.position.copy(p); m.lookAt(at(Math.min(1, k + .03)));
-    spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, .3, 0], .5, .12, .3, u.shell ? '#6e6a62' : '#b0aaa0'); if (!u.shell) spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, 0, 0], .12, .14, .04, '#ffb040');
+    spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, .3, 0], .5, u.shell === 'leo' ? .35 : .12, u.shell === 'leo' ? .7 : .3, u.shell === 'leo' ? '#ffd23f' : u.shell ? '#6e6a62' : '#b0aaa0'); if (!u.shell) spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, 0, 0], .12, .14, .04, '#ffb040');
     if (k >= 1) { u.live = false; m.visible = false; spawnBurst(u.b[0], u.b[1], .2, 14, 2.6, .5, .25, ['#ff7a1a', '#ffd23f', '#ffffff'], 3); }
   }
 }
@@ -2158,10 +2209,24 @@ function draw2D(v) {
         ctx.fillStyle = '#d0d4d8'; ctx.fillRect(-TS*.14, -TS*.04, TS*.24, TS*.08); ctx.fillStyle = '#ff3b30'; ctx.fillRect(TS*.1, -TS*.04, TS*.06, TS*.08); ctx.restore(); }
     }
     if (k === 'boom') { ring(x, y, .2 + p*.9, '#ffd23f', 'rgba(255,140,40,.35)'); ring(x, y, .1 + p*.5, '#ff3b30'); }
+    if (k === 'leoK' && x2 !== null) {   // the LEO BOMB in flight: a glowing ball on a high arc, its shadow on the ground
+      const px = x + (x2 - x)*p, py = y + (y2 - y)*p, h = Math.sin(Math.PI*p)*3, r = TS*.24;
+      ctx.globalAlpha = .35; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(px*TS, py*TS, r, r*.5, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.save(); ctx.translate(px*TS, (py - h)*TS); ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = TS*.8;
+      ctx.fillStyle = '#fff8d8'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#2b2b2b'; for (let i = 0; i < 5; i++) { const a = i*Math.PI*2/5 + p*12; ctx.beginPath(); ctx.arc(Math.cos(a)*r*.6, Math.sin(a)*r*.6, r*.2, 0, 7); ctx.fill(); }
+      ctx.font = `900 ${TS*.2}px system-ui,sans-serif`; ctx.fillStyle = '#ff3b30'; ctx.textAlign = 'center'; ctx.fillText('LEO', 0, -r*1.25); ctx.restore();
+    }
+    if (k === 'leo') {   // thermonuclear: a white flash over the whole board, then rings of fire rolling out
+      if (p < .12) { ctx.globalAlpha = 1 - p/.12; ctx.fillStyle = '#fffbe6'; ctx.fillRect(0, 0, COLS*TS, ROWS*TS); }
+      ctx.globalAlpha = Math.max(0, 1 - p);
+      ring(x, y, LEO.radius*Math.min(1, p*2.2), '#ffd23f', 'rgba(255,170,40,.28)'); ring(x, y, LEO.radius*.7*Math.min(1, p*3), '#ff7a1a', 'rgba(255,90,20,.3)'); ring(x, y, .3 + p*1.2, '#ffffff', 'rgba(255,255,230,.5)');
+    }
     if (k === 'blast') { ring(x, y, .3 + p*2.5, '#ffd23f', 'rgba(255,90,20,.25)'); ring(x, y, .2 + p*1.6, '#ff3b30'); }
     if (txt) {
       ctx.font = `bold ${TS*.4}px system-ui,sans-serif`;
-      ctx.fillStyle = {leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72', mind:'#d2a8ff', summon:'#d2a8ff', revive:'#3fb950', tele:'#3ee6ff', laser:'#ff3b30', blast:'#ffd23f'}[k] || '#f2cc60';
+      if (k === 'leo') ctx.font = `900 ${TS*.8}px system-ui,sans-serif`;
+      ctx.fillStyle = {leo:'#ffd23f', leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72', mind:'#d2a8ff', summon:'#d2a8ff', revive:'#3fb950', tele:'#3ee6ff', laser:'#ff3b30', blast:'#ffd23f'}[k] || '#f2cc60';
       ctx.fillText(txt, x*TS, (y - .3 - p*.7)*TS);
     }
     ctx.globalAlpha = 1;
@@ -2195,6 +2260,7 @@ let lastOverlay = '';
 function hud(v) {
   if (!v) return;
   $('#hLives').textContent = v.lv;
+  updateLeo(v);
   $('#hGold').textContent = v.gd;
   $('#hEnergy').textContent = v.en;
   const pay = v.hm ? .5 : 1;
@@ -2361,6 +2427,8 @@ const SFX = {
   wreck:  () => { tone(180, 35, .5, 'sawtooth', .12); tone(90, 30, .6, 'square', .06, .05); },
   laser:  () => { tone(2400, 1800, .5, 'sawtooth', .06); tone(120, 110, .6, 'square', .05); },
   mrain:  () => { tone(1500, 200, .45, 'sine', .04); tone(160, 40, .3, 'sawtooth', .07, .4); },
+  leoK:   () => { tone(180, 60, .2, 'square', .12); tone(500, 2200, 1.2, 'sine', .05, .1); },
+  leo:    () => { tone(90, 18, 2.4, 'sawtooth', .2); tone(45, 15, 2.6, 'square', .14, .05); tone(1600, 40, 1.6, 'triangle', .07); tone(3000, 200, .4, 'sine', .05); },
   blast:  () => { tone(140, 25, 1.2, 'sawtooth', .16); tone(70, 20, 1.4, 'square', .1, .05); tone(900, 60, .8, 'triangle', .05); },
   win:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, .18, 'triangle', .1, i*.13)),
   lose:   () => trombone(),
@@ -2667,6 +2735,7 @@ cv.addEventListener('pointerdown', ev => {
   if (CU.on) return;   // the close-up camera uses taps itself
   const p = tileAt(ev); if (!p || !view) return;
   const [x, y] = p, t = view.tw.find(t => t.x === x && t.y === y);
+  if (leoAim && isDef()) { issue({type:'leo', x:x + .5, y:y + .5}); leoAim = false; return; }
   if (t) { selTower = selTower === t.id ? null : t.id; return; }
   if (selTower != null) { selTower = null; return; }
   if (!isDef()) return;

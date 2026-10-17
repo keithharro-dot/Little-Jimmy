@@ -84,6 +84,9 @@ explosion(B(28, 0, 40), 6)
 
 # (the game's own particles are left out here: soccer's are huge, soft sprites that turn into blobs as solid shapes)
 
+# the LEO BOMB, hovering over the centre spot above the two giants
+leo_bomb(B(0, 0, 0), 6, 22, 17, 4.5)
+
 world = finish(UNIT, NAME)
 export_sizes(world, HERE, NAME, 55)
 if '--render' in sys.argv:
