@@ -222,9 +222,21 @@ details p,details li{color:var(--muted)}
   #game .panel .card .del{display:block;top:-7px;right:-7px;width:20px;height:20px;padding:0;border-radius:50%;background:var(--panel2);border:1px solid var(--line);font-size:12px;line-height:18px}
   #rotate{display:block;grid-column:1/-1;margin:0}
 }
+
+/* on-screen PIN pad (instead of the browser's prompt box) */
+#pinPad{position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+#pinPad .pp{background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:16px;padding:18px;width:min(320px,100%);text-align:center;font:15px/1.4 system-ui,-apple-system,sans-serif}
+#pinPad .pt{font-weight:700;font-size:17px;margin-bottom:4px}#pinPad .ps{font-size:13px;color:#8b949e;margin-bottom:10px;white-space:pre-line}
+#pinPad .pd{font:700 28px ui-monospace,monospace;letter-spacing:10px;min-height:40px;margin:6px 0 12px}
+#pinPad .pk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#pinPad button{font:600 22px system-ui,sans-serif;padding:12px 0;border-radius:12px;border:1px solid #30363d;background:#21262d;color:#e6edf3}
+#pinPad .pa{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}#pinPad .pa button{font-size:16px}
+#pinPad .ok{background:#58a6ff;color:#04121f;border-color:transparent}
 </style>
 </head>
 <body>
+<div id="pinPad" hidden><div class="pp"><div class="pt"></div><div class="ps"></div><div class="pd"></div><div class="pk"></div><div class="pa"><button class="no">Cancel</button><button class="ok">OK</button></div></div></div>
+
 
 <div id="tune" hidden>
   <header><h2>🎛 Characters &amp; tuning</h2><button id="tuneLogin">🔒 Admin</button><button id="tuneReset">Reset all</button><button class="primary" id="tuneClose">Done</button></header>
@@ -1119,15 +1131,41 @@ const toSlider = v => Math.round(50 + 25*Math.log2(v)), fromSlider = x => Math.r
 let tuneAdmin = false;
 const passHash = p => { let x = 0x811c9dc5; for (let r = 0; r < 1000; r++) for (const ch of 'little-jimmy-td:' + p + r) { x ^= ch.charCodeAt(0); x = Math.imul(x, 0x01000193) >>> 0; } return x.toString(16); };
 const adminHash = () => { try { return localStorage.getItem('td_admin') || 'b02a5d05'; } catch (e) { return 'b02a5d05'; } };
-function adminLogin() {
+// On-screen PIN pad and yes/no box: askPin(title, sub) and askYes(text) return promises (null / false on Cancel).
+// Used instead of prompt()/confirm(), which some phone web views block or freeze on.
+function askPin(title, sub = '') {
+  return new Promise(done => {
+    const box = document.getElementById('pinPad'), dots = box.querySelector('.pd'), keys = box.querySelector('.pk');
+    let v = ''; const show = () => { dots.textContent = v ? '•'.repeat(v.length) : '—'; };
+    box.querySelector('.pt').textContent = title; box.querySelector('.ps').textContent = sub; keys.hidden = false; dots.hidden = false;
+    keys.innerHTML = ''; ['1','2','3','4','5','6','7','8','9','⌫','0','✓'].forEach(k => { const b = document.createElement('button'); b.textContent = k; keys.appendChild(b);
+      b.onclick = () => { if (k === '⌫') v = v.slice(0, -1); else if (k === '✓') return end(v || null); else if (v.length < 8) v += k; show(); }; });
+    const end = r => { box.hidden = true; document.removeEventListener('keydown', kb); done(r); };
+    const kb = e => { if (/^\d$/.test(e.key) && v.length < 8) { v += e.key; show(); } else if (e.key === 'Backspace') { v = v.slice(0, -1); show(); } else if (e.key === 'Enter') end(v || null); else if (e.key === 'Escape') end(null); };
+    document.addEventListener('keydown', kb);
+    box.querySelector('.ok').textContent = 'OK'; box.querySelector('.ok').onclick = () => end(v || null); box.querySelector('.no').onclick = () => end(null);
+    show(); box.hidden = false;
+  });
+}
+function askYes(text) {
+  return new Promise(done => {
+    const box = document.getElementById('pinPad');
+    box.querySelector('.pt').textContent = text.split('\n')[0]; box.querySelector('.ps').textContent = text.split('\n').slice(1).join('\n').trim();
+    box.querySelector('.pk').hidden = true; box.querySelector('.pd').hidden = true;
+    const end = r => { box.hidden = true; done(r); };
+    box.querySelector('.ok').textContent = 'Yes'; box.querySelector('.ok').onclick = () => end(true); box.querySelector('.no').onclick = () => end(false);
+    box.hidden = false;
+  });
+}
+async function adminLogin() {
   if (tuneAdmin) {   // already in: offer to change the passcode on this phone
-    const p1 = prompt('New admin passcode (4 or more digits) for this phone:'); if (!p1) return;
+    const p1 = await askPin('New admin passcode', '4 or more digits, for this phone'); if (!p1) return;
     if (!/^\d{4,}$/.test(p1)) return toast('Use at least 4 digits');
-    if (prompt('Type the new passcode again:') !== p1) return toast("The passcodes didn't match");
+    if (await askPin('Type the new passcode again') !== p1) return toast("The passcodes didn't match");
     try { localStorage.setItem('td_admin', passHash(p1)); } catch (e) {}
     return toast('Admin passcode changed on this phone');
   }
-  const p = prompt('Admin passcode:'); if (p === null) return;
+  const p = await askPin('🔒 Admin passcode'); if (p === null) return;
   if (passHash(p.trim()) === adminHash()) { tuneAdmin = true; toast('🔓 Admin: you can change the settings'); renderTune(); } else toast('Wrong passcode');
 }
 function setTune(k, v) { if (Math.abs(v - 1) < .005) delete TUNE[k]; else TUNE[k] = v; try { localStorage.setItem('td_tune', JSON.stringify(TUNE)); } catch (e) {} }
@@ -1193,7 +1231,7 @@ function openTune() { renderTune(); $('#tune').hidden = false; }
 $('#goTune').onclick = openTune; $('#tuneBtn').onclick = openTune;
 $('#tuneClose').onclick = () => { $('#tune').hidden = true; };
 $('#tuneLogin').onclick = adminLogin;
-$('#tuneReset').onclick = () => { if (!tuneAdmin) return; if (!confirm('Put every setting back to ×1?')) return; TUNE = {}; try { localStorage.removeItem('td_tune'); } catch (e) {} renderTune(); };
+$('#tuneReset').onclick = async () => { if (!tuneAdmin) return; if (!(await askYes('Put every setting back to ×1?'))) return; TUNE = {}; try { localStorage.removeItem('td_tune'); } catch (e) {} renderTune(); };
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const enemyBtns = {};
