@@ -81,6 +81,9 @@ for e in info['enemies']:
     if e['k'] == 'void':
         ball(B(e['x'], .4, e['z']), 1.2, mat('Void haze', hexlin('#6e28be'), emit=2.5, alpha=.18), sub=3)
 
+# the LEO BOMB, hovering right in the middle of the battle
+leo_bomb(B(0, 0, 0), .55, 1.9, 1.75, .45)
+
 world = finish(TILE, NAME)
 export_sizes(world, HERE, NAME, 48)
 if '--render' in sys.argv:

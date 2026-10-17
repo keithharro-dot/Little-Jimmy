@@ -50,6 +50,8 @@ This guide is for whoever (and whichever Claude) picks them up next. Give your C
 
 ## Pocket Soccer (`soccer.html`)
 
+- **LEO BOMB** (`LEO`, `leoBlast`): at the start of the boss round the ball is dropped on the centre spot as the LEO BOMB (`ball.leo`). The first team to touch it arms it (`powerTouch`); a touch by anyone on the other team sets it off. Their whole team within 75 units is blasted away and frozen for 3.5 s (bosses less), and the ball rockets at their goal. One per match. The snapshot sends `bl`: 0 none, 1 unarmed, 2 armed by blue, 3 armed by red.
+
 Finger soccer for 1–16 players, phones first. Each player is a square block with your face (photo or cartoon) on top. You drag your players with your finger. Touch control (`holds`, `isHeld`, `drawTethers`): a touch within about 1 cm (`GRAB_PX`) grabs the nearest of your players, and the player keeps its offset from the finger so the finger never covers it; a dotted line shows the link. The in-game 🎵 button and the menu chip both open the music picker.
 
 - **Pitch and physics:**
@@ -96,6 +98,7 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
   - Bosses: Eradicator, MK II (rages at half health) and the Void (mind control, Voidlings, stomp), plus minions (Avatars, Voidlings).
 - **Towers:** design your own (`stats`, `cleanSpec`) or use the `PRESETS`. Levels 1–4 change the soldier's uniform colour (`LEVEL_UNIFORM`). Reviver and DJ are support towers.
 - **Waves** (`WAVES = 50`): an Eradicator on wave 20, an MK II on 40, the Void on 50. The zombie sender's economy is in `ECO`.
+- **LEO BOMB** (`LEO`, the gold first card in the tower list): the most powerful weapon. It charges over time (`g.leo` toward `g.leoNeed`: 180 s for the first, then 300 s). Tap the card, then the board: `{type:'leo', x, y}` kicks it from the castle (fx `leoK`, 1.3 s flight), and on landing (`p.leo` in `g.proj`) it does 9000 damage within 1.2 tiles, fading to 30% at 3.2 tiles, straight through shields and armour, flyers included (fx `leo`). The snapshot sends the charge as `lb` (0–1).
 - **Launcher tower** (`role:'launcher'`, the last preset): one tower whose weapon changes with each upgrade, up to level 5 (`maxLvl`). The `LAUNCHER` table holds each level's weapon, damage, rate, range, blast radius, whether it hits flyers (`air`) and hidden zombies (`det`), and the upgrade price: Mortar → Missile pod → Twin pods → Laser → ANNIHILATOR (death ray plus a 6-missile `swarm` salvo).
   - Shells and missiles: `launch` aims where the target will be when it lands (zombies follow a fixed route, so `posAt`/`flyAt` give it exactly) and puts it in `g.proj`. `step` blasts everything nearby when it lands. Clients draw the flight from the `shell`/`msl` fx (start, end, time left), so no positions travel over the network; 3D reuses `launchMissile` (a ball for shells).
   - Beams: `fireLauncher` hurts every zombie within 0.35 tiles of the line, out to full range. Shot kinds in the snapshot: 0 bullet, 1 splash, 2 laser, 3 death ray.

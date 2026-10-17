@@ -267,3 +267,34 @@ def render(out_dir, prefix, shots, sky=(.42, .55, .75)):
         cam.location = loc; cam.data.lens = lens
         d = Vector(look) - Vector(loc); cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
         sc.render.filepath = os.path.join(out_dir, prefix + '-' + name + '.png'); bpy.ops.render.render(write_still=True)
+
+def leo_bomb(c, r, hover, sign_h, sign_size):
+    """The LEO BOMB: a giant glowing thermonuclear soccer ball hovering over the battle, ringed with energy, a beam of
+    light down to a hazard circle on the ground and a two-sided "LEO BOMB" sign above it. c: ground point (Blender)."""
+    g = Vector((c.x, c.y, 0)); ctr = g + Vector((0, 0, hover))
+    white = mat('Leo ball', hexlin('#fff6d8'), emit=3, rough=.3)
+    patch = mat('Leo patch', hexlin('#1a1a1a'), rough=.4)
+    gold = mat('Leo gold', hexlin('#ffd23f'), emit=8)
+    ball(ctr, r, white, sub=3)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1); ico = bpy.context.object
+    dirs = [v.co.normalized() for v in ico.data.vertices]; bpy.data.objects.remove(ico)
+    for d in dirs:   # the twelve black pentagons of a soccer ball
+        bpy.ops.mesh.primitive_cylinder_add(vertices=5, radius=r * .33, depth=r * .06, location=ctr + d * r * .985)
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = d.to_track_quat('Z', 'Y'); o.data.materials.append(patch); link(o)
+    ball(ctr, r * 1.45, mat('Leo glow', hexlin('#ffd23f'), emit=4, alpha=.28), sub=3)
+    ball(ctr, r * 2.1, mat('Leo aura', hexlin('#ffb020'), emit=2, alpha=.12), sub=3)
+    for k, (rx, ry) in enumerate(((1.1, .2), (-.5, 1.0), (.3, -1.2))):   # orbiting energy rings
+        bpy.ops.mesh.primitive_torus_add(major_radius=r * (1.7 + k * .15), minor_radius=r * .045, major_segments=48, minor_segments=6, location=ctr, rotation=(rx, ry, k))
+        o = bpy.context.object; o.data.materials.append(gold); link(o)
+    tube(g, ctr - Vector((0, 0, r)), r * .12, mat('Leo beam', hexlin('#fff2a0'), emit=8, alpha=.6), r2=r * .45)
+    disc(g + Vector((0, 0, .02 * r)), r * 2.2, mat('Leo hazard', hexlin('#ffd23f'), emit=2, alpha=.55))
+    disc(g + Vector((0, 0, .03 * r)), r * 1.8, mat('Leo hazard dark', hexlin('#141414'), alpha=.8))
+    disc(g + Vector((0, 0, .04 * r)), r * 1.2, mat('Leo hazard', hexlin('#ffd23f'), emit=2, alpha=.55))
+    for k in range(18):   # sparks crackling round it
+        d = Vector((rng.random() - .5, rng.random() - .5, rng.random() - .5)).normalized()
+        ball(ctr + d * r * (1.6 + rng.random() * .8), r * .06, gold, sub=1)
+    sc = ctr + Vector((0, 0, sign_h))   # the sign: gold lettering both ways round a dark board
+    t1 = text('LEO BOMB', sc + Vector((0, -sign_size * .12, 0)), sign_size, gold, face_y=-1, depth=sign_size * .08)
+    text('LEO BOMB', sc + Vector((0, sign_size * .12, 0)), sign_size, gold, face_y=1, depth=sign_size * .08)
+    bpy.ops.mesh.primitive_cube_add(size=1, location=sc); s = bpy.context.object
+    s.scale = (t1.dimensions.x + sign_size * .8, sign_size * .16, sign_size * 1.4); s.data.materials.append(mat('Sign board', hexlin('#1a120b'), rough=.6)); link(s)
