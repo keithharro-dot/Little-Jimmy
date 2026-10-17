@@ -350,7 +350,7 @@ const TAGS = E => [E.boss && ['BOSS','#ff4d4d'], E.stealth && ['HIDDEN','#a371f7
   E.shield && ['SHIELD','#3ee6ff'], E.fury && ['RAGE','#ff3b30'], E.armor && ['ARMOUR','#8b949e'], E.heal && ['HEALER','#3fb950'], E.spd > 2 && ['FAST','#f2cc60']].filter(Boolean);
 
 /* ---------- Towers ---------- */
-const DMG_MULT = .5;
+const DMG_MULT = .675;   // half the listed damage, then +35%
 const DMG = [0,8,14,22,32,45], RNG = [0,1.6,2.1,2.6,3.2,3.9], RATE = [0,.7,1,1.4,2,2.8];
 const SP_ICON = {none:'', slow:'❄', splash:'✹'};
 function cleanSpec(s) {
@@ -1188,68 +1188,88 @@ function synth(m, t, midi, dur, type, vol, cutoff, glideTo) {
   o.connect(f).connect(g).connect(m.out); o.start(t); o.stop(t + dur + .02);
 }
 // Power chord (root, fifth, octave) of detuned saws through the distortion "amp".
+// Plucked-string tones (Karplus-Strong): a burst of noise fed round a short delay loop, which
+// rings like a real string. Built once per note and reused. Palm-muted notes die away quickly.
+const pluckCache = {};
+function pluckBuf(midi, kind) {
+  const key = midi + kind;
+  if (pluckCache[key]) return pluckCache[key];
+  const sr = AC.sampleRate, N = Math.max(2, Math.round(sr / mtof(midi)));
+  const [secs, damp] = {mute:[.4, .93], open:[1.6, .997], sustain:[2.4, .9993]}[kind];
+  const buf = AC.createBuffer(1, Math.floor(sr*secs), sr), y = buf.getChannelData(0);
+  let lp = 0;
+  for (let i = 0; i < N; i++) { lp = lp*.4 + (Math.random()*2 - 1)*.6; y[i] = lp; }
+  for (let i = N + 1; i < y.length; i++) y[i] = damp * .5 * (y[i-N] + y[i-N-1]);
+  return pluckCache[key] = buf;
+}
+function pluck(m, t, midi, kind, dur, gainNode, rate = 1, delay = 0) {
+  const src = AC.createBufferSource(); src.buffer = pluckBuf(midi, kind); src.playbackRate.value = rate;
+  src.connect(gainNode); src.start(t + delay); src.stop(t + delay + dur + .3);
+  return src;
+}
+// Power chord, double-tracked: two takes panned hard left and right into the amp.
 function guitar(m, t, midi, dur, vol, open) {
-  const g = AC.createGain();
-  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  for (const [pan, rate, delay] of [[-.8, 1, 0], [.8, 1.003, .007]]) {
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, t); g.gain.setTargetAtTime(.0001, t + dur*.85, .04);
+    if (AC.createStereoPanner) { const p = AC.createStereoPanner(); p.pan.value = pan; g.connect(p).connect(m.amp); } else g.connect(m.amp);
+    for (const iv of open ? [0, 7, 12] : [0, 7]) pluck(m, t, midi + iv, open ? 'open' : 'mute', dur, g, rate, delay);
+  }
+}
+// Clean picked bass an octave below the guitar.
+function bassNote(m, t, midi, dur, vol) {
+  const g = AC.createGain(), f = AC.createBiquadFilter();
+  f.type = 'lowpass'; f.frequency.value = 700;
+  g.gain.setValueAtTime(vol, t); g.gain.setTargetAtTime(.0001, t + dur*.9, .05);
+  g.connect(f).connect(m.out);
+  pluck(m, t, midi, 'open', dur, g);
+}
+// Sustained lead guitar note with vibrato; `dive` drops it an octave at the end like a whammy bar.
+function leadNote(m, t, midi, dur, vol, dive) {
+  const g = AC.createGain(), lfo = AC.createOscillator(), depth = AC.createGain();
+  g.gain.setValueAtTime(vol, t); g.gain.setTargetAtTime(.0001, t + dur*.85, .06);
   g.connect(m.amp);
-  for (const iv of open ? [0, 7, 12] : [0, 7]) {
-    const o = AC.createOscillator(); o.type = 'sawtooth';
-    o.frequency.value = mtof(midi + iv); o.detune.value = (Math.random() - .5)*14;
-    o.connect(g); o.start(t); o.stop(t + dur + .02);
-  }
+  const src = pluck(m, t, midi, 'sustain', dur, g);
+  lfo.frequency.value = 5.5; depth.gain.value = .008; lfo.connect(depth).connect(src.playbackRate);
+  lfo.start(t + dur*.25); lfo.stop(t + dur + .3);
+  if (dive) { src.playbackRate.setValueAtTime(1, t + dur*.65); src.playbackRate.exponentialRampToValueAtTime(.5, t + dur); }
 }
-// Screaming lead with a dive at the end, also through the amp.
-function lead(m, t, midi, dur, vol) {
-  const o = AC.createOscillator(), g = AC.createGain(), lfo = AC.createOscillator(), depth = AC.createGain();
-  o.type = 'sawtooth'; o.frequency.setValueAtTime(mtof(midi), t);
-  o.frequency.setValueAtTime(mtof(midi), t + dur*.7); o.frequency.exponentialRampToValueAtTime(mtof(midi - 12), t + dur);
-  lfo.frequency.value = 6; depth.gain.value = 12; lfo.connect(depth).connect(o.detune);
-  g.gain.setValueAtTime(vol, t); g.gain.setValueAtTime(vol, t + dur*.8); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  o.connect(g).connect(m.amp); o.start(t); o.stop(t + dur + .02); lfo.start(t); lfo.stop(t + dur + .02);
-}
-// "Vroom vroom": a revving engine played on the distorted guitar amp.
+function lead(m, t, midi, dur, vol) { leadNote(m, t, midi, dur, vol, true); }
+// "Vroom vroom": an engine revving through the guitar amp.
 function rev(m, t) {
-  const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sawtooth';
-  const f = o.frequency; f.setValueAtTime(55, t);
-  f.linearRampToValueAtTime(190, t + .45); f.linearRampToValueAtTime(95, t + .8);
-  f.linearRampToValueAtTime(240, t + 1.35); f.linearRampToValueAtTime(130, t + 1.7); f.linearRampToValueAtTime(300, t + 2.4);
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.2, t + .1); g.gain.setValueAtTime(.2, t + 2.3); g.gain.exponentialRampToValueAtTime(.0001, t + 2.6);
-  o.connect(g).connect(m.amp); o.start(t); o.stop(t + 2.65);
-  noise(m, t, 2.5, 'lowpass', 300, .12);
+  const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter(); o.type = 'sawtooth';
+  f.type = 'lowpass'; f.frequency.value = 900;
+  const fr = o.frequency; fr.setValueAtTime(45, t);
+  fr.linearRampToValueAtTime(150, t + .45); fr.linearRampToValueAtTime(75, t + .8);
+  fr.linearRampToValueAtTime(190, t + 1.35); fr.linearRampToValueAtTime(100, t + 1.7); fr.linearRampToValueAtTime(230, t + 2.4);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .1); g.gain.setValueAtTime(.12, t + 2.3); g.gain.exponentialRampToValueAtTime(.0001, t + 2.6);
+  o.connect(f).connect(g).connect(m.amp); o.start(t); o.stop(t + 2.65);
+  noise(m, t, 2.5, 'lowpass', 250, .1);
 }
-function leadNote(m, t, midi, dur, vol) {
-  const o = AC.createOscillator(), g = AC.createGain(), lfo = AC.createOscillator(), depth = AC.createGain();
-  o.type = 'sawtooth'; o.frequency.value = mtof(midi);
-  lfo.frequency.value = 5.5; depth.gain.value = 10; lfo.connect(depth).connect(o.detune);
-  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  o.connect(g).connect(m.amp); o.start(t); o.stop(t + dur + .02); lfo.start(t); lfo.stop(t + dur + .02);
-}
-// A crowd-style "HEY!": a short buzzy chord through a vowel-ish band filter.
-function shout(m, t) {
-  for (const f0 of [196, 247, 294]) {
-    const o = AC.createOscillator(), g = AC.createGain(), bp = AC.createBiquadFilter();
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0*.9, t + .18);
-    bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 3;
-    g.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.0001, t + .2);
-    o.connect(bp).connect(g).connect(m.out); o.start(t); o.stop(t + .22);
-  }
-  noise(m, t, .12, 'bandpass', 1500, .15);
-}
-function noise(m, t, dur, type, freq, vol) {
+function noise(m, t, dur, type, freq, vol, verb = 0, q) {
   const n = AC.createBufferSource(), g = AC.createGain(), f = AC.createBiquadFilter();
-  n.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
+  n.buffer = noiseBuf; f.type = type; f.frequency.value = freq; if (q) f.Q.value = q;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  n.connect(f).connect(g).connect(m.out); n.start(t); n.stop(t + dur + .02);
+  n.connect(f).connect(g).connect(m.out);
+  if (verb && m.verb) { const s = AC.createGain(); s.gain.value = verb; g.connect(s).connect(m.verb); }
+  n.start(t); n.stop(t + dur + .02);
 }
 function drum(m, kind, t, vol = 1) {
-  if (kind === 'kick') {
+  if (kind === 'kick') {   // body that drops in pitch, plus the beater click
     const o = AC.createOscillator(), g = AC.createGain();
-    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + .12);
-    g.gain.setValueAtTime(.7*vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .16);
-    o.connect(g).connect(m.out); o.start(t); o.stop(t + .18);
-  } else if (kind === 'snare') { noise(m, t, .16, 'bandpass', 1800, .4*vol); synth(m, t, 57, .08, 'triangle', .15*vol, 2000); }
-  else if (kind === 'hat') noise(m, t, .03, 'highpass', 8000, .05*vol);
-  else if (kind === 'crash') noise(m, t, 1.1, 'highpass', 5000, .14*vol);
+    o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(45, t + .09);
+    g.gain.setValueAtTime(.9*vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .28);
+    o.connect(g).connect(m.out); o.start(t); o.stop(t + .3);
+    noise(m, t, .018, 'highpass', 2500, .35*vol);
+  } else if (kind === 'snare') {
+    noise(m, t, .24, 'bandpass', 1900, .5*vol, .3, .7);
+    const o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle';
+    o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(160, t + .08);
+    g.gain.setValueAtTime(.3*vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .12);
+    o.connect(g).connect(m.out); o.start(t); o.stop(t + .14);
+  }
+  else if (kind === 'hat') noise(m, t, .045, 'highpass', 9000, .06*vol);
+  else if (kind === 'crash') noise(m, t, 1.8, 'highpass', 5500, .17*vol, .4);
 }
 
 // --- tracks: 32 sixteenth-note steps each, looped ---
@@ -1272,7 +1292,7 @@ const TRACKS = {
   // Eradicator: chugging palm-muted metal riff with double kicks.
   erad: {bpm:168, vol:.45, step(m, i, t, S) {
     const n = RIFF1[i];
-    if (n) { const open = n !== 40; guitar(m, t, n, open ? S*1.8 : S*.7, open ? .22 : .17, open); synth(m, t, n - 12, S*.9, 'sawtooth', .14, 400); }
+    if (n) { const open = n !== 40; guitar(m, t, n, open ? S*1.8 : S*.7, open ? .22 : .17, open); bassNote(m, t, n - 12, S*.9, .35); }
     if (i % 2 === 0 || [14, 15, 30, 31].includes(i)) drum(m, 'kick', t);
     if (i % 8 === 4) drum(m, 'snare', t);
     if (i % 2 === 1) drum(m, 'hat', t);
@@ -1281,43 +1301,55 @@ const TRACKS = {
   // MK II: faster, lower and darker, with blast-beat drums and a screaming lead.
   erad2: {bpm:186, vol:.42, step(m, i, t, S) {
     const n = RIFF2[i];
-    if (n) { const open = n !== 38; guitar(m, t, n, open ? S*1.6 : S*.6, open ? .22 : .18, open); synth(m, t, n - 12, S*.8, 'sawtooth', .15, 380); }
+    if (n) { const open = n !== 38; guitar(m, t, n, open ? S*1.6 : S*.6, open ? .22 : .18, open); bassNote(m, t, n - 12, S*.8, .35); }
     drum(m, 'kick', t, .85);
     if (i % 4 === 2) drum(m, 'snare', t);
     if (i % 16 === 0) drum(m, 'crash', t);
-    if (i === 0) lead(m, t, 74, S*7, .07);
-    if (i === 16) lead(m, t, 73, S*7, .07);
+    if (i === 0) lead(m, t, 74, S*7, .09);
+    if (i === 16) lead(m, t, 73, S*7, .09);
   }},
   // The Void: "Full Throttle", an original fast 80s-metal track: motorbike rev intro, racing
-  // palm-muted chugs, a bright guitar hook and a gang shout at the end of each loop.
+  // palm-muted chugs and a bright guitar hook.
   void: {bpm:178, vol:.45, introLen:2.6, intro(m, t) { rev(m, t); }, step(m, i, t, S) {
     const n = RIFF4[i];
-    if (n) { const open = n !== 45; guitar(m, t, n, open ? S*1.7 : S*.6, open ? .22 : .17, open); synth(m, t, n - 12, S*.9, 'sawtooth', .15, 420); }
+    if (n) { const open = n !== 45; guitar(m, t, n, open ? S*1.7 : S*.6, open ? .22 : .17, open); bassNote(m, t, n - 12, S*.9, .35); }
     if (i % 4 === 0 || i % 8 === 6) drum(m, 'kick', t);
     if (i % 8 === 4) drum(m, 'snare', t);
     if (i % 2 === 1) drum(m, 'hat', t, 1.2);
     if (i % 16 === 0) drum(m, 'crash', t, .9);
-    const h = HOOK[i]; if (h) leadNote(m, t, h, S*1.9, .06);
-    if (i === 30) shout(m, t);
+    const h = HOOK[i]; if (h) leadNote(m, t, h, S*1.9, .09);
   }},
 };
 
+// A decaying-noise impulse response: very short for a speaker cabinet, longer for room reverb.
+function impulse(secs, decay) {
+  const sr = AC.sampleRate, b = AC.createBuffer(2, Math.floor(sr*secs), sr);
+  for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); let lp = 0;
+    for (let i = 0; i < d.length; i++) { lp = lp*.6 + (Math.random()*2 - 1)*.4; d[i] = lp * Math.exp(-i/(sr*decay)); } }
+  return b;
+}
 function startMusic(track) {
   if (!noiseBuf) {
     noiseBuf = AC.createBuffer(1, AC.sampleRate*1.2, AC.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
-    distCurve = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) { const x = i*2/1024 - 1; distCurve[i] = (1 + 60)*x/(1 + 60*Math.abs(x)); }
+    distCurve = new Float32Array(2048);
+    for (let i = 0; i < 2048; i++) { const x = i*2/2048 - 1; distCurve[i] = Math.tanh(x * 4); }
   }
   const T = TRACKS[track], out = AC.createGain();
   out.gain.setValueAtTime(0, AC.currentTime); out.gain.linearRampToValueAtTime(T.vol, AC.currentTime + 1);
   const limit = AC.createDynamicsCompressor();   // keeps the loud metal tracks from clipping on phone speakers
   limit.threshold.value = -8; limit.ratio.value = 12; limit.attack.value = .003; limit.release.value = .2;
   out.connect(limit).connect(AC.destination);
-  const amp = AC.createWaveShaper(), cab = AC.createBiquadFilter();
-  amp.curve = distCurve; amp.oversample = '2x'; cab.type = 'lowpass'; cab.frequency.value = 3200;
-  amp.connect(cab).connect(out);
-  const m = music = {track, out, amp, timer:null, src:null};
+  // Guitar rig: drive -> saturation -> cabinet tone shaping -> speaker-cabinet impulse.
+  const drive = AC.createGain(), shaper = AC.createWaveShaper(), cab = AC.createConvolver();
+  drive.gain.value = 6; shaper.curve = distCurve; shaper.oversample = '4x';
+  const eq = [['highpass', 90, 0], ['peaking', 650, -5], ['peaking', 2400, 4], ['lowpass', 5200, 0]].map(([type, f, gain]) => {
+    const b = AC.createBiquadFilter(); b.type = type; b.frequency.value = f; if (gain) b.gain.value = gain; return b; });
+  cab.buffer = impulse(.05, .006);
+  const post = AC.createGain(); post.gain.value = .35;
+  [drive, shaper, ...eq, cab, post].reduce((a, b) => a.connect(b)).connect(out);
+  const verb = AC.createConvolver(); verb.buffer = impulse(1.4, .35); verb.connect(out);
+  const m = music = {track, out, amp:drive, verb, timer:null, src:null};
   const sequence = () => {
     const S = 60/T.bpm/4; let step = 0, next = AC.currentTime + .05;
     if (T.intro) { T.intro(m, next); next += T.introLen; }
