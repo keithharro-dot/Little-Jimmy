@@ -831,7 +831,7 @@ function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1, hits = 0, mc = 0
   ctx.strokeStyle = spec.col; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = '#8a7650';
   for (const [bx, by] of [[.22,.8], [.42,.84], [.62,.84], [.8,.8]]) { ctx.beginPath(); ctx.ellipse((x+bx)*TS, (y+by)*TS, TS*.1, TS*.055, 0, 0, 7); ctx.fill(); }
-  drawSoldier(ctx, (x+.5)*TS, (y+.47)*TS, TS*.88, spec, face);
+  drawSoldier(ctx, (x+.5)*TS, (y+.47)*TS, TS*.88, spec, face, lvl);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#fff'; ctx.font = `${TS*.28}px sans-serif`;
   if (buffed) { ctx.font = `bold ${TS*.42}px sans-serif`; ctx.fillStyle = '#ff7bd5'; ctx.fillText('♪', (x+.82)*TS, (y+.76)*TS); ctx.fillStyle = '#fff'; ctx.font = `${TS*.28}px sans-serif`; }
@@ -858,18 +858,22 @@ function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1, hits = 0, mc = 0
 }
 
 // Towers are blocky soldiers; the weapon shows what the tower does. (cx, cy) centre, s height in px.
-function drawSoldier(c, cx, cy, s, spec, face = 1) {
+// Uniform colour by upgrade level: green camo, navy, crimson, gold elite. [uniform, dark trim, camo patch]
+const LEVEL_UNIFORM = [null, ['#4b5d3a', '#2f3b27', '#5c6e48'], ['#2f5aa8', '#1d3666', '#4a74c0'],
+                       ['#a8322f', '#6b1d1b', '#c24b47'], ['#c9a227', '#5c4a12', '#e3c04f']];
+function drawSoldier(c, cx, cy, s, spec, face = 1, lvl = 1) {
   c.save(); c.translate(cx, cy); c.scale(face, 1);
   const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
   const role = spec.role || 'attack', sniper = spec.det && role === 'attack';
-  const uni = role === 'revive' ? '#d0d7de' : '#4b5d3a', dark = role === 'revive' ? '#8b949e' : '#2f3b27';
+  const [lu, ld, lp] = LEVEL_UNIFORM[Math.min(MAX_LVL, Math.max(1, lvl))];
+  const uni = role === 'revive' && lvl === 1 ? '#d0d7de' : lu, dark = role === 'revive' && lvl === 1 ? '#8b949e' : ld;
   if (role === 'dj') {   // boombox at his feet
     R(-.5, .18, .36, .24, '#1b1f23'); c.fillStyle = spec.col;
     c.beginPath(); c.arc(-.41*s, .3*s, .06*s, 0, 7); c.fill(); c.beginPath(); c.arc(-.23*s, .3*s, .06*s, 0, 7); c.fill();
   }
   R(-.16, .12, .13, .32, dark); R(.03, .12, .13, .32, dark);   // legs
   R(-.21, -.2, .42, .34, uni);                                 // body
-  if (role !== 'revive') { R(-.17, -.16, .08, .08, '#33402a'); R(.06, -.06, .09, .07, '#5c6e48'); }   // camo patches
+  if (role !== 'revive') { R(-.17, -.16, .08, .08, dark); R(.06, -.06, .09, .07, lp); }   // camo patches
   R(-.21, -.04, .42, .06, spec.col);                           // belt in the tower's colour
   R(-.13, -.46, .26, .25, '#f5cd30');                          // head
   R(.03, -.38, .06, .05, '#111');                              // eye
