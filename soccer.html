@@ -271,6 +271,9 @@ const EMBEDDED = !!window.PS_EMBEDDED;   // copy inside the Claude app: no netwo
 const F = {w:100, h:160, goalW:32, boxW:50, boxD:22, r:6, ballR:3.2, cut:10};   // cut: corners are angled off so the ball can't wedge in
 const TEAMS = [{name:'Blue', col:'#3b82f6', dark:'#1e3a8a'}, {name:'Red', col:'#ef4444', dark:'#7f1d1d'}];
 const VMAX = 95, VMAX_AI = 58, BALL_MAX = 170;
+// Aftertouch: after your player touches the ball, moving that player sideways bends the ball's path, until someone
+// else touches it. Turn rate (radians a second) at full sideways speed; no bend once the ball is nearly stopped.
+const CURL = {turn:2.6, minSpeed:18};
 // Each side gets one outfield player per person on the bigger team (at least 1), plus a keeper
 // that anyone on the team can grab. Blue's spots by outfield count (Red mirrors them). [role, x, y]
 const OUTFIELD = {
@@ -459,7 +462,7 @@ function startBoss(g) {
 // at their goal. One per match.
 const LEO = {reach:75, push:430, frz:3.5};
 function leoBlast(g, T) {
-  const b = g.ball; b.leo = null;
+  const b = g.ball; b.leo = null; b.forced = true; b.curl = null;   // forced: the blast's own shot isn't an own goal
   for (const w of g.widgets) if (w.team !== T) {
     const dx = w.x - b.x, dy = w.y - b.y, d = Math.hypot(dx, dy) || 1;
     if (d < LEO.reach) { const f = (LEO.push*(1 - d/LEO.reach) + 140)*(w.boss ? .5 : 1); w.kx = dx/d*f; w.ky = dy/d*f; w.frz = w.boss ? LEO.frz*.6 : LEO.frz; w.slip = 0; }
@@ -592,6 +595,14 @@ function aiTarget(g, w, chaser, attacking) {
   return [w.hx + (b.x - 50)*.35, w.hy + (b.y - 80)*.35];
 }
 
+// Which team is about to put the ball in its own net: the last touch was theirs, and it's heading for their goal.
+// Power shots (the LEO BOMB blast, homing rockets) don't count.
+function ownGoalThreat(g) {
+  const b = g.ball, lt = g.widgets[g.lastTouch];
+  if (!lt || b.forced || b.home || b.held) return null;
+  const D = lt.team;   // team 0 defends the goal at y = 160, team 1 the one at y = 0
+  return (D === 0 ? b.vy > 0 && b.y > 110 : b.vy < 0 && b.y < 50) ? D : null;
+}
 function step(g, dt) {
   if (g.status === 'over') return;
   if (g.status === 'duel') return duelStep(g, dt);
@@ -613,9 +624,13 @@ function step(g, dt) {
   // whichever team's chaser is nearer the ball attacks; the other defends
   const dist = w => w ? Math.hypot(w.x - b.x, w.y - b.y) : 1e9;
   const attackTeam = dist(chasers[0]) <= dist(chasers[1]) ? 0 : 1;
+  const own = ownGoalThreat(g);   // a team's own player has the ball heading for their own goal: their keeper dives for it
   for (const w of g.widgets) {
     let tx = null, ty = null, vmax = VMAX, shoot = false;
-    if (w.ctl === null && !g.targets[w.id]) { [tx, ty, shoot] = aiTarget(g, w, w === chasers[w.team], w.team === attackTeam); vmax = shoot ? VMAX_AI*1.5 : w.role === 'GK' ? VMAX_AI*.72 : VMAX_AI; }
+    if (own !== null && w.team === own && w.role === 'GK' && !(w.frz > 0)) {
+      const gy = own === 0 ? 160 : 0, tt = Math.abs((gy - b.y)/(b.vy || 1e-6));
+      tx = clamp(b.x + b.vx*tt, 50 - F.goalW/2, 50 + F.goalW/2); ty = w.hy; vmax = VMAX*3;
+    } else if (w.ctl === null && !g.targets[w.id]) { [tx, ty, shoot] = aiTarget(g, w, w === chasers[w.team], w.team === attackTeam); vmax = shoot ? VMAX_AI*1.5 : w.role === 'GK' ? VMAX_AI*.72 : VMAX_AI; }
     else if (g.targets[w.id]) ({x:tx, y:ty} = g.targets[w.id]);
     if (has(g.lv, w.team, 'turbo')) vmax *= 1.35;
     if (w.boss) vmax *= .85;
@@ -669,11 +684,17 @@ function step(g, dt) {
       const off = Math.abs(ny) > .9 ? (b.x - w.x)/h : Math.abs(nx) > .9 ? (b.y - w.y)/h : 0;   // -1..1 along the side
       if (Math.abs(ny) > .9) b.vx += off*Math.abs(vn)*.6; else if (Math.abs(nx) > .9) b.vy += off*Math.abs(vn)*.6;
       if (w.boss) { b.vx *= 1.4; b.vy *= 1.4; b.boost = .3; } else if (has(g.lv, w.team, 'racket')) { b.vx *= 1.25; b.vy *= 1.25; }
+      b.curl = w.ctl ? w.id : null; b.forced = false;   // a person's touch gives them aftertouch on the ball
       powerTouch(g, w);
     }
     g.lastTouch = w.id;
   }
   if (g.lv) powerStep(g, dt);
+  const cw = b.curl !== null && b.curl !== undefined && !b.held ? g.widgets[b.curl] : null, bs = Math.hypot(b.vx, b.vy);
+  if (cw && bs > CURL.minSpeed && !b.home) {   // aftertouch: bend the ball with your player's sideways movement
+    const ux = b.vx/bs, uy = b.vy/bs, side = cw.vx*-uy + cw.vy*ux, turn = clamp(side/VMAX, -1, 1)*CURL.turn*dt, cs = Math.cos(turn), sn = Math.sin(turn);
+    b.vx = (ux*cs - uy*sn)*bs; b.vy = (ux*sn + uy*cs)*bs;
+  }
   const sp = Math.hypot(b.vx, b.vy), cap = b.boost > 0 ? BALL_MAX*1.6 : BALL_MAX; if (sp > cap) { b.vx *= cap/sp; b.vy *= cap/sp; }
   // angled corners
   for (const [cx, cy] of [[0, 0], [100, 0], [0, 160], [100, 160]]) {
@@ -690,6 +711,11 @@ function step(g, dt) {
   if (!inMouth) {
     if (b.y < R) { b.y = R; b.vy = Math.abs(b.vy)*.8; }
     if (b.y > 160 - R) { b.y = 160 - R; b.vy = -Math.abs(b.vy)*.8; }
+  } else if ((b.y < R || b.y > 160 - R) && ownGoalThreat(g) === (b.y < R ? 1 : 0)) {   // own goal: the keeper always gets there
+    const D = b.y < R ? 1 : 0, gk = g.widgets.find(w => w.team === D && w.role === 'GK');
+    b.y = D ? R : 160 - R; b.vy = (D ? 1 : -1)*Math.max(40, Math.abs(b.vy)*.6); b.vx *= .5; b.curl = null;
+    if (gk) { gk.x = clamp(b.x, 50 - F.goalW/2, 50 + F.goalW/2); g.lastTouch = gk.id; }
+    g.kicks++; addFx(g, {k:'save', x:r1(b.x), y:r1(D ? 6 : 154)});
   } else if (b.y < -R || b.y > 160 + R) {   // GOAL
     const scoringTeam = b.y < 0 ? 0 : 1;
     g.score[scoringTeam]++;
@@ -716,7 +742,7 @@ function snap(g) {
   return {st:g.status, cd:r1(g.cd), t:r1(g.t), len:g.len, sc:g.score, b:[r1(g.ball.x), r1(g.ball.y)], k:g.kicks, ep:g.epoch,
           w:g.widgets.map(w => [r1(w.x), r1(w.y)]), sco:g.scorer, goals:g.goals,
           lv:g.lv, pu:g.pu, fz:g.widgets.filter(w => w.frz > 0).map(w => w.id), bv:[r1(g.ball.vx), r1(g.ball.vy)],
-          bn:g.ball.nuke ? 1 : 0, bl:g.ball.leo ? g.ball.leo.team + 2 : 0, bh:g.ball.home || 0, fx:g.fx.map(f => ({...f, a:r1(f.a)})),
+          bc:g.ball.curl !== null && g.ball.curl !== undefined && g.widgets[g.ball.curl] ? g.widgets[g.ball.curl].team + 1 : 0, bn:g.ball.nuke ? 1 : 0, bl:g.ball.leo ? g.ball.leo.team + 2 : 0, bh:g.ball.home || 0, fx:g.fx.map(f => ({...f, a:r1(f.a)})),
           hd:g.ball.held ? [g.ball.held.w, r1(g.ball.held.t)] : null, gh:g.ghost.map(v => v > 0 ? Math.ceil(v) : 0), na:g.bananas.map(n => [n.x, n.y]),
           sl:g.widgets.filter(w => w.slip > 0).map(w => w.id), bs:g.boss,
           dl:g.duel ? {ids:g.duel.ids, hp:g.duel.hp, inv:g.duel.inv.map(v => v > 0 ? 1 : 0), ang:g.duel.ang.map(a => Math.round(a*100)/100)} : null, dw:g.duelWin === undefined ? null : g.duelWin};
@@ -964,6 +990,7 @@ const SFX = {
   slip: () => { tone(900, 150, .5, 'triangle', .2); tone(1200, 200, .4, 'sine', .1, .1); },
   ghost: () => { tone(500, 700, .9, 'sine', .12); tone(700, 450, .9, 'sine', .1, .5); tone(450, 300, 1, 'triangle', .08, 1); },
   boss: () => { noise(2.2, 90, .7); tone(70, 40, 2.4, 'sawtooth', .35); tone(110, 55, 2, 'square', .12, .4); [196, 185, 175, 165].forEach((f, i) => tone(f, f, .5, 'sawtooth', .12, 1 + i*.45)); },
+  save: () => { tone(300, 90, .25, 'square', .12); noise(.3, 1500, .3); },
   clash: () => { tone(1400, 900, .25, 'sawtooth', .12); noise(.2, 4000, .25); },
   hit: () => { tone(300, 80, .35, 'sawtooth', .25); noise(.3, 1200, .3); },
   saber: () => { tone(110, 220, .6, 'sawtooth', .12); tone(220, 440, .6, 'sawtooth', .05, .1); [0, .9, 1.8].forEach(d => tone(90, 95, .8, 'sawtooth', .05, .8 + d)); },
@@ -1553,6 +1580,20 @@ function drawWalls(v) {
     ctx.beginPath(); ctx.moveTo(X, Y + h/2); ctx.lineTo(X + w, Y + h/2); ctx.stroke(); ctx.strokeRect(X, Y, w, h);
   }
 }
+// Aftertouch shows as a dotted ring in the team's colour round the ball; an own goal stopped shows SAVED! (2D and 3D).
+function drawCurl(v) {
+  const at = (x, y) => toScreen(x, y, G3.on ? 1.5 : 0);
+  if (v.bc) {
+    const [sx, sy] = at(v.b[0], v.b[1]), [ex] = at(v.b[0] + F.ballR*2, v.b[1]), r = Math.max(10, Math.abs(ex - sx));
+    ctx.save(); ctx.strokeStyle = TEAMS[v.bc - 1].col; ctx.lineWidth = 2.5; ctx.setLineDash([4, 4]); ctx.lineDashOffset = -performance.now()/40;
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, 7); ctx.stroke(); ctx.restore();
+  }
+  for (const f of v.fx || []) if (f.k === 'save') {
+    const [sx, sy] = at(f.x, f.y), t = f.a/1.2;
+    ctx.save(); ctx.globalAlpha = Math.max(0, 1 - t); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `900 ${Math.round(22 + t*10)}px system-ui`;
+    ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText('SAVED!', sx, sy - t*30); ctx.fillStyle = '#facc15'; ctx.fillText('SAVED!', sx, sy - t*30); ctx.restore();
+  }
+}
 function drawFx(v) {
   for (const f of v.fx || []) {
     const [sx, sy] = toScreen(f.x, f.y), t = f.a/1.2;
@@ -2061,7 +2102,7 @@ function frame() {
       if (view.dl) drawDuel(view); else drawBall(view.b[0], view.b[1]);
       drawFx(view);
     }
-    drawTethers(view);
+    drawTethers(view); drawCurl(view);
     for (const f of view.fx || []) if (!seenFx.has(view.ep + ':' + f.id)) { seenFx.add(view.ep + ':' + f.id); (SFX[f.k] || (() => {}))(); }
     const icons = t => view.lv ? POWERS.slice(0, view.lv[t]).map(p => p.icon).join('') : '';
     $('#pwb').textContent = icons(0); $('#pwr').textContent = icons(1);
