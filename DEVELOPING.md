@@ -11,8 +11,7 @@ This guide is for whoever (and whichever Claude) picks them up next. Give your C
 
 ## Getting started
 
-1. **Get the code.** Ask the owner (keithharro-dot) to add you as a collaborator, or fork the repo.
-   - Fork it on GitHub, or clone: `git clone https://github.com/keithharro-dot/Little-Jimmy`
+1. **Get the code.** Ask the owner (keithharro-dot) to add you as a collaborator (see **Working together** below), then clone: `git clone https://github.com/keithharro-dot/Little-Jimmy`
 2. **Run it.** No build step: each game is one self-contained HTML file.
    - Serve the folder: `python3 -m http.server 8000`, then open `http://localhost:8000/soccer.html`.
    - Multiplayer and the theme music need `http(s)://`; opening the file directly doesn't work.
@@ -145,9 +144,18 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
 - Records shared between phones (merge tables when players join).
 - 3D: proper character models (free CC0 packs such as Kenney or Quaternius) instead of block-built ones.
 
+## Working together (Keith and Leo, each with their own Claude)
+
+Both of you work in this one repo as collaborators. Don't fork: a fork drifts apart and has to be merged back by hand.
+
+- **Start every job from the latest `main`**, on a new branch named for the job (`leo/eradicator-mk3`, `keith/soccer-penalties`).
+- **Never push straight to `main`.** Open a pull request and let the other person look at it (or at least see it), then merge it on GitHub. Merging is what makes it live, because Pages deploys from `main`.
+- **Say which game you're in.** Each game is one big HTML file, so two people changing the same file at once is where clashes come from. If you both need the same file, keep the PRs small and merge often.
+- **If GitHub says a PR has conflicts**, ask your Claude to merge the latest `main` into the branch and sort it out. It can do that.
+- Run `node tests/smoke.mjs` before opening a PR. It should end with "All checks passed".
+
 ## Working conventions so far
 
-- Branch, then fast-forward `main` and push. Pages deploys from `main`.
 - Before pushing: run `node tests/smoke.mjs`, plus a syntax check (e.g. parse the last `<script>` with acorn).
 - Keep the code style of the surrounding code: compact functions, short comments explaining *why*.
 
