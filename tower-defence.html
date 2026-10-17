@@ -86,6 +86,8 @@ details p,details li{color:var(--muted)}
 .card .meta{color:var(--muted);font-size:12px}
 .card .cost{color:var(--gold);font-weight:600}
 .card .ecost{color:var(--energy);font-weight:600}
+.card .eco{font-size:12px;color:var(--ok);margin-left:4px}
+.card .eco.neg{color:var(--atk)}
 .card canvas{width:44px;height:44px;flex:none;margin:-4px 0 -4px -4px}
 .tags{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0}
 .tag{font-size:9px;font-weight:800;letter-spacing:.5px;border:1px solid;border-radius:4px;padding:0 4px}
@@ -143,7 +145,7 @@ details p,details li{color:var(--muted)}
       <ul>
         <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
         <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. Tap a built tower to sell it.</li>
-        <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers, and the MK II rages at half health.</li>
+        <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Eradicators cost eco, so save them for the right moment. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers, and the MK II rages at half health.</li>
         <li>Zombies win if the base's lives reach 0. Towers win by lasting 4 minutes. Then swap sides!</li>
       </ul>
       <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
@@ -295,16 +297,16 @@ const flyAt = d => { const f = Math.min(1, d/FLYLEN); return [FLY.ax + (FLY.bx-F
 
 /* ---------- Enemies: zombies, plus Eradicator bosses (TDX-style traits) ---------- */
 const ENEMIES = {
-  zombie:  {name:'Zombie',       hp:75,   spd:1.2,  cost:15,  reward:5,  leak:1, r:.3,  desc:'Basic shambling zombie'},
-  speedy:  {name:'Speedy',       hp:35,   spd:2.4,  cost:10,  reward:3,  leak:1, r:.27, desc:'Fast and fragile'},
-  phantom: {name:'Phantom',      hp:60,   spd:1.5,  cost:25,  reward:6,  leak:1, r:.28, stealth:true, desc:'Hidden! Only 📡 towers can see it'},
-  bat:     {name:'Zombie Bats',  hp:35,   spd:1.5,  cost:30,  reward:3,  leak:1, r:.26, fly:true, count:3, desc:'Fly straight over the map'},
-  riot:    {name:'Riot Zombie',  hp:80,   shield:110, spd:1.05, cost:35, reward:9, leak:1, r:.3, desc:'Shield soaks hits. ✹ Splash breaks it 2× faster'},
-  medic:   {name:'Medic Zombie', hp:95,   spd:1.05, cost:35,  reward:9,  leak:1, r:.3,  heal:10, desc:'Heals zombies around it'},
-  brute:   {name:'Brute',        hp:320,  spd:.7,   cost:45,  reward:13, leak:2, r:.38, armor:5, desc:'Armour blocks 5 dmg per hit'},
-  erad:    {name:'Eradicator',   hp:900,  shield:200, spd:.33, cost:1000, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
+  zombie:  {name:'Zombie',       hp:75,   spd:1.2,  eco:0.1, cost:15,  reward:5,  leak:1, r:.3,  desc:'Basic shambling zombie'},
+  speedy:  {name:'Speedy',       hp:35,   spd:2.4,  eco:0.06, cost:10,  reward:3,  leak:1, r:.27, desc:'Fast and fragile'},
+  phantom: {name:'Phantom',      hp:60,   spd:1.5,  eco:0.18, cost:25,  reward:6,  leak:1, r:.28, stealth:true, desc:'Hidden! Only 📡 towers can see it'},
+  bat:     {name:'Zombie Bats',  hp:35,   spd:1.5,  eco:0.22, cost:30,  reward:3,  leak:1, r:.26, fly:true, count:3, desc:'Fly straight over the map'},
+  riot:    {name:'Riot Zombie',  hp:80,   shield:110, spd:1.05, eco:0.26, cost:35, reward:9, leak:1, r:.3, desc:'Shield soaks hits. ✹ Splash breaks it 2× faster'},
+  medic:   {name:'Medic Zombie', hp:95,   spd:1.05, eco:0.26, cost:35,  reward:9,  leak:1, r:.3,  heal:10, desc:'Heals zombies around it'},
+  brute:   {name:'Brute',        hp:320,  spd:.7,   eco:0.35, cost:45,  reward:13, leak:2, r:.38, armor:5, desc:'Armour blocks 5 dmg per hit'},
+  erad:    {name:'Eradicator',   hp:900,  shield:200, spd:.33, eco:-4, cost:1000, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
             desc:'Rocket burst knocks out nearby towers'},
-  erad2:   {name:'Eradicator MK II', hp:1500, shield:350, spd:.29, cost:2000, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
+  erad2:   {name:'Eradicator MK II', hp:1500, shield:350, spd:.29, eco:-8, cost:2000, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
             fury:true, splashRes:.3, desc:'Resists splash 30%. Rages at half HP'},
 };
 const TAGS = E => [E.boss && ['BOSS','#ff4d4d'], E.stealth && ['HIDDEN','#a371f7'], E.fly && ['FLYING','#58a6ff'],
@@ -339,10 +341,13 @@ const PRESETS = [
 
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0) {
-  return {t:0, status:'countdown', cd:5, lives:20, gold:200, energy:60, towers:[], enemies:[], shots:[], fx:[],
+  return {t:0, status:'countdown', cd:5, lives:20, gold:200, energy:60, eco:ECO_START, towers:[], enemies:[], shots:[], fx:[],
           queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0, paused:false, epoch};
 }
-const income = g => 6 + g.t/25;
+// Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
+// sending an Eradicator lowers it (never below ECO_MIN).
+const ECO_START = 5, ECO_MIN = 2;
+const income = g => g.eco;
 const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8};
 const addFx = (g, k, x, y, txt) => g.fx.push({id:g.id++, k, x, y, txt, ttl:FX_LIFE[k]});
 
@@ -368,6 +373,7 @@ function applyCmd(g, role, c) {
     const E = ENEMIES[c.kind];
     if (!E || g.energy < E.cost || g.queue.length > 60) return;
     g.energy -= E.cost;
+    g.eco = Math.max(ECO_MIN, Math.round((g.eco + E.eco)*100)/100);
     for (let i = 0; i < (E.count || 1); i++) g.queue.push(c.kind);
   }
 }
@@ -559,7 +565,7 @@ function renderEnemies() {
       <div class="tags">${tags}</div>
       <div class="meta"><span class="key">${i+1}</span>${E.desc}</div>
       <div class="meta">HP ${E.hp}${E.shield ? ' + 🛡' + E.shield : ''}</div>
-      <div class="ecost">⚡ ${E.cost}</div>`;
+      <div class="ecost">⚡ ${E.cost} <span class="eco ${E.eco < 0 ? 'neg' : ''}">${E.eco > 0 ? '+' : '−'}${Math.abs(E.eco)} eco</span></div>`;
     const ic = b.querySelector('canvas').getContext('2d');
     ic.scale(2, 2); drawUnit(ic, k, 20, E.fly ? 22 : 25, E.boss ? 30 : 38, .8, false);
     b.onclick = () => issue({type:'send', kind:k});
@@ -809,7 +815,7 @@ function hud(v) {
   $('#hLives').textContent = v.lv;
   $('#hGold').textContent = v.gd;
   $('#hEnergy').textContent = v.en;
-  $('#hInc').textContent = '+' + v.inc.toFixed(1) + '/s';
+  $('#hInc').textContent = '+' + v.inc.toFixed(2) + '/s';
   $('#hTime').textContent = fmt(v.dur - v.t);
   for (const [k, b] of Object.entries(enemyBtns)) b.disabled = v.st !== 'play' || v.en < ENEMIES[k].cost;
   $('#qInfo').textContent = v.q ? v.q + ' waiting to enter' : '';
