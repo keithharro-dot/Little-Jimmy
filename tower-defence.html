@@ -30,6 +30,11 @@ input{-webkit-user-select:text;user-select:text}
 #qr{background:#fff;padding:10px;border-radius:10px;display:inline-block}
 #qr img,#qr canvas{display:block}
 .small{font-size:13px;color:var(--muted)}
+.maps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mapcard{padding:6px;border-radius:12px;border:2px solid transparent;background:var(--panel)}
+.mapcard.sel{border-color:var(--def);background:#0c2d4d}
+.mapcard canvas{display:block;width:100%;height:auto;border-radius:6px}
+.mapcard span{display:block;margin-top:4px;font-size:13px;font-weight:700}
 .linkbtn{background:none;border:0;color:var(--def);text-decoration:underline;padding:8px}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:999px;z-index:20;white-space:nowrap}
 #mute{background:none;border:0;padding:2px 6px;font-size:20px}
@@ -137,6 +142,8 @@ details p,details li{color:var(--muted)}
   <div id="errBox" class="invite" style="margin-bottom:16px;border-color:var(--atk)" hidden></div>
 
   <div id="mMain" class="stack">
+    <div class="small" style="margin-bottom:-4px">Pick a map</div>
+    <div class="maps" id="mapPick"></div>
     <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
     <button id="goLocal">📱 Two players, one phone</button>
     <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
@@ -160,7 +167,7 @@ details p,details li{color:var(--muted)}
 
   <div id="mHost" class="stack" hidden>
     <div id="hostPick" class="stack">
-      <p style="margin:0">Which side do you want to play?</p>
+      <p style="margin:0">Which side do you want to play? <span class="small">Map: <b id="hostMap" style="color:var(--text)"></b></span></p>
       <div class="row">
         <button class="primary" data-role="def">🛡 Build towers</button>
         <button class="danger" data-role="atk">🧟 Send zombies</button>
@@ -274,31 +281,55 @@ addEventListener('error', e => {
 });
 const $ = s => document.querySelector(s);
 
-/* ---------- Map ---------- */
+/* ---------- Maps ---------- */
 const COLS = 15, ROWS = 9;
-const WAY = [[-1,1],[4,1],[4,6],[9,6],[9,2],[13,2],[13,7],[15,7]].map(([x,y]) => [x+.5, y+.5]);
-const SEG = []; let PATHLEN = 0;
-for (let i = 0; i < WAY.length-1; i++) {
-  const [ax,ay] = WAY[i], [bx,by] = WAY[i+1], L = Math.hypot(bx-ax, by-ay);
-  SEG.push({ax, ay, bx, by, L, s: PATHLEN}); PATHLEN += L;
-}
-const PATH = new Set();
-for (let i = 0; i < WAY.length-1; i++) {
-  const [ax,ay] = WAY[i].map(Math.floor), [bx,by] = WAY[i+1].map(Math.floor);
-  const dx = Math.sign(bx-ax), dy = Math.sign(by-ay);
-  for (let x = ax, y = ay; ; x += dx, y += dy) {
-    if (x >= 0 && x < COLS && y >= 0 && y < ROWS) PATH.add(x+','+y);
-    if (x === bx && y === by) break;
+// Paths are waypoints in tile coordinates; they enter off the left edge and leave off the right.
+const MAPS = {
+  grass:  {name:'Graveyard', way:[[-1,1],[4,1],[4,6],[9,6],[9,2],[13,2],[13,7],[15,7]],
+           tiles:['#1b4029','#183a26'], path:'#5c4b33', line:'rgba(255,230,180,.12)', decor:'grass'},
+  ice:    {name:'Frozen', way:[[-1,7],[2,7],[2,2],[6,2],[6,5],[10,5],[10,1],[13,1],[13,4],[15,4]],
+           tiles:['#a8cadd','#9fc2d6'], path:'#5f86a0', line:'rgba(255,255,255,.4)', decor:'ice'},
+  desert: {name:'Desert', way:[[-1,4],[3,4],[3,1],[7,1],[7,7],[11,7],[11,3],[15,3]],
+           tiles:['#d8b36a','#d0aa5f'], path:'#a5773f', line:'rgba(80,40,10,.25)', decor:'desert'},
+};
+function buildMap(id) {
+  const M = MAPS[id], way = M.way.map(([x,y]) => [x+.5, y+.5]), seg = [], path = new Set();
+  let len = 0;
+  for (let i = 0; i < way.length-1; i++) {
+    const [ax,ay] = way[i], [bx,by] = way[i+1], L = Math.hypot(bx-ax, by-ay);
+    seg.push({ax, ay, bx, by, L, s: len}); len += L;
   }
+  for (let i = 0; i < way.length-1; i++) {
+    const [ax,ay] = way[i].map(Math.floor), [bx,by] = way[i+1].map(Math.floor);
+    const dx = Math.sign(bx-ax), dy = Math.sign(by-ay);
+    for (let x = ax, y = ay; ; x += dx, y += dy) {
+      if (x >= 0 && x < COLS && y >= 0 && y < ROWS) path.add(x+','+y);
+      if (x === bx && y === by) break;
+    }
+  }
+  // A few bits of scenery on tiles off the road. Purely visual; towers can still go there.
+  const decor = []; let seed = id.length * 7919;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 16; i++) {
+    const x = Math.floor(rnd()*COLS), y = Math.floor(rnd()*ROWS), r = rnd();
+    if (!path.has(x+','+y)) decor.push([x + .25 + r*.5, y + .3 + rnd()*.4, r]);
+  }
+  // Flying zombies skip the road and fly straight from the gravestone to the base.
+  const a = way[0], b = way[way.length-1];
+  return {id, M, way, seg, len, path, decor, fly:{ax:a[0], ay:a[1], bx:b[0], by:b[1]}, flyLen:Math.hypot(b[0]-a[0], b[1]-a[1])};
 }
+let MAPD, WAY, SEG, PATHLEN, PATH, FLY, FLYLEN;
+function setMap(id) {
+  if (!MAPS[id]) id = 'grass';
+  if (MAPD && MAPD.id === id) return;
+  MAPD = buildMap(id);
+  ({way:WAY, seg:SEG, len:PATHLEN, path:PATH, fly:FLY, flyLen:FLYLEN} = MAPD);
+}
+setMap('grass');
 function posAt(d) {
   for (const s of SEG) if (d <= s.s + s.L) { const f = (d - s.s) / s.L; return [s.ax + (s.bx-s.ax)*f, s.ay + (s.by-s.ay)*f]; }
   const s = SEG[SEG.length-1]; return [s.bx, s.by];
 }
-
-// Flying enemies skip the road and fly straight from the portal to the base.
-const FLY = {ax:WAY[0][0], ay:WAY[0][1], bx:WAY[WAY.length-1][0], by:WAY[WAY.length-1][1]};
-const FLYLEN = Math.hypot(FLY.bx-FLY.ax, FLY.by-FLY.ay);
 const flyAt = d => { const f = Math.min(1, d/FLYLEN); return [FLY.ax + (FLY.bx-FLY.ax)*f, FLY.ay + (FLY.by-FLY.ay)*f]; };
 
 /* ---------- Enemies: zombies, plus Eradicator bosses (TDX-style traits) ---------- */
@@ -355,8 +386,8 @@ const PRESETS = [
 ];
 
 /* ---------- Simulation (runs on host / local only) ---------- */
-function newGame(epoch = 0) {
-  return {t:0, status:'countdown', cd:5, lives:20, gold:200, energy:60, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
+function newGame(epoch = 0, map = MAPD.id) {
+  return {map, t:0, status:'countdown', cd:5, lives:20, gold:200, energy:60, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
           queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0, paused:false, epoch};
 }
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
@@ -370,7 +401,7 @@ const addFx = (g, k, x, y, txt) => g.fx.push({id:g.id++, k, x, y, txt, ttl:FX_LI
 
 function applyCmd(g, role, c) {
   if (!g || !c) return;
-  if (c.type === 'restart') { if (g.status === 'over') Object.assign(g, newGame(g.epoch + 1)); return; }
+  if (c.type === 'restart') { if (g.status === 'over') Object.assign(g, newGame(g.epoch + 1, g.map)); return; }
   if (g.status === 'over') return;
   const def = role === 'def' || role === 'both', atk = role === 'atk' || role === 'both';
   if (def && c.type === 'place') {
@@ -480,7 +511,7 @@ function step(g, dt) {
   g.enemies = g.enemies.filter(e => {
     if (e.d >= routeLen(e)) {
       const leak = ENEMIES[e.k].leak;
-      g.lives -= leak; addFx(g, 'leak', 14.5, 7.5, '-' + leak + '❤️');
+      g.lives -= leak; addFx(g, 'leak', COLS - .5, WAY[WAY.length-1][1], '-' + leak + '❤️');
       return false;
     }
     return true;
@@ -517,7 +548,7 @@ function step(g, dt) {
 const r2 = v => Math.round(v*100)/100;
 function snap(g) {
   return {
-    t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g), hm:incomeMult(g) < 1,
+    mp:g.map, t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g), hm:incomeMult(g) < 1,
     w:g.winner, dur:g.dur, cl:Object.fromEntries(Object.entries(g.cool).map(([k, v]) => [k, r2(v)])), q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
     tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, dmg:t.st.dmg, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0})),
@@ -747,17 +778,38 @@ function ring(x, y, r, stroke, fill) {
   ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
 }
 
+// Ground, scenery, road and the start/end markers for map D, at tile size ts.
+function drawGround(c, ts, D) {
+  const M = D.M;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    c.fillStyle = D.path.has(x+','+y) ? M.path : M.tiles[(x+y) % 2];
+    c.fillRect(x*ts, y*ts, ts+.5, ts+.5);
+  }
+  for (const [x, y, r] of D.decor) drawDecor(c, M.decor, x*ts, y*ts, ts, r);
+  c.strokeStyle = M.line; c.lineWidth = ts*.08; c.setLineDash([ts*.2, ts*.2]);
+  c.beginPath(); D.way.forEach(([x,y], i) => i ? c.lineTo(x*ts, y*ts) : c.moveTo(x*ts, y*ts)); c.stroke(); c.setLineDash([]);
+  c.font = `${ts*.5}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('🪦', .5*ts, D.way[0][1]*ts); c.fillText('🏰', (COLS-.5)*ts, D.way[D.way.length-1][1]*ts);
+}
+function drawDecor(c, kind, x, y, ts, r) {
+  const u = ts/10;
+  if (kind === 'grass') {          // tufts and the odd yellow flower
+    c.fillStyle = '#2c6b3e'; c.fillRect(x-u, y-u*2, u*.6, u*2); c.fillRect(x, y-u*2.6, u*.6, u*2.6); c.fillRect(x+u, y-u*1.8, u*.6, u*1.8);
+    if (r > .6) { c.fillStyle = '#f2cc60'; c.beginPath(); c.arc(x+u*2.4, y-u*2, u*.7, 0, 7); c.fill(); }
+  } else if (kind === 'ice') {     // snow drifts and sparkles
+    c.fillStyle = 'rgba(255,255,255,.75)'; c.beginPath(); c.ellipse(x, y, u*2.4, u, 0, 0, 7); c.fill();
+    if (r > .5) { c.fillStyle = '#fff'; c.fillRect(x+u*2, y-u*3, u*.5, u*2); c.fillRect(x+u*1.25, y-u*2.25, u*2, u*.5); }
+  } else {                         // cacti and rocks
+    if (r > .45) {
+      c.fillStyle = '#4f7a3a'; c.fillRect(x-u*.6, y-u*4, u*1.2, u*4); c.fillRect(x-u*2, y-u*3, u*.9, u*1.6);
+      c.fillRect(x+u*1.1, y-u*3.4, u*.9, u*1.8); c.fillRect(x-u*2, y-u*1.6, u*1.6, u*.7); c.fillRect(x+u*.4, y-u*1.8, u*1.6, u*.7);
+    } else { c.fillStyle = '#9c8466'; c.beginPath(); c.ellipse(x, y, u*1.8, u*1.1, 0, 0, 7); c.fill(); }
+  }
+}
+
 function draw(v) {
   const W = COLS*TS, H = ROWS*TS;
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    ctx.fillStyle = PATH.has(x+','+y) ? '#5c4b33' : ((x+y) % 2 ? '#183a26' : '#1b4029');
-    ctx.fillRect(x*TS, y*TS, TS+.5, TS+.5);
-  }
-  // path centre line
-  ctx.strokeStyle = 'rgba(255,230,180,.12)'; ctx.lineWidth = TS*.08; ctx.setLineDash([TS*.2, TS*.2]);
-  ctx.beginPath(); WAY.forEach(([x,y], i) => i ? ctx.lineTo(x*TS, y*TS) : ctx.moveTo(x*TS, y*TS)); ctx.stroke(); ctx.setLineDash([]);
-  ctx.font = `${TS*.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('🪦', .5*TS, 1.5*TS); ctx.fillText('🏰', 14.5*TS, 7.5*TS);
+  drawGround(ctx, TS, MAPD);
   if (!v) return;
 
   for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun, t.lvl);
@@ -1100,7 +1152,7 @@ function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast.timer); toast.timer = setTimeout(() => t.hidden = true, 2600);
 }
-$('#goHost').onclick = () => { if (EMBEDDED) return show('#mEmbed'); show('#mHost'); $('#hostInfo').textContent = ''; };
+$('#goHost').onclick = () => { if (EMBEDDED) return show('#mEmbed'); $('#hostMap').textContent = MAPS[chosenMap].name; show('#mHost'); $('#hostInfo').textContent = ''; };
 $('#homeLink').href = HOME; $('#homeLink').textContent = HOME.replace('https://', '');
 $('#btnCopyHome').onclick = () => {
   const done = () => { $('#btnCopyHome').textContent = 'Copied!'; };
@@ -1114,7 +1166,7 @@ document.querySelectorAll('.back').forEach(b => b.onclick = () => {
   $('#hostPick').hidden = false; $('#hostInvite').hidden = true; $('#qrWrap').hidden = true;
   show('#mMain');
 });
-$('#goLocal').onclick = () => { mode = 'local'; myRole = 'both'; game = newGame(); startGame(); };
+$('#goLocal').onclick = () => { mode = 'local'; myRole = 'both'; setMap(chosenMap); game = newGame(0, chosenMap); startGame(); };
 
 function applyRoleUI() {
   selTower = null;
@@ -1196,7 +1248,7 @@ function hostGame(role) {
     c.on('open', () => {
       if (conn !== c) return;
       c.send({t:'hello', role:guestRole});
-      if (!game) { mode = 'host'; game = newGame(); startGame(); }
+      if (!game) { mode = 'host'; setMap(chosenMap); game = newGame(0, chosenMap); startGame(); }
       else game.paused = false;
     });
     c.on('data', m => { if (conn === c && m && m.t === 'cmd') handleCmd(guestRole, m.c); });
@@ -1235,7 +1287,7 @@ function connectGuest() {
         myRole = m.role;
         if (reconnecting) { reconnecting = false; clearTimeout(retryTimer); }
         if (mode !== 'guest') { mode = 'guest'; startGame(); } else applyRoleUI();
-      } else if (m.t === 's') { prevS = curS; curS = m.s; curAt = performance.now(); }
+      } else if (m.t === 's') { if (m.s.mp && m.s.mp !== MAPD.id) setMap(m.s.mp); prevS = curS; curS = m.s; curAt = performance.now(); }
     });
     c.on('close', () => { if (conn === c) guestLost(); });
   });
@@ -1260,6 +1312,21 @@ $('#btnJoin').onclick = () => {
   setTimeout(() => { if (mode !== 'guest' && joinCode === code && !info.textContent.startsWith("Couldn't"))
     info.textContent = "Still trying… make sure your friend's game is still open."; }, 12000);
 };
+
+// Map picker: little previews of each map; the choice is remembered on this phone.
+let chosenMap = 'grass';
+try { chosenMap = MAPS[localStorage.getItem('tc_map')] ? localStorage.getItem('tc_map') : 'grass'; } catch (e) {}
+function renderMapPick() {
+  const box = $('#mapPick'); box.innerHTML = '';
+  for (const id of Object.keys(MAPS)) {
+    const b = document.createElement('button'); b.className = 'mapcard' + (id === chosenMap ? ' sel' : '');
+    b.innerHTML = `<canvas width="300" height="180"></canvas><span>${MAPS[id].name}</span>`;
+    const c = b.querySelector('canvas').getContext('2d'); c.scale(2, 2); drawGround(c, 10, buildMap(id));
+    b.onclick = () => { chosenMap = id; try { localStorage.setItem('tc_map', id); } catch (e) {} renderMapPick(); };
+    box.appendChild(b);
+  }
+}
+renderMapPick();
 
 // Opened from an invite link? Join straight away.
 const linkCode = (location.hash.match(/join=([A-Za-z]{4})/) || [])[1];
