@@ -302,8 +302,8 @@ const flyAt = d => { const f = Math.min(1, d/FLYLEN); return [FLY.ax + (FLY.bx-F
 
 /* ---------- Enemies: zombies, plus Eradicator bosses (TDX-style traits) ---------- */
 const ENEMIES = {
-  zombie:  {name:'Zombie',       hp:75,   spd:1.2,  eco:2, build:3, cost:15,  reward:5,  leak:1, r:.3,  desc:'Basic shambling zombie'},
-  speedy:  {name:'Speedy',       hp:35,   spd:2.4,  eco:1, build:2, cost:10,  reward:3,  leak:1, r:.27, desc:'Fast and fragile'},
+  zombie:  {name:'Zombie',       hp:75,   spd:1.2,  eco:2, build:1, cost:15,  reward:5,  leak:1, r:.3,  desc:'Basic shambling zombie'},
+  speedy:  {name:'Speedy',       hp:35,   spd:2.4,  eco:1, build:1, cost:10,  reward:3,  leak:1, r:.27, desc:'Fast and fragile'},
   phantom: {name:'Phantom',      hp:60,   spd:1.5,  eco:3, build:8, cost:25,  reward:6,  leak:1, r:.28, stealth:true, desc:'Hidden! Only 📡 towers can see it'},
   bat:     {name:'Zombie Bats',  hp:35,   spd:1.5,  eco:3, build:8, cost:30,  reward:3,  leak:1, r:.26, fly:true, count:3, desc:'Fly straight over the map'},
   riot:    {name:'Riot Zombie',  hp:80,   shield:110, spd:1.05, eco:4, build:10, cost:35, reward:9, leak:1, r:.3, desc:'Shield soaks hits. ✹ Splash breaks it 2× faster'},
