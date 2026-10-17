@@ -228,7 +228,7 @@ details p,details li{color:var(--muted)}
       <summary>How to play</summary>
       <ul>
         <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
-        <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. You earn more gold as the zombie sender's eco grows. Tap a built tower to see its range, upgrade it (up to level 4) or sell it. 💚 Reviver brings back destroyed towers; 🎧 DJ boosts towers near it.</li>
+        <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. You earn more gold as the zombie sender's eco grows. Tap a built tower to see its range, upgrade it (up to level 4) or sell it. 🚀 The Launcher goes to level 5 and changes weapon each time: mortar shells, then homing missiles, twin missile pods, a laser that burns through a whole line, and finally the ANNIHILATOR (death ray plus missile swarms). 💚 Reviver brings back destroyed towers; 🎧 DJ boosts towers near it.</li>
         <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡150 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers (a tower stunned 3 times is destroyed), and the MK II rages at half health.</li>
         <li>Zombies win if the base's 150 health reaches 0. Towers win by surviving all 50 waves. Waves come automatically, with an Eradicator on wave 20, an MK II on wave 40 and the Void on wave 50. Then swap sides!</li>
       </ul>
@@ -445,7 +445,7 @@ function cleanSpec(s) {
     d: c(s.d), r: c(s.r), s: c(s.s),
     sp: ['none','slow','splash'].includes(s.sp) ? s.sp : 'none',
     det: !!s.det,
-    role: ['revive', 'dj'].includes(s.role) ? s.role : 'attack',
+    role: ['revive', 'dj', 'launcher'].includes(s.role) ? s.role : 'attack',
   };
 }
 // Support towers don't attack: the Reviver brings destroyed towers back, the DJ buffs towers near it.
@@ -453,7 +453,22 @@ const SUPPORT_COST = {revive:250, dj:300};
 const REVIVE = {every:5, max:3, window:3};   // a destroyed tower can only be revived for 3s
 // DJ buff by DJ level: extra range, damage and fire speed for attacking towers in its range.
 const DJ_BUFF = [null, {range:.2, dmg:.05, rate:.1}, {range:.3, dmg:.08, rate:.15}, {range:.4, dmg:.11, rate:.2}, {range:.5, dmg:.15, rate:.25}];
+// Missile launcher: one tower whose weapon changes every time you upgrade it, up to level 5.
+// dmg is per hit (per blast for shells and missiles, per tick for beams); blast = splash radius in tiles;
+// air = can hit flying zombies; det = sees hidden ones; up = price to upgrade to this level.
+const LAUNCHER = [null,
+  {w:'mortar',  name:'Mortar',      dmg:20, rate:.6, range:2.6, blast:1,   air:false, det:false},
+  {w:'missile', name:'Missile pod', dmg:34, rate:.8, range:3.2, blast:1.1, air:true,  det:false, up:220},
+  {w:'twin',    name:'Twin pods',   dmg:34, rate:.85, range:3.6, blast:1.2, air:true,  det:false, up:380},
+  {w:'laser',   name:'Laser',       dmg:16, rate:7,  range:4,   blast:0,   air:true,  det:true,  up:600},
+  {w:'anni',    name:'ANNIHILATOR', dmg:20, rate:8,  range:4.6, blast:0,   air:true,  det:true,  up:1000, swarm:{every:2.5, n:6, dmg:50, blast:1.2}},
+];
+const LAUNCHER_COST = 180;
+const FLIGHT = {shell:.8, msl:.5};   // seconds in the air
+const maxLvl = spec => spec.role === 'launcher' ? LAUNCHER.length - 1 : MAX_LVL;
+const fires = spec => spec.role === 'attack' || spec.role === 'launcher';
 function stats(s) {
+  if (s.role === 'launcher') { const L = LAUNCHER[1]; return {dmg:L.dmg, range:L.range, rate:L.rate, dps:L.dmg*L.rate, cost:LAUNCHER_COST}; }
   if (s.role !== 'attack' && SUPPORT_COST[s.role]) return {dmg:0, range:RNG[s.r], rate:0, dps:0, cost:SUPPORT_COST[s.role]};
   // Towers deal half their listed damage; the price is still worked out from the full damage.
   const dmg = Math.round(DMG[s.d] * DMG_MULT), range = RNG[s.r], rate = RATE[s.s], dps = dmg * rate, priceDps = DMG[s.d] * rate;
@@ -464,12 +479,13 @@ function stats(s) {
 // Upgrades: each level adds 35% damage, 0.3 tiles of range and 15% fire speed.
 const MAX_LVL = 4;
 function towerStats(spec, lvl) {
+  if (spec.role === 'launcher') { const L = LAUNCHER[lvl]; return {dmg:L.dmg, range:L.range, rate:L.rate, dps:0, cost:LAUNCHER_COST}; }
   const b = stats(spec), l = lvl - 1;
   return {...b, dmg: Math.round(b.dmg * Math.pow(1.35, l)), range: Math.round((b.range + .3*l)*10)/10,
           rate: Math.round(b.rate * Math.pow(1.15, l)*100)/100, dps: 0};
 }
 const withDps = st => (st.dps = st.dmg * st.rate, st);
-const upgradeCost = (spec, lvl) => lvl >= MAX_LVL ? 0 : Math.round(stats(spec).cost * .6 * lvl / 5) * 5;
+const upgradeCost = (spec, lvl) => lvl >= maxLvl(spec) ? 0 : spec.role === 'launcher' ? LAUNCHER[lvl + 1].up : Math.round(stats(spec).cost * .6 * lvl / 5) * 5;
 const PRESETS = [
   {name:'Trooper', col:'#58a6ff', d:2, r:2, s:2, sp:'none'},
   {name:'Frost',  col:'#79c0ff', d:1, r:3, s:2, sp:'slow'},
@@ -477,11 +493,12 @@ const PRESETS = [
   {name:'Sniper', col:'#e6edf3', d:3, r:5, s:1, sp:'none', det:true},
   {name:'Reviver', col:'#3fb950', d:1, r:3, s:1, sp:'none', role:'revive'},
   {name:'DJ',      col:'#ff7bd5', d:1, r:3, s:1, sp:'none', role:'dj'},
+  {name:'Launcher', col:'#9be564', d:1, r:1, s:1, sp:'none', role:'launcher'},
 ];
 
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0, map = MAPD.id) {
-  return {map, t:0, status:'countdown', cd:5, lives:BASE_HP, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
+  return {map, t:0, status:'countdown', cd:5, lives:BASE_HP, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], proj:[], fx:[],
           queue:[], graves:[], spawnT:0, wave:0, waveT:3, wq:[], wspawnT:0, id:1, winner:null, kills:0, paused:false, epoch};
 }
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
@@ -491,7 +508,7 @@ const ECO = {start:5, min:2, max:150, defGold:2};  // defGold: tower gold per se
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const BASE_HP = 150;   // the tower builder's base; each zombie that gets through damages it
-const FX_LIFE = {tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4};
+const FX_LIFE = {shell:FLIGHT.shell, msl:FLIGHT.msl, boom:.45, tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4};
 // Every Eradicator stun cracks a tower; the third one destroys it (no refund).
 const STUNS_TO_BREAK = 3;
 // crack = false: knocked out for a moment but not damaged (lasers, missile rain, meltdowns).
@@ -562,12 +579,53 @@ function hit(g, t, e) {
 }
 const routeLen = e => ENEMIES[e.k].fly ? FLYLEN : PATHLEN;
 
+// Launcher weapons. Shells and missiles fly to where the target will be when they land (zombies keep to their
+// route, so that's known), then blast everything nearby. Beams hit every zombie along the line, out to full range.
+function launch(g, t, e, kind, dmg, blast, air) {
+  const E = ENEMIES[e.k], T = FLIGHT[kind];
+  const ahead = e.hold > 0 ? 0 : E.spd * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : 1) * T;
+  const [tx, ty] = (E.fly ? flyAt : posAt)(Math.min(routeLen(e), e.d + ahead));
+  g.proj.push({x:tx, y:ty, t:T, dmg, blast, air});
+  addFx(g, kind, t.x+.5, t.y+.5, '', tx, ty);
+}
+const canTarget = (L, cx, cy, range) => o => o.hp > 0 && !(ENEMIES[o.k].stealth && !L.det) && (L.air || !ENEMIES[o.k].fly) && Math.hypot(o.x-cx, o.y-cy) <= range;
+function fireLauncher(g, t, e, L) {
+  const cx = t.x+.5, cy = t.y+.5, eff = t.eff || t.st;
+  if (L.w === 'laser' || L.w === 'anni') {
+    const d = Math.hypot(e.x-cx, e.y-cy) || 1, ux = (e.x-cx)/d, uy = (e.y-cy)/d, R = eff.range;
+    for (const o of g.enemies) {
+      if (o.hp <= 0) continue;
+      const along = (o.x-cx)*ux + (o.y-cy)*uy;
+      if (along >= 0 && along <= R && Math.abs((o.x-cx)*uy - (o.y-cy)*ux) < .35) damage(g, o, eff.dmg, false);
+    }
+    g.shots.push({id:g.id++, x1:cx, y1:cy, x2:cx+ux*R, y2:cy+uy*R, c:L.w === 'anni' ? '#ff2bd6' : '#3ee6ff', sp:L.w === 'anni' ? 'ray' : 'laser', ttl:.15});
+    return;
+  }
+  launch(g, t, e, L.w === 'mortar' ? 'shell' : 'msl', eff.dmg, L.blast, L.air);
+  if (L.w === 'twin') {   // the second pod picks the next zombie along, if there is one
+    let o2 = null;
+    for (const o of g.enemies.filter(canTarget(L, cx, cy, eff.range))) if (o !== e && (!o2 || o.d/routeLen(o) > o2.d/routeLen(o2))) o2 = o;
+    launch(g, t, o2 || e, 'msl', eff.dmg, L.blast, true);
+  }
+}
+// ANNIHILATOR: on top of its death ray, a salvo of micro-missiles every few seconds, spread over the zombies in range.
+function swarm(g, t, dt, S) {
+  t.sw = (t.sw === undefined ? 1 : t.sw) - dt;
+  if (t.sw > 0) return;
+  const cx = t.x+.5, cy = t.y+.5, L = LAUNCHER[t.lvl];
+  const targets = g.enemies.filter(canTarget(L, cx, cy, (t.eff || t.st).range)).sort((a, b) => b.d/routeLen(b) - a.d/routeLen(a));
+  if (!targets.length) { t.sw = 0; return; }
+  for (let i = 0; i < S.n; i++) launch(g, t, targets[i % targets.length], 'msl', S.dmg, S.blast, true);
+  t.sw = S.every;
+}
+
 function step(g, dt) {
   if (g.status === 'over' || g.paused) return;
   for (const s of g.shots) s.ttl -= dt;
   for (const f of g.fx) f.ttl -= dt;
   g.shots = g.shots.filter(s => s.ttl > 0);
   g.fx = g.fx.filter(f => f.ttl > 0);
+  if (!g.proj) g.proj = [];
   if (g.status === 'countdown') { g.cd -= dt; if (g.cd <= 0) g.status = 'play'; return; }
 
   g.t += dt;
@@ -671,11 +729,22 @@ function step(g, dt) {
     return true;
   });
 
+  // shells and missiles landing: full damage near the middle of the blast, 60% at the edge (mortar shells can't touch flyers)
+  for (const p of g.proj) {
+    if ((p.t -= dt) > 0) continue;
+    for (const o of g.enemies) {
+      const d = Math.hypot(o.x-p.x, o.y-p.y);
+      if (o.hp > 0 && d < p.blast && (p.air || !ENEMIES[o.k].fly)) damage(g, o, p.dmg*(d < p.blast*.45 ? 1 : .6), true);
+    }
+    addFx(g, 'boom', p.x, p.y);
+  }
+  g.proj = g.proj.filter(p => p.t > 0);
+
   // DJ buffs: each attacking tower takes the strongest working DJ whose range covers it.
   const djs = g.towers.filter(d => d.spec.role === 'dj' && !(d.stun > 0) && !(d.mc > 0));
   for (const t of g.towers) {
     let b = null;
-    if (t.spec.role === 'attack') for (const d of djs)
+    if (fires(t.spec)) for (const d of djs)
       if (Math.hypot(d.x-t.x, d.y-t.y) <= d.st.range && (!b || DJ_BUFF[d.lvl].range > b.range)) b = DJ_BUFF[d.lvl];
     t.buff = b ? b.range : 0;
     t.eff = b ? {dmg:t.st.dmg*(1 + b.dmg), range:t.st.range*(1 + b.range), rate:t.st.rate*(1 + b.rate)} : t.st;
@@ -683,6 +752,8 @@ function step(g, dt) {
   for (const t of g.towers) {
     if (t.stun > 0) { t.stun -= dt; continue; }
     if (t.mc > 0) { t.mc -= dt; continue; }   // mind-controlled by the Void
+    const L = t.spec.role === 'launcher' ? LAUNCHER[t.lvl] : null;
+    if (L && L.swarm) swarm(g, t, dt, L.swarm);
     t.cd -= dt;
     if (t.cd > 0) continue;
     if (t.spec.role === 'revive') {   // bring back up to 3 destroyed towers in range, then wait 5s
@@ -697,18 +768,18 @@ function step(g, dt) {
       t.cd = REVIVE.every;
       continue;
     }
-    if (t.spec.role !== 'attack') { t.cd = 0; continue; }
-    const cx = t.x+.5, cy = t.y+.5;
+    if (!fires(t.spec)) { t.cd = 0; continue; }
+    const cx = t.x+.5, cy = t.y+.5, det = L ? L.det : t.spec.det;
     let best = null, bestP = -1;
     for (const e of g.enemies) {
-      if (e.hp <= 0 || (ENEMIES[e.k].stealth && !t.spec.det) || Math.hypot(e.x-cx, e.y-cy) > t.eff.range) continue;
+      if (e.hp <= 0 || (ENEMIES[e.k].stealth && !det) || (L && !L.air && ENEMIES[e.k].fly) || Math.hypot(e.x-cx, e.y-cy) > t.eff.range) continue;
       const prog = e.d / routeLen(e);
       if (prog > bestP) { best = e; bestP = prog; }
     }
     if (!best) { t.cd = 0; continue; }
     t.cd = 1 / t.eff.rate;
     t.face = best.x >= cx ? 1 : -1;
-    hit(g, t, best);
+    if (L) fireLauncher(g, t, best, L); else hit(g, t, best);
   }
   g.enemies = g.enemies.filter(e => {
     if (e.hp <= 0) {
@@ -792,7 +863,7 @@ function snap(g) {
     gv:g.graves.map(gr => [gr.x, gr.y, gr.spec.col, r2(gr.ttl)]),
     tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:r2((t.eff || t.st).range), dmg:Math.round((t.eff || t.st).dmg), bf:t.buff || 0, cdl:t.spec.role === 'revive' ? r2(Math.max(0, t.cd)) : 0, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, mc:t.mc > 0 ? 1 : 0, fc:t.face || 1, hits:t.stuns || 0})),
     em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0, e.face, e.hold > 0 ? e.holdK : 0]),
-    sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl), s.id]),
+    sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : s.sp === 'laser' ? 2 : s.sp === 'ray' ? 3 : 0, r2(s.ttl), s.id]),
   };
 }
 
@@ -839,7 +910,7 @@ function renderDesigns() {
     const st = stats(d), b = document.createElement('button');
     b.className = 'card' + (i === selDesign ? ' sel' : '');
     b.innerHTML = `<div class="nm"><canvas class="tc" width="64" height="64"></canvas><span>${esc(d.name)} ${SP_ICON[d.sp]}${d.det ? '📡' : ''}</span></div>
-      <div class="meta">${d.role === 'revive' ? `Revives ${REVIVE.max} towers / ${REVIVE.every}s · RNG ${st.range}` : d.role === 'dj' ? `Buffs nearby towers · RNG ${st.range}` : `DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s`}</div><div class="cost">💰 ${st.cost}</div>`;
+      <div class="meta">${d.role === 'launcher' ? 'Mortar → missiles → laser → ANNIHILATOR' : d.role === 'revive' ? `Revives ${REVIVE.max} towers / ${REVIVE.every}s · RNG ${st.range}` : d.role === 'dj' ? `Buffs nearby towers · RNG ${st.range}` : `DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s`}</div><div class="cost">💰 ${st.cost}</div>`;
     { const c = b.querySelector('canvas').getContext('2d'); c.scale(2, 2); drawSoldier(c, 16, 17, 26, d, 1); }
     b.onclick = () => { selDesign = i; selTower = null; renderDesigns(); };
     if (i >= PRESETS.length) {
@@ -853,6 +924,11 @@ function renderDesigns() {
   add.className = 'card add'; add.textContent = '+ New tower';
   add.onclick = openBuilder;
   box.appendChild(add);
+}
+function launcherInfo(tw) {
+  const L = LAUNCHER[tw.lvl];
+  return `${L.name}: ${tw.dmg} dmg${L.blast ? ' blast' : ' beam, hits the whole line'} · range ${tw.range}` + (L.swarm ? ` · ${L.swarm.n}-missile swarm every ${L.swarm.every}s` : '')
+    + (L.det ? ' · sees hidden' : '') + (L.air ? '' : ' · ground only') + (tw.bf ? ' · ♪ DJ buff' : '');
 }
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -973,7 +1049,39 @@ function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1, hits = 0, mc = 0
 // Uniform colour by upgrade level: green camo, navy, crimson, gold elite. [uniform, dark trim, camo patch]
 const LEVEL_UNIFORM = [null, ['#4b5d3a', '#2f3b27', '#5c6e48'], ['#2f5aa8', '#1d3666', '#4a74c0'],
                        ['#a8322f', '#6b1d1b', '#c24b47'], ['#c9a227', '#5c4a12', '#e3c04f']];
+// The missile launcher is a tracked gun carriage; what's on top changes with its level (see LAUNCHER).
+function drawLauncher(c, cx, cy, s, lvl, face = 1) {
+  c.save(); c.translate(cx, cy); c.scale(face, 1);
+  const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
+  const dot = (x, y, r, col) => { c.fillStyle = col; c.beginPath(); c.arc(x*s, y*s, r*s, 0, 7); c.fill(); };
+  const glow = (col, blur, f) => { c.shadowColor = col; c.shadowBlur = s*blur; f(); c.shadowBlur = 0; };
+  const hull = ['#4b5d3a', '#4b5d3a', '#8a7a4a', '#5c616b', '#1b1d22'][lvl - 1];
+  if (lvl === 5) { c.fillStyle = 'rgba(255,43,214,.22)'; c.beginPath(); c.arc(0, 0, s*.62, 0, 7); c.fill(); }
+  R(-.46, .26, .92, .14, '#1b1f23'); for (let i = 0; i < 5; i++) dot(-.36 + i*.18, .33, .05, '#3a3f47');   // tracks
+  R(-.4, .08, .8, .2, hull); R(-.4, .08, .8, .04, 'rgba(255,255,255,.15)');                               // hull
+  R(-.2, -.06, .4, .16, '#2d333b');                                                                        // turret ring
+  c.save(); c.translate(0, -.02*s);
+  if (lvl === 1) {          // mortar: a fat tube pointing up at the sky
+    R(-.16, -.16, .32, .16, hull); c.rotate(-1); R(0, -.09, .46, .18, '#2d333b'); R(.4, -.11, .08, .22, '#111');
+  } else if (lvl <= 3) {    // missile pods, one or two, with red-tipped missiles showing
+    c.rotate(-.45);
+    for (const oy of lvl === 2 ? [0] : [-.2, .07]) {
+      R(-.12, oy - .2, .5, .22, '#4a5a33'); R(-.12, oy - .2, .5, .03, '#6b7d4a');
+      for (const my of [-.14, -.06]) for (const mx of [.37]) dot(mx, oy + my, .035, '#ff3b30');
+    }
+  } else if (lvl === 4) {   // laser: a long emitter with glowing coils and a lens
+    R(-.18, -.2, .3, .2, '#8b949e'); R(.1, -.13, .44, .07, '#c9d1d9');
+    glow('#3ee6ff', .15, () => { for (const x of [.18, .28, .38]) R(x, -.16, .04, .13, '#3ee6ff'); dot(.56, -.095, .05, '#bff6ff'); });
+    R(-.14, -.3, .16, .1, '#c9d1d9');
+  } else {                  // ANNIHILATOR: a pulsing core, twin death-ray barrels and micro-missile racks
+    R(-.24, -.26, .42, .26, '#30363d');
+    glow('#ff2bd6', .2, () => { dot(-.03, -.13, .09, '#ff2bd6'); R(.18, -.2, .44, .05, '#ff7be8'); R(.18, -.1, .44, .05, '#ff7be8'); dot(.63, -.175, .035, '#fff'); dot(.63, -.075, .035, '#fff'); });
+    R(-.36, -.38, .22, .14, '#4a3a5a'); for (let i = 0; i < 3; i++) dot(-.32 + i*.07, -.31, .025, '#ff3b30');
+  }
+  c.restore(); c.restore();
+}
 function drawSoldier(c, cx, cy, s, spec, face = 1, lvl = 1) {
+  if (spec.role === 'launcher') return drawLauncher(c, cx, cy, s, Math.max(1, Math.min(5, lvl)), face);
   c.save(); c.translate(cx, cy); c.scale(face, 1);
   const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
   const role = spec.role || 'attack', sniper = spec.det && role === 'attack';
@@ -1375,6 +1483,7 @@ function buildWorld() {
 function towerGeo(spec, lvl) {
   const role = spec.role || 'attack', sniper = spec.det && role === 'attack', key = [role, spec.sp, sniper, spec.col, lvl].join('|');
   if (G3.towerGeo[key]) return G3.towerGeo[key];
+  if (role === 'launcher') return (G3.towerGeo[key] = launcherGeo(lvl));
   const [lu, ld, lp] = LEVEL_UNIFORM[Math.min(MAX_LVL, Math.max(1, lvl))];
   const uni = role === 'revive' && lvl === 1 ? '#d0d7de' : lu, dark = role === 'revive' && lvl === 1 ? '#8b949e' : ld, c = spec.col, k = .8;
   const B = [];
@@ -1398,6 +1507,34 @@ function towerGeo(spec, lvl) {
   const pit = [[.78, .06, .78, 0, .03, 0, '#5a4a32'], [.8, .08, .04, 0, .07, -.39, c], [.8, .08, .04, 0, .07, .39, c], [.04, .08, .8, -.39, .07, 0, c], [.04, .08, .8, .39, .07, 0, c]];
   for (let i = 0; i < 4; i++) for (const s of [-1, 1]) { pit.push([.17, .1, .1, -.27 + i*.18, .12, s*.33, '#8a7650']); pit.push([.1, .1, .17, s*.33, .12, -.27 + i*.18, '#8a7650']); }
   return (G3.towerGeo[key] = {soldier:mergeBoxes(B), pit:mergeBoxes(pit)});
+}
+// Launcher in 3D: a tracked hull on a concrete pad (fixed) and a turret that turns to aim (the "soldier" mesh).
+function launcherGeo(lvl) {
+  const hull = ['#4b5d3a', '#4b5d3a', '#8a7a4a', '#5c616b', '#1b1d22'][lvl - 1], P = [], B = [];
+  const p = (...a) => P.push(a), b = (...a) => B.push(a);
+  p(.86, .06, .86, 0, .03, 0, '#5a5f66');
+  for (const z of [-.3, .3]) { p(.72, .13, .13, 0, .12, z, '#1b1f23'); for (let i = 0; i < 4; i++) p(.06, .07, .14, -.27 + i*.18, .12, z, '#3a3f47'); }
+  p(.62, .17, .48, 0, .15, 0, hull);
+  b(.36, .08, .36, 0, .27, 0, '#2d333b');
+  if (lvl === 1) {          // mortar: a stepped tube climbing at 45°
+    b(.3, .14, .3, 0, .36, 0, hull);
+    for (let i = 0; i < 4; i++) b(.12, .12, .13, .02 + i*.06, .46 + i*.07, 0, '#2d333b');
+    b(.13, .04, .15, .22, .69, 0, '#111');
+  } else if (lvl <= 3) {    // missile pods with red tips on the front
+    for (const z of lvl === 2 ? [0] : [-.15, .15]) {
+      b(.36, .22, lvl === 2 ? .3 : .2, .02, .46, z, '#4a5a33'); b(.36, .03, lvl === 2 ? .3 : .2, .02, .58, z, '#6b7d4a');
+      for (const y of [.41, .51]) for (const dz of lvl === 2 ? [-.07, .07] : [0]) b(.03, .06, .06, .21, y, z + dz, '#ff3b30');
+    }
+  } else if (lvl === 4) {   // laser emitter: grey body, long barrel, glowing coils and lens, a dish on top
+    b(.3, .18, .28, 0, .42, 0, '#8b949e'); b(.5, .07, .07, .3, .46, 0, '#c9d1d9');
+    for (const x of [.2, .32, .44]) b(.04, .12, .12, x, .46, 0, '#3ee6ff');
+    b(.05, .1, .1, .57, .46, 0, '#bff6ff'); b(.14, .04, .24, -.05, .58, 0, '#c9d1d9');
+  } else {                  // ANNIHILATOR: dark body, glowing core, twin ray barrels, micro-missile racks on both sides
+    b(.42, .24, .4, 0, .44, 0, '#1b1d22'); b(.18, .18, .18, -.04, .64, 0, '#ff2bd6');
+    for (const z of [-.07, .07]) { b(.62, .06, .06, .32, .48, z, '#30363d'); b(.06, .08, .08, .65, .48, z, '#ff7be8'); }
+    for (const z of [-.27, .27]) { b(.26, .16, .12, 0, .46, z, '#4a3a5a'); for (const y of [.42, .5]) b(.03, .05, .05, .14, y, z, '#ff3b30'); }
+  }
+  return {soldier:mergeBoxes(B), pit:mergeBoxes(P)};
 }
 function makeTower(spec, lvl, ghost) {
   const T = THREE, g = new T.Group(), geo = towerGeo(spec, lvl);
@@ -1621,7 +1758,7 @@ function ring3(x, y, r, color, alpha, fill) {
   if (!m) { m = new THREE.Mesh(new THREE.RingGeometry(.9, 1, 40), new THREE.MeshBasicMaterial({transparent:true, depthWrite:false, side:THREE.DoubleSide})); m.rotation.x = -Math.PI/2; G3.world.add(m); G3.rings.push(m); }
   m.userData.used = true; m.visible = true; m.position.set(...W3(x, y, .05)); m.scale.set(r, r, 1); m.material.color.set(color); m.material.opacity = alpha;
 }
-const FX_COL = {pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
+const FX_COL = {boom:'#ffa657', pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
 
 // Camera: a tilted view from the front of the board, sized so the board, gravestone and castle all fit.
 function fit3D() {
@@ -1668,7 +1805,9 @@ function render3D(v) {
     const want = G3.aim[tw.id] !== undefined ? G3.aim[tw.id] : (tw.fc > 0 ? 0 : Math.PI);
     let d = want - g.userData.soldier.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); g.userData.soldier.rotation.y += d*Math.min(1, dt*10);
     g.userData.soldier.position.y = tw.stun ? -.05 : 0;
-    g.userData.glow.visible = !!tw.mc && !tw.stun;
+    const anni = tw.spec.role === 'launcher' && tw.lvl === 5 && !tw.stun;   // the ANNIHILATOR hums with a pink aura
+    g.userData.glow.visible = (!!tw.mc || anni) && !tw.stun;
+    if (g.userData.glow.visible) { g.userData.glow.material.color.set(tw.mc ? 0x8a2be2 : 0xff2bd6); const k = anni && !tw.mc ? 1.5 + .25*Math.sin(t*6 + tw.id) : 1.4; g.userData.glow.scale.set(k, k, 1); }
   }
   for (const [id, g] of G3.towers) if (!seenT.has(id)) { G3.world.remove(g); G3.towers.delete(id); delete G3.aim[id]; }
   // shots: tracer beams; they also tell each tower which way to face
@@ -1681,7 +1820,9 @@ function render3D(v) {
     const a = G3.v.set(...W3(x1, y1, .55)), b = new T.Vector3(...W3(x2, y2, .35)), dir = b.clone().sub(a), L = dir.length();
     m.visible = true; m.position.copy(a).addScaledVector(dir, .5); m.scale.set(1, L, 1); m.quaternion.setFromUnitVectors(G3.up, dir.normalize());
     m.material.color.set(c).multiplyScalar(1.6); m.material.opacity = Math.min(1, ttl/.15);
-    if (splash) { ring3(x2, y2, .95*(1.2 - ttl/.15*.4), c, Math.min(1, ttl/.15)*.9); if (ttl > .12) spawnBurst(x2, y2, .3, 4, 2.5, .35, .25, ['#ffa657', '#ffd23f']); }
+    if (splash >= 2) { const w = splash === 3 ? 4.5 + Math.sin(performance.now()/40) : 2.6; m.scale.set(w, L, w); m.material.color.multiplyScalar(1.4);
+      if (Math.random() < .3) spawn3(x1 + (x2 - x1)*Math.random(), y1 + (y2 - y1)*Math.random(), .45, [(Math.random() - .5), 1, (Math.random() - .5)], .3, .12, .03, splash === 3 ? '#ff7be8' : '#bff6ff'); }
+    if (splash === 1) { ring3(x2, y2, .95*(1.2 - ttl/.15*.4), c, Math.min(1, ttl/.15)*.9); if (ttl > .12) spawnBurst(x2, y2, .3, 4, 2.5, .35, .25, ['#ffa657', '#ffd23f']); }
   }
   for (const [, k, x, y, ttl, , x2, y2] of v.fx) {   // Eradicator laser: a thick red beam that fades out
     if (k !== 'laser' || x2 === null) continue;
@@ -1740,7 +1881,7 @@ function render3D(v) {
   G3.seen = G3.seen || new Set();
   for (const [id, k, x, y, ttl] of v.fx) {
     const p = 1 - ttl/FX_LIFE[k], col = FX_COL[k] || '#f2cc60', a = Math.max(0, 1 - p);
-    const R = {pop:.2 + p*.5, build:.3 + p*.6, leak:.3 + p*1.2, roar:.3 + p*1.2, shieldbreak:.3 + p*.6, fury:.4 + p*1.5, emp:2.2*p, revive:.3 + p*.8, tele:.3 + p*1.3, mind:.4 + p*3, summon:.4 + p*1.2, wreck:.3 + p*.9}[k];
+    const R = {boom:.2 + p*.9, pop:.2 + p*.5, build:.3 + p*.6, leak:.3 + p*1.2, roar:.3 + p*1.2, shieldbreak:.3 + p*.6, fury:.4 + p*1.5, emp:2.2*p, revive:.3 + p*.8, tele:.3 + p*1.3, mind:.4 + p*3, summon:.4 + p*1.2, wreck:.3 + p*.9}[k];
     if (R) ring3(x, y, R, col, a);
     const key = v.ep + ':' + id; if (G3.seen.has(key)) continue; G3.seen.add(key);
     if (k === 'pop') spawnBurst(x, y, .4, 8, 2.2, .45, .14, ['#bfe3a0', '#ffffff']);
@@ -1750,6 +1891,11 @@ function render3D(v) {
     else if (k === 'fury' || k === 'roar' || k === 'emp') spawnBurst(x, y, .6, 20, 3.5, .8, .25, [col, '#ffffff']);
     if (k === 'emp' && v.fx.find(f => f[0] === id)[5] === 'ROCKETS!')   // Eradicator rocket burst: real missiles arc onto the towers it hits
       for (const tw of v.tw) if (Math.hypot(tw.x+.5-x, tw.y+.5-y) < 2.2) launchMissile(x, y, 1.6, tw.x+.5, tw.y+.5, .55 + Math.random()*.3, 1.4);
+    if ((k === 'shell' || k === 'msl') && v.fx.find(f => f[0] === id)[6] !== null) {   // launcher fire
+      const f = v.fx.find(f => f[0] === id), tw = v.tw.find(tw => Math.abs(tw.x + .5 - x) < .01 && Math.abs(tw.y + .5 - y) < .01);
+      if (tw) G3.aim[tw.id] = -Math.atan2(f[7] - y, f[6] - x);
+      launchMissile(x, y, .6, f[6], f[7], ttl, k === 'shell' ? 1.8 : .6, k === 'shell');
+    }
     if (k === 'mrain') { const f = v.fx.find(f => f[0] === id); launchMissile(f[6] === null ? x : f[6], f[7] === null ? y : f[7], 2.2, x, y, .85, 3.5); }
     if (k === 'laser') { const f = v.fx.find(f => f[0] === id); if (f[6] !== null) for (let i = 0; i <= 12; i++) { const q = i/12; spawn3(x + (f[6] - x)*q, y + (f[7] - y)*q, .3, [(Math.random() - .5), 1.5 + Math.random(), (Math.random() - .5)], .5, .3, .08, i % 2 ? '#ff3b30' : '#ffd7d3'); } }
     if (k === 'blast') { spawnBurst(x, y, .5, 46, 6, 1.1, .5, ['#ffffff', '#ffd23f', '#ff7a1a', '#ff3d00'], 3);
@@ -1793,22 +1939,24 @@ function render3D(v) {
   if (G3.q === 2) G3.composer.render(dt); else G3.renderer.render(G3.scene, cam);
 }
 // Missiles: fly from (fx, fy, height fh) to (tx, ty) along an arc, trailing smoke, and explode on landing.
-function launchMissile(fx, fy, fh, tx, ty, dur, arc) {
+function launchMissile(fx, fy, fh, tx, ty, dur, arc, shell = false) {
   const T = THREE; let m = G3.missiles.find(m => !m.userData.live);
   if (!m) {
     m = new T.Group();
     const body = new T.Mesh(new T.CylinderGeometry(.04, .05, .32, 8), new T.MeshLambertMaterial({color:0xd0d4d8})); body.rotation.x = Math.PI/2; m.add(body);
     const nose = new T.Mesh(new T.ConeGeometry(.05, .12, 8), new T.MeshBasicMaterial({color:0xff3b30})); nose.rotation.x = Math.PI/2; nose.position.z = .22; m.add(nose);
+    const ball = new T.Mesh(new T.SphereGeometry(.09, 10, 8), new T.MeshLambertMaterial({color:0x1b1f23})); m.add(ball);   // mortar shell
     G3.world.add(m); G3.missiles.push(m);
   }
-  m.userData = {live:true, a:[fx, fy, fh], b:[tx, ty], t:0, dur, arc}; m.visible = true;
+  m.children[0].visible = m.children[1].visible = !shell; m.children[2].visible = shell;
+  m.userData = {live:true, a:[fx, fy, fh], b:[tx, ty], t:0, dur, arc, shell}; m.visible = true;
 }
 function stepMissiles(dt) {
   for (const m of G3.missiles) {
     const u = m.userData; if (!u.live) continue;
     u.t += dt; const k = Math.min(1, u.t/u.dur), at = q => { const x = u.a[0] + (u.b[0] - u.a[0])*q, y = u.a[1] + (u.b[1] - u.a[1])*q; return new THREE.Vector3(...W3(x, y, u.a[2]*(1 - q) + .2*q + Math.sin(Math.PI*q)*u.arc)); };
     const p = at(k); m.position.copy(p); m.lookAt(at(Math.min(1, k + .03)));
-    spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, .3, 0], .5, .12, .3, '#b0aaa0'); spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, 0, 0], .12, .14, .04, '#ffb040');
+    spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, .3, 0], .5, .12, .3, u.shell ? '#6e6a62' : '#b0aaa0'); if (!u.shell) spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, 0, 0], .12, .14, .04, '#ffb040');
     if (k >= 1) { u.live = false; m.visible = false; spawnBurst(u.b[0], u.b[1], .2, 14, 2.6, .5, .25, ['#ff7a1a', '#ffd23f', '#ffffff'], 3); }
   }
 }
@@ -1858,7 +2006,7 @@ function closeupCam(v, dt) {
       $('#ccName').textContent = E.name + (fury ? ' · RAGING' : ''); $('#ccInfo').textContent = `${Math.max(0, hp)} / ${m} HP${shm ? ` · shield ${sh}/${shm}` : ''} · ${TAGS(E).map(t => t[0]).join(' · ') || 'zombie'}\n${E.desc}`;
       $('#ccBar').hidden = false; $('#ccHp').style.width = Math.max(0, hp/m*100) + '%'; }
     else if (tw) { $('#ccName').textContent = `${tw.spec.name} · Lv${tw.lvl}`; $('#ccHp').style.width = '100%'; $('#ccBar').hidden = true;
-      $('#ccInfo').textContent = (tw.spec.role === 'attack' ? `${tw.dmg} damage · range ${tw.range}${tw.spec.sp !== 'none' ? ' · ' + {slow:'freezes', splash:'splash'}[tw.spec.sp] : ''}${tw.spec.det ? ' · sees hidden' : ''}` : tw.spec.role === 'dj' ? 'DJ: boosts towers near it' : 'Reviver: brings destroyed towers back') + (tw.stun ? ' · ⚡ knocked out' : tw.mc ? ' · 🌀 mind-controlled' : ''); }
+      $('#ccInfo').textContent = (tw.spec.role === 'launcher' ? launcherInfo(tw) : tw.spec.role === 'attack' ? `${tw.dmg} damage · range ${tw.range}${tw.spec.sp !== 'none' ? ' · ' + {slow:'freezes', splash:'splash'}[tw.spec.sp] : ''}${tw.spec.det ? ' · sees hidden' : ''}` : tw.spec.role === 'dj' ? 'DJ: boosts towers near it' : 'Reviver: brings destroyed towers back') + (tw.stun ? ' · ⚡ knocked out' : tw.mc ? ' · 🌀 mind-controlled' : ''); }
     else $('#ccInfo').textContent = 'Gone!';
   }
   if (!CU.anchor) return null;
@@ -1973,11 +2121,15 @@ function draw2D(v) {
     }
   }
 
-  for (const [x1, y1, x2, y2, c, splash, ttl] of v.sh) {
+  for (const [x1, y1, x2, y2, c, kind, ttl] of v.sh) {   // kind: 0 bullet, 1 splash, 2 laser, 3 death ray
     ctx.globalAlpha = Math.min(1, ttl/.15);
-    ctx.strokeStyle = c; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(x1*TS, y1*TS); ctx.lineTo(x2*TS, y2*TS); ctx.stroke();
-    if (splash) ring(x2, y2, .95*(1.2 - ttl/.15*.4), c);
+    ctx.beginPath(); ctx.moveTo(x1*TS, y1*TS); ctx.lineTo(x2*TS, y2*TS);
+    if (kind >= 2) {
+      ctx.lineCap = 'round'; ctx.shadowColor = c; ctx.shadowBlur = TS*.3;
+      ctx.strokeStyle = c; ctx.lineWidth = TS*(kind === 3 ? .24 + .06*Math.sin(performance.now()/40) : .13); ctx.stroke();
+      ctx.shadowBlur = 0; ctx.strokeStyle = '#fff'; ctx.lineWidth = TS*.04; ctx.stroke();
+    } else { ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.stroke(); }
+    if (kind === 1) ring(x2, y2, .95*(1.2 - ttl/.15*.4), c);
     ctx.globalAlpha = 1;
   }
 
@@ -1997,6 +2149,15 @@ function draw2D(v) {
     if (k === 'laser' && x2 !== null) { ctx.strokeStyle = '#ff3b30'; ctx.lineWidth = TS*.22*(1 - p); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x*TS, y*TS); ctx.lineTo(x2*TS, y2*TS); ctx.stroke();
       ctx.strokeStyle = '#ffd7d3'; ctx.lineWidth = TS*.07*(1 - p); ctx.stroke(); }
     if (k === 'mrain') ring(x, y, .2 + p*.7, '#ffa657', 'rgba(255,120,40,.3)');
+    if ((k === 'shell' || k === 'msl') && x2 !== null) {   // launcher fire: a lobbed cannonball or a missile, with its shadow on the ground
+      const px = x + (x2 - x)*p, py = y + (y2 - y)*p, h = Math.sin(Math.PI*p)*(k === 'shell' ? 1.3 : .45), dir = Math.atan2(y2 - y, x2 - x);
+      ctx.globalAlpha = .3; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(px*TS, py*TS, TS*.09, TS*.05, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      if (k === 'shell') { ctx.fillStyle = '#1b1f23'; ctx.beginPath(); ctx.arc(px*TS, (py - h)*TS, TS*.11, 0, 7); ctx.fill(); ctx.fillStyle = '#8b949e'; ctx.beginPath(); ctx.arc((px - .03)*TS, (py - h - .04)*TS, TS*.035, 0, 7); ctx.fill(); }
+      else { ctx.save(); ctx.translate(px*TS, (py - h)*TS); ctx.rotate(dir - Math.cos(Math.PI*p)*.5*Math.sign(Math.cos(dir) || 1));
+        ctx.fillStyle = '#ffb040'; ctx.beginPath(); ctx.moveTo(-TS*.14, 0); ctx.lineTo(-TS*.32, -TS*.05); ctx.lineTo(-TS*.32, TS*.05); ctx.fill();
+        ctx.fillStyle = '#d0d4d8'; ctx.fillRect(-TS*.14, -TS*.04, TS*.24, TS*.08); ctx.fillStyle = '#ff3b30'; ctx.fillRect(TS*.1, -TS*.04, TS*.06, TS*.08); ctx.restore(); }
+    }
+    if (k === 'boom') { ring(x, y, .2 + p*.9, '#ffd23f', 'rgba(255,140,40,.35)'); ring(x, y, .1 + p*.5, '#ff3b30'); }
     if (k === 'blast') { ring(x, y, .3 + p*2.5, '#ffd23f', 'rgba(255,90,20,.25)'); ring(x, y, .2 + p*1.6, '#ff3b30'); }
     if (txt) {
       ctx.font = `bold ${TS*.4}px system-ui,sans-serif`;
@@ -2067,9 +2228,9 @@ function hud(v) {
   $('#selInfo').hidden = !sel;
   $('#btnSell').hidden = !isDef(); $('#btnUp').hidden = !isDef();
   if (sel) {
-    $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]}${sel.spec.det ? '📡' : ''} · Lv${sel.lvl}${sel.lvl >= MAX_LVL ? ' (max)' : ''} · ` + (sel.spec.role === 'dj' ? `buffs range +${Math.round(DJ_BUFF[sel.lvl].range*100)}%, dmg +${Math.round(DJ_BUFF[sel.lvl].dmg*100)}%, speed +${Math.round(DJ_BUFF[sel.lvl].rate*100)}% · range ${sel.range}` : sel.spec.role === 'revive' ? `revives up to ${REVIVE.max} towers` + (sel.cdl > 0 ? ` (ready in ${Math.ceil(sel.cdl)}s)` : '') + ` · range ${sel.range}` : `${sel.dmg} dmg · range ${sel.range}` + (sel.bf ? ' · ♪ DJ buff' : '')) + (sel.hits ? ` · ⚡ stunned ${sel.hits}/${STUNS_TO_BREAK}` : '') + (sel.mc ? ' · 🌀 mind-controlled' : '');
+    $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]}${sel.spec.det ? '📡' : ''} · Lv${sel.lvl}${sel.lvl >= maxLvl(sel.spec) ? ' (max)' : ''} · ` + (sel.spec.role === 'launcher' ? launcherInfo(sel) : sel.spec.role === 'dj' ? `buffs range +${Math.round(DJ_BUFF[sel.lvl].range*100)}%, dmg +${Math.round(DJ_BUFF[sel.lvl].dmg*100)}%, speed +${Math.round(DJ_BUFF[sel.lvl].rate*100)}% · range ${sel.range}` : sel.spec.role === 'revive' ? `revives up to ${REVIVE.max} towers` + (sel.cdl > 0 ? ` (ready in ${Math.ceil(sel.cdl)}s)` : '') + ` · range ${sel.range}` : `${sel.dmg} dmg · range ${sel.range}` + (sel.bf ? ' · ♪ DJ buff' : '')) + (sel.hits ? ` · ⚡ stunned ${sel.hits}/${STUNS_TO_BREAK}` : '') + (sel.mc ? ' · 🌀 mind-controlled' : '');
     $('#btnSell').textContent = `Sell 💰${sel.sell}`;
-    $('#btnUp').textContent = sel.up ? `⬆ Lv${sel.lvl + 1} 💰${sel.up}` : 'Max level';
+    $('#btnUp').textContent = sel.up ? `⬆ ${sel.spec.role === 'launcher' ? LAUNCHER[sel.lvl + 1].name : 'Lv' + (sel.lvl + 1)} 💰${sel.up}` : 'Max level';
     $('#btnUp').disabled = !sel.up || v.gd < sel.up || v.st === 'over';
   }
 
@@ -2178,7 +2339,12 @@ function tone(f1, f2, dur, type = 'sine', vol = .08, delay = 0) {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
   o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur + .02);
 }
+const every = (ms, f) => { let last = 0; return () => { const n = performance.now(); if (n - last > ms) { last = n; f(); } }; };   // a 6-missile salvo shouldn't be 6x as loud
 const SFX = {
+  shell:  every(80, () => { tone(140, 60, .12, 'square', .05); tone(900, 300, .7, 'sine', .015, .05); }),
+  msl:    every(70, () => tone(300, 1400, .35, 'sawtooth', .025)),
+  boom:   every(90, () => { tone(120, 35, .35, 'sawtooth', .07); tone(60, 30, .4, 'sine', .08); }),
+  zap:    every(120, () => tone(1800, 2200, .12, 'sawtooth', .02)),
   shoot:  () => tone(900, 500, .05, 'square', .015),
   splash: () => tone(220, 60, .18, 'sawtooth', .04),
   pop:    () => tone(500, 1100, .09, 'sine', .07),
@@ -2207,7 +2373,7 @@ function sounds(v) {
   const now = performance.now();
   for (const s of v.sh) if (s[7] > seenId) {
     maxId = Math.max(maxId, s[7]);
-    if (now - lastShot > 70) { lastShot = now; (s[5] ? SFX.splash : SFX.shoot)(); }
+    if (now - lastShot > 70) { lastShot = now; (s[5] >= 2 ? SFX.zap : s[5] ? SFX.splash : SFX.shoot)(); }
   }
   seenId = maxId;
   if (v.st === 'over' && lastSt && lastSt !== 'over') {

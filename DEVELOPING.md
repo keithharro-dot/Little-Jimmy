@@ -96,6 +96,10 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
   - Bosses: Eradicator, MK II (rages at half health) and the Void (mind control, Voidlings, stomp), plus minions (Avatars, Voidlings).
 - **Towers:** design your own (`stats`, `cleanSpec`) or use the `PRESETS`. Levels 1–4 change the soldier's uniform colour (`LEVEL_UNIFORM`). Reviver and DJ are support towers.
 - **Waves** (`WAVES = 50`): an Eradicator on wave 20, an MK II on 40, the Void on 50. The zombie sender's economy is in `ECO`.
+- **Launcher tower** (`role:'launcher'`, the last preset): one tower whose weapon changes with each upgrade, up to level 5 (`maxLvl`). The `LAUNCHER` table holds each level's weapon, damage, rate, range, blast radius, whether it hits flyers (`air`) and hidden zombies (`det`), and the upgrade price: Mortar → Missile pod → Twin pods → Laser → ANNIHILATOR (death ray plus a 6-missile `swarm` salvo).
+  - Shells and missiles: `launch` aims where the target will be when it lands (zombies follow a fixed route, so `posAt`/`flyAt` give it exactly) and puts it in `g.proj`. `step` blasts everything nearby when it lands. Clients draw the flight from the `shell`/`msl` fx (start, end, time left), so no positions travel over the network; 3D reuses `launchMissile` (a ball for shells).
+  - Beams: `fireLauncher` hurts every zombie within 0.35 tiles of the line, out to full range. Shot kinds in the snapshot: 0 bullet, 1 splash, 2 laser, 3 death ray.
+  - Measured balance (damage per second against one zombie / a pack of 6, total gold): Lv1 12/38 (180), Lv2 27/103 (400), Lv3 58/272 (780), Lv4 96/288 (1380), Lv5 263/1050 (2380). One maxed launcher placed 3 tiles from the road takes an MK II from 9000 to about 2000 HP alone; place it out of the 2.2-tile rocket-burst reach or it gets cracked.
 - **Eradicator abilities** (the `E.boss` branch of `step`):
   - Rocket bursts (stun and crack), Avatar calls, and a laser sweep through the busiest group of towers.
   - The MK II rages at half health and rains missiles while raging.
