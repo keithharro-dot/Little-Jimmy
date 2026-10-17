@@ -135,6 +135,7 @@ details summary{color:var(--gold)}
   </div>
   <div class="stack" id="menuBtns">
     <button class="primary big" id="goHost">📶 Host a match</button>
+    <button class="big" id="goInvite">🔗 Invite a friend anywhere</button>
     <button class="big" id="goPractice">🤖 Practice vs computer</button>
     <button class="big" id="goLocal2">📱 2 players, one phone</button>
     <button class="big" id="goRecords">🏆 Hall of Fame</button>
@@ -152,7 +153,7 @@ details summary{color:var(--gold)}
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
     <p class="small">Drag your players (the ones with a glow) with your finger. You don't have to touch the player itself: put your finger next to it (up to about a centimetre away) and drag, and it keeps that gap so your finger never hides it. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
-    <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
+    <p class="small">Playing together in the same room: the host taps <b>Host a match</b>, and friends on the <b>same Wi-Fi</b> (or one phone's hotspot) scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it.<br><br>Friends somewhere else: tap <b>🔗 Invite a friend anywhere</b> and send them the link (WhatsApp, Messages, anything). Tapping it puts them straight into your match over the internet. The link works until you leave the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets. Prefer a plain game? Pick <i>Normal soccer</i>.</p>
   </details>
 </div>
 
@@ -224,7 +225,8 @@ details summary{color:var(--gold)}
     <div class="small">Friends in the same room scan this with their camera:</div>
     <div><div id="qr"></div></div>
     <div class="small" id="qrCountdown"></div>
-    <div class="small">Everyone must be on the <b>same Wi-Fi</b> (or this phone's hotspot).</div>
+    <div class="small">Scanning needs the <b>same Wi-Fi</b> (or this phone's hotspot).</div>
+    <button id="btnInvite">🔗 Send an invite link (friends anywhere)</button>
   </div>
   <div class="card stack" style="margin-top:12px">
     <div class="row" style="align-items:center"><b>Players <span id="pCount"></span></b><span class="small" style="text-align:right" id="sizeInfo"></span></div>
@@ -1852,7 +1854,8 @@ $('#quit').onclick = () => { if (performance.now() - quitArmed < 2500) leaveGame
 /* ---------- Networking (same Wi-Fi only) ---------- */
 // No STUN/TURN servers: phones can only reach each other directly on the same local network
 // (same Wi-Fi or one phone's hotspot). The internet is only used for a moment to say hello.
-const PFX = 'pocketsoccer-lj-', PEER_OPTS = {config:{iceServers:[]}, debug:0};
+// PEER_OPTS: same Wi-Fi only (no STUN/TURN). PEER_NET: PeerJS's own servers, so an invite link works across the internet.
+const PFX = 'pocketsoccer-lj-', PEER_OPTS = {config:{iceServers:[]}, debug:0}, PEER_NET = {debug:0};
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 let peer = null, conn = null, conns = {}, lobby = null, hostCode = null, matchLen = 180;
 const code4 = () => Array.from({length:4}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
@@ -1860,7 +1863,20 @@ const code4 = () => Array.from({length:4}, () => ALPHA[Math.floor(Math.random()*
 // so a photo of the code sent to someone elsewhere stops working within a minute.
 let qrToken = null, oldToken = null, qrLeft = 0, qrTimer = null;
 const joinUrl = () => HOME + '#join=' + hostCode + '.' + qrToken;
-const newToken = () => Array.from({length:6}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
+const newToken = (n = 6) => Array.from({length:n}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
+// The invite link carries a longer pass (10 letters) that lasts as long as this lobby, for friends who aren't in the
+// room. Anyone with the link can join, from anywhere, so it's meant to be sent to one friend at a time.
+let inviteToken = null;
+const inviteUrl = () => HOME + '#join=' + hostCode + '.' + inviteToken;
+function shareInvite() {
+  if (!inviteToken) return;
+  const url = inviteUrl(), text = `⚽ ${profile.name || 'Your friend'} invited you to a Pocket Soccer match! Tap to join:`;
+  let copied = false;
+  try { navigator.clipboard.writeText(text + ' ' + url).then(() => { copied = true; }, () => {}); } catch (e) {}
+  const fallback = () => setTimeout(() => copied ? toast('📋 Invite link copied — paste it into WhatsApp or Messages') : prompt('Copy this invite link and send it to your friend:', url), 150);
+  if (navigator.share) navigator.share({title:'Pocket Soccer', text, url}).catch(e => { if (e && e.name !== 'AbortError') fallback(); else if (copied) toast('📋 Invite link copied too'); });
+  else fallback();
+}
 function rotateQR() {
   oldToken = qrToken; qrToken = newToken(); qrLeft = 30;
   const size = isTouch ? 180 : 260;   // bigger on a computer or TV
@@ -1888,24 +1904,30 @@ async function sameNetwork(c) {
 }
 
 $('#goHost').onclick = () => needProfile(hostMatch);
+$('#goInvite').onclick = () => needProfile(() => { hostMatch(); shareInvite(); });
+$('#btnInvite').onclick = shareInvite;
 function hostMatch() {
   if (EMBEDDED) { toast('Multiplayer only works on the website: ' + HOME); return; }
   if (!window.Peer) { toast('Loading multiplayer…'); return whenPeer(() => window.Peer ? hostMatch() : toast("Couldn't load multiplayer.")); }
   mode = 'host'; myPid = 'me';
   lobby = {players:[me()]};
-  hostCode = code4();
-  peer = new Peer(PFX + hostCode, PEER_OPTS);
+  hostCode = code4(); inviteToken = newToken(10);
+  peer = new Peer(PFX + hostCode, PEER_NET);
   peer.on('open', () => {
     $('#hostBox').hidden = false; startQR();
   });
-  peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); hostMatch(); } else if (e.type === 'peer-unavailable') toast("Couldn't find that TV. Check the code on the TV."); else toast('Connection problem: ' + e.type); });
+  peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); hostMatch(); toast('Sorry, the invite link changed: tap 🔗 to send it again'); } else if (e.type === 'peer-unavailable') toast("Couldn't find that TV. Check the code on the TV."); else toast('Connection problem: ' + e.type); });
   peer.on('connection', c => {
     // listen straight away: the guest knocks the moment the line opens, before our checks finish
     let ok = null, knock = null;
-    const admit = m => {
-      if (m && m.t === 'knock' && m.token && (m.token === qrToken || m.token === oldToken)) {
-        const pid = 'g' + Math.random().toString(36).slice(2, 7); conns[pid] = c; c.pid = pid; c.send({t:'welcome', pid});
-      } else { c.send({t:'reject', why:"This QR code has expired. Scan the host's screen again."}); setTimeout(() => c.close(), 300); }
+    const welcome = () => { const pid = 'g' + Math.random().toString(36).slice(2, 7); conns[pid] = c; c.pid = pid; c.send({t:'welcome', pid}); };
+    const reject = why => { c.send({t:'reject', why}); setTimeout(() => c.close(), 300); };
+    const admit = async m => {
+      const token = m && m.t === 'knock' && m.token;
+      if (token && token === inviteToken) welcome();   // invite link: from anywhere
+      else if (token && (token === qrToken || token === oldToken)) {   // QR code: only from the same Wi-Fi
+        if (await sameNetwork(c)) welcome(); else reject('You need to be on the same Wi-Fi as the host (or their hotspot). Or ask them for an invite link.');
+      } else reject("This QR code has expired. Scan the host's screen again.");
     };
     c.on('data', m => {
       if (c.pid) return hostOnData(c.pid, m);
@@ -1916,7 +1938,6 @@ function hostMatch() {
       const no = why => { ok = false; c.send({t:'reject', why}); setTimeout(() => c.close(), 300); };
       if (!lobby) return no('The match has already started. Ask the host to wait for you next time.');
       if (lobby.players.length >= MAX_PLAYERS) return no('The match is full (16 players).');
-      if (!(await sameNetwork(c))) return no('You need to be on the same Wi-Fi as the host (or their hotspot).');
       ok = true; if (knock) admit(knock);
     });
   });
@@ -2059,8 +2080,11 @@ function join(code, token) {
   if (!window.Peer) { infoEl.textContent = 'Loading…'; return whenPeer(() => window.Peer ? join(code, token) : noNet(infoEl)); }
   infoEl.textContent = '📶 Connecting to the host…';
   mode = 'guest'; hostCode = code;
-  peer = new Peer(PEER_OPTS);
-  const timer = setTimeout(() => { if (!lobbyJoined) infoEl.innerHTML = "Couldn't reach the host. Make sure you're on the <b>same Wi-Fi</b> as them. Some school or guest Wi-Fi blocks phones talking to each other — if so, the host turns on their phone's <b>hotspot</b> and everyone joins that."; }, 12000);
+  const invited = token.length === 10;   // invite link: over the internet; QR code: same Wi-Fi
+  peer = new Peer(invited ? PEER_NET : PEER_OPTS);
+  const timer = setTimeout(() => { if (!lobbyJoined) infoEl.innerHTML = invited
+    ? "Still trying to reach the host… Make sure their match is still open on the lobby screen. If it won't connect, try both of you on home Wi-Fi (some mobile data and work Wi-Fi blocks games)."
+    : "Couldn't reach the host. Make sure you're on the <b>same Wi-Fi</b> as them. Some school or guest Wi-Fi blocks phones talking to each other — if so, the host turns on their phone's <b>hotspot</b> and everyone joins that."; }, invited ? 20000 : 12000);
   let lobbyJoined = false, helloSent = false, lastLobby = null;
   const sayHello = () => { helloSent = true; conn.send({t:'hello', name:profile.name, faces:profile.faces, boss:profile.boss || ''}); infoEl.textContent = 'Joined! Waiting for the lobby…'; show('#menu');
                            if (lastLobby) { renderLobby(lastLobby); show('#lobby'); } };
@@ -2084,7 +2108,7 @@ function join(code, token) {
     });
     conn.on('close', () => { toast('Lost connection to the host'); setTimeout(() => location.href = location.pathname, 1500); });
   });
-  peer.on('error', e => { clearTimeout(timer); infoEl.textContent = e.type === 'peer-unavailable' ? "No match with that code. Check it, or ask the host to start one." : 'Connection problem: ' + e.type; });
+  peer.on('error', e => { clearTimeout(timer); infoEl.textContent = e.type === 'peer-unavailable' ? (invited ? "That match isn't open any more. Ask your friend to send a new invite link." : "No match with that code. Check it, or ask the host to start one.") : 'Connection problem: ' + e.type; });
 }
 
 /* ---------- Boot ---------- */
@@ -2092,9 +2116,9 @@ const isTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
 if (!isTouch) $('#bigScreenTip').hidden = false;   // computers and consoles: host on the big screen, or be the TV
 {
   showMenuProfile(); show('#menu'); showGfx(); if (GFX === '3d') load3D();
-  if (EMBEDDED) { $('#goHost').hidden = true; $('#goTV').hidden = true;
+  if (EMBEDDED) { $('#goHost').hidden = true; $('#goInvite').hidden = true; $('#goTV').hidden = true;
     $('#menuBtns').insertAdjacentHTML('beforeend', `<div class="small center">To play with friends, open the website on your phones: <b style="color:var(--text)">${HOME.replace('https://', '')}</b></div>`); }
-  const link = location.hash.match(/join=([A-Za-z]{4})\.([A-Za-z]{6})/);
+  const link = location.hash.match(/join=([A-Za-z]{4})\.([A-Za-z]{10}|[A-Za-z]{6})/);
   if (link) { history.replaceState(null, '', location.pathname); join(link[1].toUpperCase(), link[2].toUpperCase()); }
   else if (!profile.name) openProfile(() => show('#menu'));
 }
