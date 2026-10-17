@@ -158,7 +158,7 @@ details p,details li{color:var(--muted)}
       <ul>
         <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
         <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. You earn more gold as the zombie sender's eco grows. Tap a built tower to see its range, upgrade it (up to level 4) or sell it.</li>
-        <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡30 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers (a tower stunned 3 times is destroyed), and the MK II rages at half health.</li>
+        <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡150 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers (a tower stunned 3 times is destroyed), and the MK II rages at half health.</li>
         <li>Zombies win if the base's lives reach 0. Towers win by lasting 4 minutes. Then swap sides!</li>
       </ul>
       <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
@@ -379,21 +379,21 @@ function towerStats(spec, lvl) {
 const withDps = st => (st.dps = st.dmg * st.rate, st);
 const upgradeCost = (spec, lvl) => lvl >= MAX_LVL ? 0 : Math.round(stats(spec).cost * .6 * lvl / 5) * 5;
 const PRESETS = [
-  {name:'Pebble', col:'#58a6ff', d:2, r:2, s:2, sp:'none'},
+  {name:'Trooper', col:'#58a6ff', d:2, r:2, s:2, sp:'none'},
   {name:'Frost',  col:'#79c0ff', d:1, r:3, s:2, sp:'slow'},
   {name:'Boomer', col:'#ffa657', d:3, r:2, s:1, sp:'splash'},
-  {name:'Sniper', col:'#e6edf3', d:5, r:5, s:1, sp:'none', det:true},
+  {name:'Sniper', col:'#e6edf3', d:3, r:5, s:1, sp:'none', det:true},
 ];
 
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0, map = MAPD.id) {
-  return {map, t:0, status:'countdown', cd:5, lives:20, gold:200, energy:60, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
+  return {map, t:0, status:'countdown', cd:5, lives:20, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
           queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0, paused:false, epoch};
 }
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
 // sending an Eradicator lowers it (never below ECO_MIN). Each zombie type has a build time
 // before it can be sent again, which stops eco from snowballing.
-const ECO = {start:5, min:2, max:30, defGold:0.5};  // defGold: tower gold per second per point of zombie eco
+const ECO = {start:5, min:2, max:150, defGold:0.5};  // defGold: tower gold per second per point of zombie eco
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1};
