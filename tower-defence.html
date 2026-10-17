@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-title" content="Tower Defence">
 <meta name="theme-color" content="#0d1117">
 <title>Tower Defence</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script async src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root{
   --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
@@ -108,6 +108,12 @@ details p,details li{color:var(--muted)}
 <div id="menu">
   <h1><span>Tower</span> <b>Defence</b></h1>
   <p class="sub">Two players. One sends the zombies, one builds the towers.</p>
+  <div id="noScript" class="invite" style="margin-bottom:16px">
+    <b>Buttons not working?</b>
+    <div class="small">This preview can't run the game. Open it in Safari instead:</div>
+    <a href="https://keithharro-dot.github.io/Little-Jimmy/tower-defence.html" style="color:var(--def);word-break:break-all">keithharro-dot.github.io/Little-Jimmy/tower-defence.html</a>
+  </div>
+  <div id="errBox" class="invite" style="margin-bottom:16px;border-color:var(--atk)" hidden></div>
 
   <div id="mMain" class="stack">
     <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
@@ -214,6 +220,12 @@ details p,details li{color:var(--muted)}
 </div>
 
 <script>
+// Show any crash on screen so it can be reported, instead of buttons silently doing nothing.
+addEventListener('error', e => {
+  const b = document.getElementById('errBox'); if (!b) return;
+  b.hidden = false;
+  b.textContent = 'Something went wrong: ' + (e.message || 'unknown error') + (e.lineno ? ' (line ' + e.lineno + ')' : '');
+});
 const $ = s => document.querySelector(s);
 
 /* ---------- Map ---------- */
@@ -930,7 +942,7 @@ function noPeer(el) { el.textContent = "Couldn't load online play. Check the int
 document.querySelectorAll('#mHost [data-role]').forEach(b => b.onclick = () => hostGame(b.dataset.role));
 function hostGame(role) {
   const info = $('#hostInfo');
-  if (!window.Peer) return noPeer(info);
+  if (!window.Peer) { info.textContent = 'Loading online play…'; return whenPeerReady(() => window.Peer ? hostGame(role) : noPeer(info)); }
   if (peer) peer.destroy();
   myRole = role; guestRole = role === 'def' ? 'atk' : 'def';
   const code = code4();
@@ -1012,7 +1024,7 @@ $('#joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btn
 $('#btnJoin').onclick = () => {
   const info = $('#joinInfo'), code = $('#joinCode').value.toUpperCase();
   if (code.length !== 4) { info.textContent = 'The code has 4 letters.'; return; }
-  if (!window.Peer) return noPeer(info);
+  if (!window.Peer) { info.textContent = 'Loading online play…'; return whenPeerReady(() => window.Peer ? $('#btnJoin').click() : noPeer(info)); }
   joinCode = code;
   info.textContent = "🎮 Joining your friend's game…";
   connectGuest();
@@ -1022,7 +1034,17 @@ $('#btnJoin').onclick = () => {
 
 // Opened from an invite link? Join straight away.
 const linkCode = (location.hash.match(/join=([A-Za-z]{4})/) || [])[1];
-if (linkCode) { show('#mJoin'); $('#joinCode').value = linkCode.toUpperCase(); $('#btnJoin').click(); }
+// Scripts are running, so hide the "open in Safari" hint. PeerJS loads in the background,
+// so wait for it before auto-joining from a link.
+$('#noScript').hidden = true;
+function whenPeerReady(fn, tries = 0) {
+  if (window.Peer || tries > 50) fn(); else setTimeout(() => whenPeerReady(fn, tries + 1), 200);
+}
+if (linkCode) {
+  show('#mJoin'); $('#joinCode').value = linkCode.toUpperCase();
+  $('#joinInfo').textContent = "🎮 Joining your friend's game…";
+  whenPeerReady(() => $('#btnJoin').click());
+}
 </script>
 </body>
 </html>
