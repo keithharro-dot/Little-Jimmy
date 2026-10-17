@@ -95,20 +95,17 @@ h2{margin:0 0 6px;font-size:20px}
     <button class="primary big" id="goHost">📶 Host a match</button>
     <button class="big" id="goPractice">🤖 Practice vs computer</button>
     <button class="big" id="goLocal2">📱 2 players, one phone</button>
-    <button class="linkbtn" id="goJoin">Got a code? Join a match</button>
   </div>
-  <div id="joinBox" class="card stack" hidden>
-    <b>Join a match</b>
-    <div class="small">Type the 4-letter code on the host's phone (or scan their QR code with your camera).</div>
-    <input id="joinCode" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD"
-      style="text-transform:uppercase;font:800 28px ui-monospace,monospace;letter-spacing:8px;text-align:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text)">
-    <button class="primary" id="btnJoin">Join</button>
-    <div class="small center" id="joinInfo"></div>
+  <div id="joinBox" class="card stack center" hidden>
+    <b>Joining a match</b>
+    <div class="small" id="joinInfo"></div>
+    <button id="joinCancel">Cancel</button>
+  </div>
   </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
     <p class="small">Drag your players (the ones with a glow) with your finger. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
-    <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, friends scan the QR code. With more players, teams are split: e.g. 4 players = defence and strikers on each side.</p>
+    <p class="small">Playing together: everyone must be <b>in the same place on the same Wi-Fi</b> (or one phone's hotspot). The host taps <b>Host a match</b>, and friends scan the QR code on the host's screen with their camera. The QR code changes every 30 seconds, so you have to be there to scan it. With more players, teams are split: e.g. 4 players = defence and strikers on each side.</p>
   </details>
 </div>
 
@@ -159,8 +156,7 @@ h2{margin:0 0 6px;font-size:20px}
   <div class="card stack center" id="hostBox" hidden>
     <div class="small">Friends in the same room scan this with their camera:</div>
     <div><div id="qr"></div></div>
-    <div class="small">or tap “Got a code?” and type</div>
-    <div class="codebox" id="hostCode">····</div>
+    <div class="small" id="qrCountdown"></div>
     <div class="small">Everyone must be on the <b>same Wi-Fi</b> (or this phone's hotspot).</div>
   </div>
   <div class="card stack" style="margin-top:12px">
@@ -771,7 +767,19 @@ const PFX = 'pocketsoccer-lj-', PEER_OPTS = {config:{iceServers:[]}, debug:0};
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 let peer = null, conn = null, conns = {}, lobby = null, hostCode = null, matchLen = 180;
 const code4 = () => Array.from({length:4}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
-const joinUrl = () => HOME + '#join=' + hostCode;
+// The QR code carries a pass that changes every 30s; the host accepts the current or the previous one,
+// so a photo of the code sent to someone elsewhere stops working within a minute.
+let qrToken = null, oldToken = null, qrLeft = 0, qrTimer = null;
+const joinUrl = () => HOME + '#join=' + hostCode + '.' + qrToken;
+const newToken = () => Array.from({length:6}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
+function rotateQR() {
+  oldToken = qrToken; qrToken = newToken(); qrLeft = 30;
+  if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:joinUrl(), width:180, height:180, correctLevel:QRCode.CorrectLevel.M}); }
+}
+function startQR() {
+  rotateQR(); clearInterval(qrTimer);
+  qrTimer = setInterval(() => { if (--qrLeft <= 0) rotateQR(); $('#qrCountdown').textContent = `New QR code in ${qrLeft}s`; }, 1000);
+}
 function whenPeer(fn, tries = 0) { if (window.Peer || tries > 50) fn(); else setTimeout(() => whenPeer(fn, tries + 1), 200); }
 function noNet(el) { el.textContent = "Couldn't load multiplayer. Check you're online for a moment, then try again."; }
 
@@ -797,19 +805,28 @@ function hostMatch() {
   hostCode = code4();
   peer = new Peer(PFX + hostCode, PEER_OPTS);
   peer.on('open', () => {
-    $('#hostCode').textContent = hostCode; $('#hostBox').hidden = false;
-    if (window.QRCode) { $('#qr').innerHTML = ''; new QRCode($('#qr'), {text:joinUrl(), width:180, height:180, correctLevel:QRCode.CorrectLevel.M}); }
+    $('#hostBox').hidden = false; startQR();
   });
   peer.on('error', e => { if (e.type === 'unavailable-id') { peer.destroy(); hostMatch(); } else toast('Connection problem: ' + e.type); });
   peer.on('connection', c => {
+    // listen straight away: the guest knocks the moment the line opens, before our checks finish
+    let ok = null, knock = null;
+    const admit = m => {
+      if (m && m.t === 'knock' && m.token && (m.token === qrToken || m.token === oldToken)) {
+        const pid = 'g' + Math.random().toString(36).slice(2, 7); conns[pid] = c; c.pid = pid; c.send({t:'welcome', pid});
+      } else { c.send({t:'reject', why:"This QR code has expired. Scan the host's screen again."}); setTimeout(() => c.close(), 300); }
+    };
+    c.on('data', m => {
+      if (c.pid) return hostOnData(c.pid, m);
+      if (ok) admit(m); else if (ok === null && !knock) knock = m;
+    });
+    c.on('close', () => { if (c.pid) hostLost(c.pid); });
     c.on('open', async () => {
-      if (!lobby) { c.send({t:'reject', why:'The match has already started. Ask the host to wait for you next time.'}); setTimeout(() => c.close(), 300); return; }
-      if (lobby.players.length >= MAX_PLAYERS) { c.send({t:'reject', why:'The match is full (16 players).'}); setTimeout(() => c.close(), 300); return; }
-      if (!(await sameNetwork(c))) { c.send({t:'reject', why:'You need to be on the same Wi-Fi as the host (or their hotspot).'}); setTimeout(() => c.close(), 300); return; }
-      const pid = 'g' + Math.random().toString(36).slice(2, 7); conns[pid] = c; c.pid = pid;
-      c.on('data', m => hostOnData(pid, m));
-      c.on('close', () => hostLost(pid));
-      c.send({t:'welcome', pid});
+      const no = why => { ok = false; c.send({t:'reject', why}); setTimeout(() => c.close(), 300); };
+      if (!lobby) return no('The match has already started. Ask the host to wait for you next time.');
+      if (lobby.players.length >= MAX_PLAYERS) return no('The match is full (16 players).');
+      if (!(await sameNetwork(c))) return no('You need to be on the same Wi-Fi as the host (or their hotspot).');
+      ok = true; if (knock) admit(knock);
     });
   });
   renderLobby(); show('#lobby');
@@ -873,7 +890,7 @@ function renderLobby(list) {
 }
 document.querySelectorAll('#lenSeg button').forEach(b => b.onclick = () => { matchLen = +b.dataset.len; if (lobby) syncLobby(); });
 $('#btnStart').onclick = () => {
-  game = newMatch(lobby.players, matchLen); lobby = null; info = matchInfo(game);
+  game = newMatch(lobby.players, matchLen); lobby = null; info = matchInfo(game); clearInterval(qrTimer);
   sendFaces(); broadcast({t:'start', info});
   runSim(); clearInterval(netTimer);
   netTimer = setInterval(() => broadcast({t:'s', s:snap(game)}), 33);
@@ -882,35 +899,36 @@ $('#btnStart').onclick = () => {
 function backToLobby() {
   clearInterval(simTimer); clearInterval(netTimer);
   lobby = {players:game.players.filter(p => p.pid === 'me' || conns[p.pid])}; game = null; info = null;
+  startQR();
   broadcast({t:'lobbyback'}); syncLobby(); show('#lobby');
 }
 $('#lobbyLeave').onclick = leaveGame;
 
 // Joining
-$('#goJoin').onclick = () => { $('#joinBox').hidden = false; $('#menuBtns').hidden = true; $('#joinCode').focus(); };
-$('#joinCode').addEventListener('input', e => e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''));
-$('#btnJoin').onclick = () => needProfile(() => join($('#joinCode').value));
-function join(code) {
+$('#joinCancel').onclick = leaveGame;
+function join(code, token) {
   const infoEl = $('#joinInfo');
   if (EMBEDDED) { infoEl.textContent = 'Joining only works on the website: ' + HOME; return; }
-  if (!/^[A-Z]{4}$/.test(code)) { infoEl.textContent = 'The code has 4 letters.'; return; }
-  if (!window.Peer) { infoEl.textContent = 'Loading…'; return whenPeer(() => window.Peer ? join(code) : noNet(infoEl)); }
-  show('#menu'); $('#joinBox').hidden = false; $('#menuBtns').hidden = true; $('#joinCode').value = code;
+  show('#menu'); $('#joinBox').hidden = false; $('#menuBtns').hidden = true;
+  if (!/^[A-Z]{4}$/.test(code) || !token) { infoEl.textContent = "That link doesn't look right. Scan the host's QR code again."; return; }
+  if (!window.Peer) { infoEl.textContent = 'Loading…'; return whenPeer(() => window.Peer ? join(code, token) : noNet(infoEl)); }
   infoEl.textContent = '📶 Connecting to the host…';
   mode = 'guest'; hostCode = code;
   peer = new Peer(PEER_OPTS);
   const timer = setTimeout(() => { if (!lobbyJoined) infoEl.innerHTML = "Couldn't reach the host. Make sure you're on the <b>same Wi-Fi</b> as them. Some school or guest Wi-Fi blocks phones talking to each other — if so, the host turns on their phone's <b>hotspot</b> and everyone joins that."; }, 12000);
-  let lobbyJoined = false;
+  let lobbyJoined = false, helloSent = false, lastLobby = null;
+  const sayHello = () => { helloSent = true; conn.send({t:'hello', name:profile.name, faces:profile.faces}); infoEl.textContent = 'Joined! Waiting for the lobby…'; show('#menu');
+                           if (lastLobby) { renderLobby(lastLobby); show('#lobby'); } };
   peer.on('open', () => {
     conn = peer.connect(PFX + code, {reliable:true, serialization:'json'});
-    conn.on('open', () => {});
+    conn.on('open', () => conn.send({t:'knock', token}));
     conn.on('data', m => {
       if (!m) return;
-      if (m.t === 'welcome') { myPid = m.pid; conn.send({t:'hello', name:profile.name, faces:profile.faces}); }
+      if (m.t === 'welcome') { myPid = m.pid; clearTimeout(timer); lobbyJoined = true; if (profile.name) sayHello(); else { toast('You\'re in! Set up your player.'); openProfile(sayHello); } }
       else if (m.t === 'reject') { clearTimeout(timer); infoEl.textContent = m.why; }
       else if (m.t === 'faces') { for (const [id, url] of Object.entries(m.faces)) if (!faceStore[id] && typeof url === 'string' && url.startsWith('data:image/')) { const img = new Image(); img.src = url; faceStore[id] = {url, img}; } }
-      else if (m.t === 'lobby') { lobbyJoined = true; clearTimeout(timer); matchLen = m.len; renderLobby(m.players); if ($('#game').hidden) show('#lobby'); }
-      else if (m.t === 'lobbyback') { info = null; curS = prevS = null; show('#lobby'); }
+      else if (m.t === 'lobby') { matchLen = m.len; lastLobby = m.players; if (helloSent) { renderLobby(m.players); if ($('#game').hidden) show('#lobby'); } }
+      else if (m.t === 'lobbyback') { info = null; curS = prevS = null; if (helloSent) show('#lobby'); }
       else if (m.t === 'start') {
         info = m.info; curS = prevS = null;
         const meP = info.players.find(p => p.pid === myPid); flip = !!(meP && meP.team === 1);
@@ -930,10 +948,10 @@ if (!isPhone) {
   const qr = () => { if (window.QRCode) new QRCode($('#phoneQr'), {text:HOME, width:180, height:180}); else setTimeout(qr, 300); }; qr();
 } else {
   showMenuProfile(); show('#menu');
-  if (EMBEDDED) { $('#goHost').hidden = true; $('#goJoin').hidden = true;
+  if (EMBEDDED) { $('#goHost').hidden = true;
     $('#menuBtns').insertAdjacentHTML('beforeend', `<div class="small center">To play with friends, open the website on your phones: <b style="color:var(--text)">${HOME.replace('https://', '')}</b></div>`); }
-  const linkCode = (location.hash.match(/join=([A-Za-z]{4})/) || [])[1];
-  if (linkCode) needProfile(() => join(linkCode.toUpperCase()));
+  const link = location.hash.match(/join=([A-Za-z]{4})\.([A-Za-z]{6})/);
+  if (link) { history.replaceState(null, '', location.pathname); join(link[1].toUpperCase(), link[2].toUpperCase()); }
   else if (!profile.name) openProfile(() => show('#menu'));
 }
 </script>
