@@ -5,7 +5,7 @@ This guide is for whoever (and whichever Claude) picks them up next. Give your C
 
 - Pocket Soccer: `soccer.html` (live at https://keithharro-dot.github.io/Little-Jimmy/soccer.html)
 - Tower Defence: `tower-defence.html` (live at https://keithharro-dot.github.io/Little-Jimmy/tower-defence.html)
-- Theme music: `music/dikshifter-the-2nd-take.mp3` and its cover `music/dikshifter-cover.jpg`. The track was written by the repo owner, who shared it freely for these games.
+- Music: the repo owner's own songs in `music/` (covers in `music/covers/`), shared freely for these games. Credit by song title only; the files deliberately carry no artist name. `music/jukebox.js` holds the song list and the picker both games use; to add a song, add the MP3, a 160px cover and one line there.
 - Tests: `tests/smoke.mjs`, plus the stand-ins it uses (`tests/mockpeer.js`, `tests/qrstub.js`)
 - `index.html` and `CLAUDE.md`'s main sections are about a **separate trading app**, unrelated to the games.
 
