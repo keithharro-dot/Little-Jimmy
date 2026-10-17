@@ -99,6 +99,9 @@ details p,details li{color:var(--muted)}
 .slider span{width:70px;text-align:right;font-variant-numeric:tabular-nums}
 .seg{display:flex;gap:6px}.seg button{flex:1;padding:8px 4px;font-size:13px}
 .seg button.sel{border-color:var(--def);background:#0c2d4d}
+#roleTabs{margin-top:12px}
+#roleTabs button{padding:12px;font-size:16px;font-weight:600}
+#roleTabs button[data-tab=atk].sel{border-color:var(--atk);background:#3d1414}
 #bStats{margin:14px 0;padding:10px;background:var(--panel2);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px}
 #bStats b{font-variant-numeric:tabular-nums}
 </style>
@@ -186,6 +189,10 @@ details p,details li{color:var(--muted)}
     <div id="overlay" hidden></div>
   </div>
   <div id="rotate">📱↻ Turn your phone sideways for a bigger map</div>
+  <div id="roleTabs" class="seg" hidden>
+    <button data-tab="def">🛡 Towers</button>
+    <button data-tab="atk">🧟 Zombies</button>
+  </div>
   <div id="panels">
     <div class="panel def" id="defPanel">
       <h3>🛡 Towers <span class="hint" style="margin:0">tap a design, then tap the grass</span></h3>
@@ -471,8 +478,10 @@ let view = null;
 let selDesign = 0, selTower = null, hover = null, ended = false;
 let guestRole = null, hostCode = null, joinCode = null, reconnecting = false;
 
-const isDef = () => myRole === 'def' || myRole === 'both';
-const isAtk = () => myRole === 'atk' || myRole === 'both';
+// On one phone ('both'), the players pass the phone and a tab picks whose units are shown.
+let tab = 'def';
+const isDef = () => myRole === 'def' || (myRole === 'both' && tab === 'def');
+const isAtk = () => myRole === 'atk' || (myRole === 'both' && tab === 'atk');
 
 function issue(c) {
   if (mode === 'guest') { if (conn && conn.open) conn.send({t:'cmd', c}); }
@@ -924,10 +933,12 @@ function applyRoleUI() {
   selTower = null;
   $('#defPanel').hidden = !isDef(); $('#atkPanel').hidden = !isAtk();
   $('#pGold').hidden = !isDef(); $('#pEnergy').hidden = !isAtk();
-  $('#panels').classList.toggle('both', myRole === 'both');
+  $('#roleTabs').hidden = myRole !== 'both';
+  document.querySelectorAll('#roleTabs button').forEach(b => b.classList.toggle('sel', b.dataset.tab === tab));
   $('#hRole').textContent = {def:'You build 🛡 towers', atk:'You send 🧟 zombies', both:'Two players, one phone'}[myRole];
   renderDesigns(); renderEnemies();
 }
+document.querySelectorAll('#roleTabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; applyRoleUI(); });
 function startGame() {
   $('#menu').hidden = true; $('#game').hidden = false;
   applyRoleUI(); resize();
