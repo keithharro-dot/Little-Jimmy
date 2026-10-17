@@ -59,6 +59,8 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
   - Players are square "Pong paddles": hitting the ball off-centre angles it, which makes aiming easier.
   - Corners are cut off so the ball can't wedge, and there's a throw-in after 2.5 s stuck by a wall.
   - Goals widen slightly for 6–8-a-side (`goalWidth`).
+- **Aftertouch** (`CURL`, `ball.curl`): when a person's player touches the ball they get aftertouch on it until anyone else touches it. Moving that player sideways turns the ball's direction (speed kept), up to `CURL.turn` rad/s at full sideways speed. A dotted ring in their team colour round the ball shows it (snapshot `bc`; `drawCurl`, 2D and 3D).
+- **No own goals** (`ownGoalThreat`): if a team's own player last touched a ball heading into their goal, their keeper sprints to the line to cover it (overriding the computer or a finger), and at the line the ball is always saved ("SAVED!", fx `save`). Power shots don't count: the LEO BOMB blast sets `ball.forced`, and homing rockets are exempt.
 - **Teams:**
   - One outfield player per person on the bigger team (`teamSize`, `OUTFIELD` formations), plus a keeper per side.
   - The computer plays the keeper until a teammate drags it, and whoever grabbed it last controls it (`applyInput`, `grab`).
