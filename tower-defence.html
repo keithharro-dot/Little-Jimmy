@@ -146,9 +146,20 @@ details p,details li{color:var(--muted)}
         <div class="small" style="margin-bottom:8px">Friend right next to you? They can scan this with their camera:</div>
         <div id="qr"></div>
       </div>
+      <div class="small">Or copy this link and send it: <span id="inviteLink" style="-webkit-user-select:all;user-select:all;word-break:break-all;color:var(--text)"></span></div>
       <div class="small">Or they can tap <i>Got a code?</i> and type <b id="hostCode" style="letter-spacing:3px;color:var(--text);font-size:16px"></b></div>
     </div>
     <div id="hostInfo" class="info"></div>
+    <button class="back">Back</button>
+  </div>
+
+  <div id="mEmbed" class="stack" hidden>
+    <div class="invite">
+      <b>Playing on two phones? Use the website</b>
+      <div class="small">Inside the Claude app the game can only do two players on one phone. To play on two phones, open this link in Safari on both:</div>
+      <a id="homeLink" target="_blank" rel="noopener" style="color:var(--def);word-break:break-all"></a>
+      <button id="btnCopyHome">Copy link</button>
+    </div>
     <button class="back">Back</button>
   </div>
 
@@ -791,7 +802,7 @@ function hud(v) {
     on('#btnAgain', () => issue({type:'restart'}));
     on('#btnSwap', () => issue({type:'swap'}));
     on('#btnReinvite', sendInvite);
-    on('#btnMenu', () => { location.href = location.pathname + location.search; });
+    on('#btnMenu', goMenu);
   }
 }
 
@@ -875,12 +886,24 @@ addEventListener('keydown', ev => {
 });
 
 /* ---------- Screens ---------- */
-function show(id) { ['#mMain','#mHost','#mJoin'].forEach(s => $(s).hidden = s !== id); }
+// The public home of the game. Invite links always point here, so they work even when
+// the page was opened somewhere else (like inside the Claude app).
+const HOME = 'https://keithharro-dot.github.io/Little-Jimmy/tower-defence.html';
+const EMBEDDED = !!window.TD_EMBEDDED;  // set by the Claude-app copy, which can't connect two phones
+function show(id) { ['#mMain','#mHost','#mJoin','#mEmbed'].forEach(s => $(s).hidden = s !== id); }
+function goMenu() { if (EMBEDDED) location.reload(); else location.href = location.pathname + location.search; }
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast.timer); toast.timer = setTimeout(() => t.hidden = true, 2600);
 }
-$('#goHost').onclick = () => { show('#mHost'); $('#hostInfo').textContent = ''; };
+$('#goHost').onclick = () => { if (EMBEDDED) return show('#mEmbed'); show('#mHost'); $('#hostInfo').textContent = ''; };
+$('#homeLink').href = HOME; $('#homeLink').textContent = HOME.replace('https://', '');
+$('#btnCopyHome').onclick = () => {
+  const done = () => { $('#btnCopyHome').textContent = 'Copied!'; };
+  try { navigator.clipboard.writeText(HOME).then(done, () => toast('Press and hold the link to copy it.')); }
+  catch (e) { toast('Press and hold the link to copy it.'); }
+};
+if (EMBEDDED) $('#goJoin').hidden = true;
 $('#goJoin').onclick = () => { show('#mJoin'); $('#joinCode').focus(); };
 document.querySelectorAll('.back').forEach(b => b.onclick = () => {
   if (peer) { peer.destroy(); peer = null; }
@@ -913,8 +936,8 @@ function startGame() {
 // Tapping it on another phone opens the page and joins automatically.
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const code4 = () => Array.from({length:4}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
-const inviteUrl = () => location.href.split('#')[0] + '#join=' + hostCode;
-const isOnline = () => /^https?:$/.test(location.protocol);
+const onHome = /github\.io$|^localhost$|^127\.0\.0\.1$/.test(location.hostname);
+const inviteUrl = () => (onHome ? location.href.split('#')[0] : HOME) + '#join=' + hostCode;
 
 async function sendInvite() {
   const url = inviteUrl();
@@ -926,12 +949,12 @@ async function sendInvite() {
     catch (e) { if (e.name === 'AbortError') return; }
   }
   try { await navigator.clipboard.writeText(text + ' ' + url); toast('Link copied! Paste it in a message.'); }
-  catch (e) { prompt('Copy this link and send it to your friend:', url); }
+  catch (e) { toast('Copy the link shown under the button and send it.'); }
 }
 $('#btnInvite').onclick = sendInvite;
 
 function showQR() {
-  if (!window.QRCode || !isOnline()) return;
+  if (!window.QRCode) return;
   $('#qr').innerHTML = '';
   new QRCode($('#qr'), {text:inviteUrl(), width:180, height:180, correctLevel:QRCode.CorrectLevel.M});
   $('#qrWrap').hidden = false;
@@ -951,10 +974,10 @@ function hostGame(role) {
   peer.on('open', () => {
     hostCode = code;
     $('#hostCode').textContent = code;
+    $('#inviteLink').textContent = inviteUrl();
     $('#hostPick').hidden = true; $('#hostInvite').hidden = false;
     showQR();
-    info.textContent = isOnline() ? '⏳ Waiting for your friend…'
-      : '⚠️ This page is opened as a file, so the invite link won\'t work on another phone. Put it on a website first.';
+    info.textContent = '⏳ Waiting for your friend…';
   });
   peer.on('error', e => {
     if (e.type === 'unavailable-id') hostGame(role);
