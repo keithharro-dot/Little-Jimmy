@@ -1239,7 +1239,7 @@ function drawCut(v) {
       mkText(o2, d.who, px + pw/2 + (d.face ? pw*.05 : 0), y, s2, '#ffffff', d.cols[0]); }
   } else if (d.chaos) {
     if (head && d.dface) {   // his own face on the drinker, crisp over the pixels
-      const hx = px + head.x*k, hy = py + head.y*k, r = head.r*k*1.25;
+      const r = Math.max(22, head.r*k*2.1), hx = px + head.x*k, hy = py + head.y*k - r*.35;
       o2.save(); o2.beginPath(); o2.arc(hx, hy, r, 0, 7); o2.clip(); o2.drawImage(d.dface, hx - r, hy - r, r*2, r*2); o2.restore();
       o2.strokeStyle = '#000'; o2.lineWidth = 2; o2.beginPath(); o2.arc(hx, hy, r, 0, 7); o2.stroke();
     }
@@ -1364,12 +1364,13 @@ function drawWin(v) {
   o2.strokeStyle = d.adult ? '#ff2bd6' : '#8a5a2b'; o2.lineWidth = 6; o2.strokeRect(px - 3, py - 3, pw + 6, ph + 6);
   o2.strokeStyle = '#ffd23f'; o2.lineWidth = 2; o2.strokeRect(px - 6, py - 6, pw + 12, ph + 12);
   o2.save(); o2.beginPath(); o2.rect(px, py, pw, ph); o2.clip();
-  if (wo.headAt && d.face) {   // the winner's own face, in shades in the lounge
-    const hx = px + wo.headAt[0]*k, hy = py + wo.headAt[1]*k, r = wo.headR*k*1.25;
+  if (wo.headAt && d.face) {   // the winner's own face as a big bobblehead, so you can tell who it is (shades pushed up in the lounge)
+    const r = Math.max(26, wo.headR*k*2.4), hx = px + wo.headAt[0]*k, hy = py + wo.headAt[1]*k - r*.45;
     o2.save(); o2.beginPath(); o2.arc(hx, hy, r, 0, 7); o2.clip(); o2.drawImage(d.face, hx - r, hy - r, r*2, r*2); o2.restore();
-    o2.strokeStyle = '#000'; o2.lineWidth = 2; o2.beginPath(); o2.arc(hx, hy, r, 0, 7); o2.stroke();
-    if (d.adult) { o2.fillStyle = '#0a0a0a'; o2.beginPath(); o2.ellipse(hx - r*.38, hy - r*.12, r*.34, r*.2, 0, 0, 7); o2.ellipse(hx + r*.38, hy - r*.12, r*.34, r*.2, 0, 0, 7); o2.fill();
-      o2.fillRect(hx - r*.1, hy - r*.17, r*.2, r*.07); o2.fillStyle = 'rgba(255,255,255,.5)'; o2.fillRect(hx - r*.55, hy - r*.22, r*.12, r*.05); o2.fillRect(hx + r*.2, hy - r*.22, r*.12, r*.05); }
+    o2.strokeStyle = d.adult ? '#ff2bd6' : '#ffd23f'; o2.lineWidth = 3; o2.beginPath(); o2.arc(hx, hy, r, 0, 7); o2.stroke();
+    if (d.adult) { const sy = hy - r*.82; o2.fillStyle = '#0a0a0a'; o2.beginPath(); o2.ellipse(hx - r*.33, sy, r*.3, r*.16, -.08, 0, 7); o2.ellipse(hx + r*.33, sy, r*.3, r*.16, .08, 0, 7); o2.fill();
+      o2.fillRect(hx - r*.08, sy - r*.04, r*.16, r*.06); o2.fillStyle = 'rgba(255,255,255,.55)'; o2.fillRect(hx - r*.48, sy - r*.08, r*.12, r*.04); o2.fillRect(hx + r*.18, sy - r*.08, r*.12, r*.04); }
+    else { o2.fillStyle = '#ffd23f'; o2.beginPath(); const cy = hy - r*.95; o2.moveTo(hx - r*.5, cy + r*.2); for (let i = 0; i <= 4; i++) { o2.lineTo(hx - r*.5 + i*r*.25, cy - (i % 2 ? 0 : r*.35)); } o2.lineTo(hx + r*.5, cy + r*.2); o2.closePath(); o2.fill(); o2.strokeStyle = '#7c5a10'; o2.lineWidth = 1.5; o2.stroke(); }   // a crown
   }
   const pop = ease((t - .35)/.3), title = d.name + ' WINS!';
   o2.save(); o2.translate(px + pw/2, py + ph*.12); o2.scale(pop, pop); mkText(o2, title, 0, 0, fitSize(o2, title, pw*.11, pw*.92), '#ffffff', d.col, d.adult ? '#ff2bd6' : '#ffd23f'); o2.restore();
