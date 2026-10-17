@@ -63,10 +63,10 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
   - One outfield player per person on the bigger team (`teamSize`, `OUTFIELD` formations), plus a keeper per side.
   - The computer plays the keeper until a teammate drags it, and whoever grabbed it last controls it (`applyInput`, `grab`).
   - Empty spots are computer players (`aiTarget`).
-- **Joining is in-person only:**
-  - The host shows a QR code whose pass changes every 30 s (`rotateQR`). The previous pass stays valid as grace.
+- **Joining: in person by QR code, or from anywhere by invite link:**
+  - The host shows a QR code whose pass changes every 30 s (`rotateQR`). The previous pass stays valid as grace. QR guests connect with **no STUN/TURN** (`PEER_OPTS`), and `sameNetwork()` rejects them unless the connection is direct on the local network: same Wi-Fi or the host's hotspot.
+  - Invite link (`🔗 Invite a friend anywhere` on the menu, which hosts and shares at once, or `#btnInvite` in the lobby; `shareInvite`): `#join=CODE.PASS` with a 10-letter pass (`inviteToken`) that lasts for that lobby. It opens the phone's share sheet (WhatsApp, Messages…) and copies the link too; without a share sheet it copies, and without clipboard access it shows the link to copy. Invite guests and the host use PeerJS's own servers (`PEER_NET`), so it works across the internet, and the same-Wi-Fi check is skipped for them. The pass length tells the guest which kind of link it is.
   - A guest's first message must be `{t:'knock', token}`.
-  - PeerJS runs with **no STUN/TURN** (`PEER_OPTS`), and `sameNetwork()` rejects relayed connections. Players must be on the same Wi-Fi or the host's hotspot. The internet is only used briefly for the PeerJS hello.
   - Some school and guest Wi-Fi networks block phones talking to each other; the hotspot is the workaround.
 - **Chaos power-ups** (`POWERS`; on by default, with a "Normal soccer" switch):
   - Each goal powers up the team that let it in; a team 2+ goals behind gets two powers. Powers stack.
