@@ -49,3 +49,7 @@ An economic calendar feed generates a ticker; HIGH-impact events block auto-trad
 ## Mobile Layout
 
 Detected via `max-width: 768px`. Switches to a tab-based navigation (Chart, Trade, Orders, Account, Auto) with swipe gesture support. `mobileTab()` manages tab switching.
+
+## Games (Pocket Soccer and Tower Defence)
+
+`soccer.html`, `tower-defence.html`, `music/` and `tests/` are two phone games, separate from the trading app above. Read `DEVELOPING.md` before working on them; run `node tests/smoke.mjs` before pushing.
