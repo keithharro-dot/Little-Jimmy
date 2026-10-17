@@ -1088,7 +1088,7 @@ function cheerPose(t, i) {
   const w = Math.sin(t*16 + i); return {lt:-.15, lk:0, rt:.15, rk:0, la:-2.6 + w*.3, le:-.4, ra:2.6 + w*.3, re:.4};
 }
 
-function stadium(c, t, pan) {
+function stadium(c, t, pan, col = CV.d.cols[0]) {
   const g = c.createLinearGradient(0, 0, 0, 110); g.addColorStop(0, '#05060f'); g.addColorStop(1, '#251a3d'); c.fillStyle = g; c.fillRect(0, 0, LW, LH);
   for (const lx of [30, 226]) {   // floodlight towers
     const x = lx - (pan*.3 % 400); c.fillStyle = '#20222a'; c.fillRect(x - 1, 10, 3, 70);
@@ -1098,9 +1098,9 @@ function stadium(c, t, pan) {
   for (const p of CROWD) {   // the stands, everyone bouncing
     const x = ((p.x - pan*.6) % (LW*2) + LW*2) % (LW*2) - 4; if (x > LW + 4) continue;
     const y = 44 + p.row*6.5 + (Math.sin(t*9 + p.ph) > .3 ? -1.5 : 0);
-    c.fillStyle = p.shirt < .45 ? CV.d.cols[0] : p.shirt < .6 ? '#e5e7eb' : '#3a3f4b'; c.fillRect(x - 1.5, y + 2, 3.5, 3.5);
+    c.fillStyle = p.shirt < .45 ? col : p.shirt < .6 ? '#e5e7eb' : '#3a3f4b'; c.fillRect(x - 1.5, y + 2, 3.5, 3.5);
     c.fillStyle = p.c; c.fillRect(x - 1, y, 2.5, 2.5);
-    if (p.flag) { c.fillStyle = CV.d.cols[0]; c.fillRect(x + 1, y - 7 + Math.sin(t*7 + p.ph)*1.5, 6, 4); c.fillStyle = '#ddd'; c.fillRect(x + 1, y - 7, 1, 9); }
+    if (p.flag) { c.fillStyle = col; c.fillRect(x + 1, y - 7 + Math.sin(t*7 + p.ph)*1.5, 6, 4); c.fillStyle = '#ddd'; c.fillRect(x + 1, y - 7, 1, 9); }
   }
   c.fillStyle = '#111'; c.fillRect(0, 102, LW, 12);   // advertising boards
   c.font = 'bold 8px monospace'; c.textAlign = 'left';
@@ -1128,7 +1128,7 @@ function cutStart(v) {
 function cutStop() { CV.on = false; $('#cutcv').hidden = true; }
 $('#cutcv').addEventListener('pointerdown', () => {   // tap to skip: the host skips for everyone
   if (game && game.status === 'goal') game.cd = Math.min(game.cd, .3);
-  cutStop();
+  cutStop(); if (WV.on) winStop();
 });
 
 function mkText(c, txt, x, y, size, top, bot, glow) {   // chunky arcade lettering
@@ -1254,6 +1254,126 @@ function drawCut(v) {
         if (d.max) mkText(o2, 'TOTAL CHAOS!', px + pw/2, py + ph*.93, pw*.06, '#fff', '#ff3b30'); }
     }
   }
+  o2.restore();
+  if (t > 1) { o2.font = '600 12px system-ui'; o2.textAlign = 'center'; o2.fillStyle = 'rgba(255,255,255,.6)'; o2.fillText('tap to skip', W/2, py + ph + 22); }
+}
+
+// Winner's movie at full time, on the same panel. Kids: a trophy podium in the stadium with the cheer squad and
+// fireworks. 18+: the VIP lounge (neon, a disco ball, drinks on the table) with the bikini girls partying round the
+// winner in shades. Party humour only, same rules as the goal movies.
+const WIN = {len:6.5, slide:.35};
+const WV = {on:false, t0:0, d:null, fired:new Set(), ep:null};
+const BIKINI = ['#ff2bd6', '#facc15', '#22d3ee', '#ef4444'];
+function winStart(v) {
+  const [a, b] = v.sc, team = a === b ? (v.dw === null || v.dw === undefined ? null : v.dw) : a > b ? 0 : 1;
+  if (team === null) return;
+  const W = info.widgets, mine = info.players.find(p => p.pid === myPid);
+  const human = (mine && mine.team === team ? mine : null) || info.players.find(p => p.team === team);
+  const wi = (human && W.find(w => w.ctl === human.pid && w.role !== 'GK')) || W.find(w => w.team === team && w.role !== 'GK');
+  WV.d = {team, col:TEAMS[team].col, name:(human ? human.name : TEAMS[team].name).toUpperCase(), face:wi ? (faceReady(wi) ? faceStore[wi.face].img : botFace(wi)) : null,
+          num:wi ? String(wi.num || '') : '', score:`${a}–${b}`, adult:!!info.adult && AGE === 'adult'};
+  WV.on = true; WV.t0 = performance.now(); WV.fired = new Set(); $('#cutcv').hidden = false;
+}
+function winStop() { WV.on = false; if (!CV.on) $('#cutcv').hidden = true; }
+
+function lounge(c, t) {
+  const g = c.createLinearGradient(0, 0, 0, LH); g.addColorStop(0, '#0b0614'); g.addColorStop(1, '#22092e'); c.fillStyle = g; c.fillRect(0, 0, LW, LH);
+  for (let i = 0; i < 14; i++) {   // soft out-of-focus lights
+    const x = (i*53 + Math.sin(t*.7 + i)*6) % LW, y = 20 + (i*37) % 90, r = 6 + (i % 4)*3;
+    const bg = c.createRadialGradient(x, y, 0, x, y, r); bg.addColorStop(0, ['rgba(255,43,214,.35)', 'rgba(168,85,247,.35)', 'rgba(34,211,238,.3)'][i % 3]); bg.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = bg; c.fillRect(x - r, y - r, r*2, r*2);
+  }
+  const neon = (pts, col) => { c.lineCap = 'round'; c.strokeStyle = col; c.globalAlpha = .25; c.lineWidth = 6; c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.stroke();
+    c.globalAlpha = 1; c.lineWidth = 1.5; c.stroke(); c.strokeStyle = '#fff'; c.lineWidth = .6; c.stroke(); };
+  neon([[0, 70], [70, 52], [190, 58], [256, 40]], '#ff2bd6');
+  neon([[0, 96], [90, 84], [256, 92]], '#a855f7');
+  // disco ball, throwing sparkles
+  const bx = 128, by = 16; c.fillStyle = '#9ca3af'; c.beginPath(); c.arc(bx, by, 9, 0, 7); c.fill();
+  for (let i = 0; i < 18; i++) { c.fillStyle = (i + Math.floor(t*8)) % 3 ? '#e5e7eb' : '#ffffff'; c.fillRect(bx - 8 + (i % 6)*3, by - 7 + Math.floor(i/6)*5, 2, 2); }
+  c.strokeStyle = '#555'; c.beginPath(); c.moveTo(bx, 0); c.lineTo(bx, by - 9); c.stroke();
+  for (let i = 0; i < 9; i++) { const a = t*1.5 + i*.7, r = 30 + (i*23) % 100; c.fillStyle = 'rgba(255,255,255,.8)'; c.fillRect(bx + Math.cos(a)*r*1.4, by + 20 + Math.abs(Math.sin(a))*r*.9, 1.5, 1.5); }
+  // the sign
+  const on = Math.sin(t*23) > -.9;
+  c.font = 'bold 13px monospace'; c.textAlign = 'center'; c.shadowColor = '#ff2bd6'; c.shadowBlur = on ? 8 : 0; c.fillStyle = on ? '#ffd1f5' : '#5b2150'; c.fillText('VIP LOUNGE', 206, 47); c.shadowBlur = 0;
+  // floor, spotlight, a red booth behind and a table of drinks
+  c.fillStyle = '#16060f'; c.fillRect(0, 140, LW, LH - 140);
+  c.fillStyle = '#7f1d1d'; c.beginPath(); c.ellipse(128, 132, 120, 22, 0, Math.PI, 0); c.fill(); c.fillRect(8, 130, 240, 14);
+  c.fillStyle = '#991b1b'; for (let x = 16; x < 240; x += 14) c.fillRect(x, 112 + Math.abs(x - 128)*.08, 1, 28);
+  const sp = c.createRadialGradient(128, 176, 4, 128, 176, 70); sp.addColorStop(0, 'rgba(255,240,200,.4)'); sp.addColorStop(1, 'rgba(255,240,200,0)'); c.fillStyle = sp; c.fillRect(40, 130, 180, 62);
+  c.fillStyle = '#3b0d0d'; c.beginPath(); c.ellipse(28, 176, 24, 7, 0, 0, 7); c.fill();
+  c.strokeStyle = '#fb923c'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(28, 172, 22, 6, 0, 0, 7); c.stroke();
+  c.fillStyle = '#7f1d1d'; c.beginPath(); c.ellipse(28, 166, 22, 6, 0, 0, 7); c.fill();
+  for (const [x, col] of [[18, '#14532d'], [26, '#7c3a0a'], [34, '#14532d'], [40, '#a16207']]) { c.fillStyle = col; c.fillRect(x, 152, 3, 12); c.fillRect(x + .8, 148, 1.4, 5); }
+}
+function fireworks(c, t) {
+  for (let k = 0; k < 4; k++) {
+    const T = (t + k*.55) % 2.2, x = 40 + k*58, y = 30 + (k % 2)*16; if (T > 1.4) continue;
+    const r = T*30, col = ['#ffd23f', '#ff3b30', '#22d3ee', '#ff7be8'][k];
+    for (let i = 0; i < 14; i++) { const a = i*Math.PI*2/14; c.globalAlpha = Math.max(0, 1 - T/1.4); c.fillStyle = col; c.fillRect(x + Math.cos(a)*r, y + Math.sin(a)*r + T*T*6, 1.6, 1.6); }
+    c.globalAlpha = 1;
+  }
+}
+function drawWin(v) {
+  if (v && v.st === 'over' && info && info.cut && !WV.on && WV.ep !== v.ep) { WV.ep = v.ep; winStart(v); }
+  if (!WV.on) return;
+  const t = (performance.now() - WV.t0)/1000, d = WV.d;
+  if (t > WIN.len || !v || v.st !== 'over') { winStop(); return; }
+  const once = (k, at, f) => { if (t >= at && !WV.fired.has(k)) { WV.fired.add(k); f(); } };
+  once('say', .3, () => say(d.adult ? 'Winner! Welcome to the V.I.P. lounge.' : 'Winner! Champions!'));
+  for (let i = 0; i < 12; i++) once('beat' + i, .4 + i*.45, () => { if (d.adult) { tone(70, 40, .18, 'sine', .45); noise(.05, 7000, .12, .22); } else if (i % 3 === 0) noise(.3, 900, .25); });
+  if (!d.adult) [523, 659, 784, 1047].forEach((f, i) => once('fan' + i, .4 + i*.16, () => tone(f, f, .25, 'square', .07)));
+  const c = cl; c.save(); c.imageSmoothingEnabled = false;
+  if (d.adult) lounge(c, t);
+  else { stadium(c, t, 0, d.col); fireworks(c, t);
+    c.fillStyle = '#c9a227'; c.fillRect(104, 160, 48, 20); c.fillStyle = '#ffd23f'; c.fillRect(104, 160, 48, 3); c.fillStyle = '#7c5a10'; c.font = 'bold 12px monospace'; c.textAlign = 'center'; c.fillText('1', 128, 175); }
+  // the party round the winner
+  const girls = [[34, 0], [76, 1], [180, 2], [222, 3]];
+  for (const [x, i] of girls) {
+    const sway = Math.sin(t*5 + i*1.3), up = i % 2 === 0;
+    const pose = d.adult
+      ? (up ? {lt:-.12 + sway*.06, lk:0, rt:.12 + sway*.06, rk:0, la:-2.6 + sway*.3, le:-.3, ra:2.6 + sway*.3, re:.3, lean:sway*.08}
+            : {lt:-.1, lk:0, rt:.18, rk:.15, la:-.7, le:-1.7, ra:2.3 + Math.sin(t*9)*.5, re:.5, lean:-.06 + sway*.05})
+      : cheerPose(t, i);
+    const o = {H:d.adult ? 82 : 74, x: x + (d.adult ? sway*2 : 0), pose, front:true, t, ph:i, skin:SKIN[(i + 1) % 4], hair:HAIR[i], top:d.col, trim:'#ffffff', pony:true,
+               legCol:SKIN[(i + 1) % 4], sockCol:d.adult ? SKIN[(i + 1) % 4] : '#f5f5f5', shoe:d.adult ? '#111111' : '#ffffff',
+               skirt:d.adult ? null : d.col, bikini:d.adult ? BIKINI[i] : null};
+    if (!d.adult) { const cols = [d.col, '#ffffff', '#ffd23f']; o.handL = p => pompom(c, p, 8, cols, t, i*3); o.handR = p => pompom(c, p, 8, cols, t, i*3 + 1); }
+    else if (!up) o.handR = p => { c.fillStyle = 'rgba(200,230,255,.8)'; c.fillRect(p[0] - 1.5, p[1] - 6, 3, 5); c.fillStyle = '#fbbf24'; c.fillRect(p[0] - 1, p[1] - 4, 2, 3); };   // a glass raised
+    figure(c, o);
+  }
+  // the winner: arms up, trophy high
+  const bounce = Math.abs(Math.sin(t*4))*4;
+  const wp = {lt:-.15, lk:0, rt:.15, rk:0, la:-2.7 + Math.sin(t*6)*.15, le:-.2, ra:2.75, re:.1, air:bounce};
+  const trophy = p => { c.fillStyle = '#ffd23f'; c.fillRect(p[0] - 4, p[1] - 11, 8, 6); c.fillRect(p[0] - 1, p[1] - 5, 2, 4); c.fillRect(p[0] - 3, p[1] - 1, 6, 2);
+    c.fillStyle = '#fff6c0'; c.fillRect(p[0] - 3, p[1] - 10, 2, 3); c.strokeStyle = '#ffd23f'; c.lineWidth = 1; c.beginPath(); c.arc(p[0] - 5, p[1] - 8, 2, 0, 7); c.arc(p[0] + 5, p[1] - 8, 2, 0, 7); c.stroke(); };
+  const wo = {H:104, x:128, pose:wp, front:true, t, skin:'#e0ac82', hair:'#3b2416', top:d.col, sleeve:d.col, shorts:'#f1f5f9', legCol:'#e0ac82', sockCol:d.col, shoe:'#111111', handR:trophy,
+              handL:d.adult ? p => { c.fillStyle = '#7c3a0a'; c.fillRect(p[0] - 1.5, p[1] - 9, 3, 9); } : null};
+  const lift = d.adult ? 0 : 20;   // up on the podium
+  c.save(); c.translate(0, -lift); figure(c, wo); c.restore(); wo.headAt = [wo.headAt[0], wo.headAt[1] - lift];
+  for (let i = 0; i < 50; i++) { const x = (i*41 + Math.sin(t*2 + i)*10) % LW, y = ((i*29 + t*(35 + i % 25)) % 200) - 8; c.fillStyle = [d.col, '#ffd23f', '#ffffff', '#ff7be8'][i % 4]; c.fillRect(x, y, 2, 1 + (i % 2)); }
+  c.restore();
+  // onto the screen
+  const cv2 = $('#cutcv'), dpr = devicePixelRatio || 1, W = innerWidth, Hh = innerHeight;
+  if (cv2.width !== Math.round(W*dpr) || cv2.height !== Math.round(Hh*dpr)) { cv2.width = Math.round(W*dpr); cv2.height = Math.round(Hh*dpr); }
+  const o2 = cv2.getContext('2d'); o2.setTransform(dpr, 0, 0, dpr, 0, 0); o2.clearRect(0, 0, W, Hh);
+  const pw = Math.min(W - 8, (Hh - 120)*4/3, 900), ph = pw*3/4, k = pw/LW;
+  const inT = ease(t/WIN.slide), outT = ease((t - (WIN.len - WIN.slide))/WIN.slide);
+  const px = (W - pw)/2 + (1 - inT)*W - outT*W, py = (Hh - ph)/2;
+  o2.fillStyle = `rgba(0,0,0,${.6*inT*(1 - outT)})`; o2.fillRect(0, 0, W, Hh);
+  o2.imageSmoothingEnabled = false; o2.drawImage(cutLow, px, py, pw, ph);
+  o2.strokeStyle = d.adult ? '#ff2bd6' : '#8a5a2b'; o2.lineWidth = 6; o2.strokeRect(px - 3, py - 3, pw + 6, ph + 6);
+  o2.strokeStyle = '#ffd23f'; o2.lineWidth = 2; o2.strokeRect(px - 6, py - 6, pw + 12, ph + 12);
+  o2.save(); o2.beginPath(); o2.rect(px, py, pw, ph); o2.clip();
+  if (wo.headAt && d.face) {   // the winner's own face, in shades in the lounge
+    const hx = px + wo.headAt[0]*k, hy = py + wo.headAt[1]*k, r = wo.headR*k*1.25;
+    o2.save(); o2.beginPath(); o2.arc(hx, hy, r, 0, 7); o2.clip(); o2.drawImage(d.face, hx - r, hy - r, r*2, r*2); o2.restore();
+    o2.strokeStyle = '#000'; o2.lineWidth = 2; o2.beginPath(); o2.arc(hx, hy, r, 0, 7); o2.stroke();
+    if (d.adult) { o2.fillStyle = '#0a0a0a'; o2.beginPath(); o2.ellipse(hx - r*.38, hy - r*.12, r*.34, r*.2, 0, 0, 7); o2.ellipse(hx + r*.38, hy - r*.12, r*.34, r*.2, 0, 0, 7); o2.fill();
+      o2.fillRect(hx - r*.1, hy - r*.17, r*.2, r*.07); o2.fillStyle = 'rgba(255,255,255,.5)'; o2.fillRect(hx - r*.55, hy - r*.22, r*.12, r*.05); o2.fillRect(hx + r*.2, hy - r*.22, r*.12, r*.05); }
+  }
+  const pop = ease((t - .35)/.3), title = d.name + ' WINS!';
+  o2.save(); o2.translate(px + pw/2, py + ph*.12); o2.scale(pop, pop); mkText(o2, title, 0, 0, fitSize(o2, title, pw*.11, pw*.92), '#ffffff', d.col, d.adult ? '#ff2bd6' : '#ffd23f'); o2.restore();
+  if (t > 1.2) { const sub = d.adult ? 'WELCOME TO THE VIP LOUNGE' : 'CHAMPIONS! ' + d.score; mkText(o2, sub, px + pw/2, py + ph*.93, fitSize(o2, sub, pw*.065, pw*.9), '#fff6c0', d.adult ? '#ff2bd6' : '#ffb020'); }
   o2.restore();
   if (t > 1) { o2.font = '600 12px system-ui'; o2.textAlign = 'center'; o2.fillStyle = 'rgba(255,255,255,.6)'; o2.fillText('tap to skip', W/2, py + ph + 22); }
 }
@@ -1957,7 +2077,7 @@ function frame() {
       if (view.st === 'duelintro') SFX.saber();
       lastSt = view.st;
     }
-    drawCut(view); showBanner(view);
+    drawCut(view); drawWin(view); showBanner(view);
   }
   ctx.restore();
   requestAnimationFrame(frame);
