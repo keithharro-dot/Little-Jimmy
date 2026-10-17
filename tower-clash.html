@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Tower Clash</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--panel:#161b22;--panel2:#1f2630;--line:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --def:#58a6ff;--atk:#ff7b72;--gold:#f2cc60;--energy:#d2a8ff;--ok:#3fb950;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--def);color:#04121f;border-color:transparent;font-weight:600}
+button.danger{background:var(--atk);color:#1f0505;border-color:transparent;font-weight:600}
+input{font:inherit}
+[hidden]{display:none!important}
+
+/* menu */
+#menu{max-width:440px;margin:0 auto;padding:32px 16px}
+#menu h1{font-size:34px;margin:0 0 4px;letter-spacing:.5px}
+#menu h1 span{color:var(--def)} #menu h1 b{color:var(--atk)}
+.sub{color:var(--muted);margin:0 0 24px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.stack button{padding:14px;font-size:16px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.codebox{font:700 40px/1 ui-monospace,monospace;letter-spacing:8px;text-align:center;padding:16px;background:var(--panel);border:1px dashed var(--line);border-radius:12px;margin:8px 0}
+#joinCode{width:100%;text-transform:uppercase;font:700 32px ui-monospace,monospace;letter-spacing:8px;text-align:center;padding:12px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px}
+.info{color:var(--muted);min-height:1.4em;text-align:center}
+details{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-top:14px}
+details summary{cursor:pointer;font-weight:600}
+details p,details li{color:var(--muted)}
+
+/* game */
+#game{max-width:1100px;margin:0 auto;padding:8px 16px 24px}
+#hud{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 0;font-weight:600}
+#hud .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px;white-space:nowrap}
+#hud .role{margin-left:auto;color:var(--muted);font-weight:500}
+#board{position:relative;width:100%;max-width:min(1100px,calc((100dvh - 150px) * 1.6667));min-width:300px;margin:0 auto}
+#cv{display:block;width:100%;border-radius:10px;touch-action:none;cursor:crosshair}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(13,17,23,.72);border-radius:10px;text-align:center;padding:16px;pointer-events:none}
+#overlay button{pointer-events:auto}
+#overlay h2{margin:0;font-size:32px}
+#overlay .big{font-size:72px;font-weight:800}
+#panels{display:grid;gap:12px;margin-top:12px}
+@media (min-width:820px){#panels.both{grid-template-columns:1fr 1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.panel h3{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between;align-items:center}
+.panel.def h3{color:var(--def)} .panel.atk h3{color:var(--atk)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.card{position:relative;text-align:left;padding:8px 10px;border-radius:10px;background:var(--panel2);border:2px solid transparent}
+.card.sel{border-color:var(--def)}
+.card .nm{font-weight:600;display:flex;align-items:center;gap:6px}
+.card .sw{width:12px;height:12px;border-radius:3px;display:inline-block;flex:none}
+.card .meta{color:var(--muted);font-size:12px}
+.card .cost{color:var(--gold);font-weight:600}
+.card .ecost{color:var(--energy);font-weight:600}
+.card .del{position:absolute;top:2px;right:4px;border:0;background:none;padding:2px 6px;color:var(--muted)}
+.card.add{border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--def);min-height:64px}
+#selInfo{margin-top:10px;display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--panel2);border-radius:10px;padding:8px 10px}
+.hint{color:var(--muted);font-size:12px;margin-top:8px}
+.key{display:inline-block;min-width:16px;text-align:center;font-size:11px;border:1px solid var(--line);border-radius:4px;color:var(--muted);margin-right:4px}
+
+/* builder */
+#builder{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+#builder .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;width:100%;max-width:400px;max-height:100%;overflow:auto}
+#builder h3{margin:0 0 12px}
+#builder label{display:block;margin:10px 0 4px;color:var(--muted);font-size:13px}
+#bName{width:100%;padding:10px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}
+.swatches button{width:30px;height:30px;padding:0;border-radius:8px;border:2px solid transparent}
+.swatches button.sel{border-color:var(--text)}
+.slider{display:flex;align-items:center;gap:10px}
+.slider input{flex:1;accent-color:var(--def)}
+.slider span{width:70px;text-align:right;font-variant-numeric:tabular-nums}
+.seg{display:flex;gap:6px}.seg button{flex:1;padding:8px 4px;font-size:13px}
+.seg button.sel{border-color:var(--def);background:#0c2d4d}
+#bStats{margin:14px 0;padding:10px;background:var(--panel2);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px}
+#bStats b{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <h1><span>Tower</span> <b>Clash</b></h1>
+  <p class="sub">Two players. One sends the enemies, one builds the towers.</p>
+
+  <div id="mMain" class="stack">
+    <button class="primary" id="goHost">Host a game</button>
+    <button id="goJoin">Join a game</button>
+    <button id="goLocal">Both players on this device</button>
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li><b style="color:var(--def)">Defender</b>: tap a tower design, then tap an empty grass square to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. Tap a built tower to sell it.</li>
+        <li><b style="color:var(--atk)">Attacker</b>: spend energy to send enemies down the path. Energy refills faster as the game goes on. Mix fast, tough and healing enemies to break through.</li>
+        <li>The attacker wins if the defender's lives reach 0. The defender wins by surviving for 4 minutes.</li>
+      </ul>
+      <p>Online play needs both devices on the internet. To play with no internet, use “Both players on this device”.</p>
+    </details>
+  </div>
+
+  <div id="mHost" class="stack" hidden>
+    <p style="margin:0">Which side do you want to play?</p>
+    <div class="row">
+      <button class="primary" data-role="def">🛡 Defend</button>
+      <button class="danger" data-role="atk">👾 Attack</button>
+    </div>
+    <div id="hostCode" class="codebox" hidden></div>
+    <div id="hostInfo" class="info"></div>
+    <button class="back">Back</button>
+  </div>
+
+  <div id="mJoin" class="stack" hidden>
+    <p style="margin:0">Enter the 4-letter code from the host's screen:</p>
+    <input id="joinCode" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD">
+    <button class="primary" id="btnJoin">Join</button>
+    <div id="joinInfo" class="info"></div>
+    <button class="back">Back</button>
+  </div>
+</div>
+
+<div id="game" hidden>
+  <div id="hud">
+    <span class="pill">❤️ <span id="hLives">20</span></span>
+    <span class="pill" id="pGold">💰 <span id="hGold">0</span></span>
+    <span class="pill" id="pEnergy">⚡ <span id="hEnergy">0</span> <small id="hInc" style="color:var(--muted)"></small></span>
+    <span class="pill">⏱ <span id="hTime">4:00</span></span>
+    <span class="role" id="hRole"></span>
+  </div>
+  <div id="board">
+    <canvas id="cv"></canvas>
+    <div id="overlay" hidden></div>
+  </div>
+  <div id="panels">
+    <div class="panel def" id="defPanel">
+      <h3>🛡 Towers <span class="hint" style="margin:0">tap a design, then tap the grass</span></h3>
+      <div class="cards" id="designCards"></div>
+      <div id="selInfo" hidden><span id="selText"></span><button class="danger" id="btnSell">Sell</button></div>
+    </div>
+    <div class="panel atk" id="atkPanel">
+      <h3>👾 Send enemies <span class="hint" style="margin:0" id="qInfo"></span></h3>
+      <div class="cards" id="enemyCards"></div>
+    </div>
+  </div>
+</div>
+
+<div id="builder" hidden>
+  <div class="box">
+    <h3>Design a tower</h3>
+    <label for="bName">Name</label>
+    <input id="bName" maxlength="14" value="My Tower">
+    <label>Colour</label>
+    <div class="swatches" id="bSw"></div>
+    <label>Damage</label>
+    <div class="slider"><input type="range" min="1" max="5" id="bD"><span id="bDv"></span></div>
+    <label>Range</label>
+    <div class="slider"><input type="range" min="1" max="5" id="bR"><span id="bRv"></span></div>
+    <label>Fire speed</label>
+    <div class="slider"><input type="range" min="1" max="5" id="bS"><span id="bSv"></span></div>
+    <label>Special power</label>
+    <div class="seg" id="bSp">
+      <button data-sp="none">None</button>
+      <button data-sp="slow">❄ Freeze</button>
+      <button data-sp="splash">✹ Splash</button>
+    </div>
+    <div id="bStats"></div>
+    <div class="row">
+      <button id="bCancel">Cancel</button>
+      <button class="primary" id="bSave">Save tower</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* ---------- Map ---------- */
+const COLS = 15, ROWS = 9;
+const WAY = [[-1,1],[4,1],[4,6],[9,6],[9,2],[13,2],[13,7],[15,7]].map(([x,y]) => [x+.5, y+.5]);
+const SEG = []; let PATHLEN = 0;
+for (let i = 0; i < WAY.length-1; i++) {
+  const [ax,ay] = WAY[i], [bx,by] = WAY[i+1], L = Math.hypot(bx-ax, by-ay);
+  SEG.push({ax, ay, bx, by, L, s: PATHLEN}); PATHLEN += L;
+}
+const PATH = new Set();
+for (let i = 0; i < WAY.length-1; i++) {
+  const [ax,ay] = WAY[i].map(Math.floor), [bx,by] = WAY[i+1].map(Math.floor);
+  const dx = Math.sign(bx-ax), dy = Math.sign(by-ay);
+  for (let x = ax, y = ay; ; x += dx, y += dy) {
+    if (x >= 0 && x < COLS && y >= 0 && y < ROWS) PATH.add(x+','+y);
+    if (x === bx && y === by) break;
+  }
+}
+function posAt(d) {
+  for (const s of SEG) if (d <= s.s + s.L) { const f = (d - s.s) / s.L; return [s.ax + (s.bx-s.ax)*f, s.ay + (s.by-s.ay)*f]; }
+  const s = SEG[SEG.length-1]; return [s.bx, s.by];
+}
+
+/* ---------- Enemies ---------- */
+const ENEMIES = {
+  scout:  {name:'Scout',  hp:30,   spd:2.3,  cost:10,  reward:3,  leak:1, col:'#7ee787', r:.22, desc:'Very fast, fragile'},
+  grunt:  {name:'Grunt',  hp:75,   spd:1.35, cost:15,  reward:5,  leak:1, col:'#f2cc60', r:.28, desc:'All-rounder'},
+  swarm:  {name:'Swarm',  hp:16,   spd:1.9,  cost:24,  reward:1,  leak:1, col:'#ff9bce', r:.16, count:6, desc:'6 tiny bugs at once'},
+  ghost:  {name:'Ghost',  hp:65,   spd:1.6,  cost:22,  reward:5,  leak:1, col:'#b8c7ff', r:.25, noSlow:true, desc:'Can\'t be frozen'},
+  medic:  {name:'Medic',  hp:95,   spd:1.1,  cost:35,  reward:9,  leak:1, col:'#56d4dd', r:.27, heal:10, desc:'Heals nearby enemies'},
+  tank:   {name:'Tank',   hp:280,  spd:.75,  cost:40,  reward:12, leak:2, col:'#ff7b72', r:.36, armor:4, desc:'Armour blocks 4 dmg/hit'},
+  boss:   {name:'Boss',   hp:1100, spd:.55,  cost:130, reward:40, leak:6, col:'#d2a8ff', r:.45, armor:6, desc:'Huge. Costs 6 lives'},
+};
+
+/* ---------- Towers ---------- */
+const DMG = [0,8,14,22,32,45], RNG = [0,1.6,2.1,2.6,3.2,3.9], RATE = [0,.7,1,1.4,2,2.8];
+const SP_ICON = {none:'', slow:'❄', splash:'✹'};
+function cleanSpec(s) {
+  s = s || {};
+  const c = v => Math.max(1, Math.min(5, Math.round(+v || 1)));
+  return {
+    name: String(s.name || 'Tower').slice(0,14),
+    col: /^#[0-9a-f]{6}$/i.test(s.col) ? s.col : '#58a6ff',
+    d: c(s.d), r: c(s.r), s: c(s.s),
+    sp: ['none','slow','splash'].includes(s.sp) ? s.sp : 'none',
+  };
+}
+function stats(s) {
+  const dmg = DMG[s.d], range = RNG[s.r], rate = RATE[s.s], dps = dmg * rate;
+  const extra = s.sp === 'slow' ? 25 : s.sp === 'splash' ? 35 : 0;
+  const cost = Math.round((20 + dps*1.6 + range*range*6 + extra) / 5) * 5;
+  return {dmg, range, rate, dps, cost};
+}
+const PRESETS = [
+  {name:'Pebble', col:'#58a6ff', d:2, r:2, s:2, sp:'none'},
+  {name:'Frost',  col:'#79c0ff', d:1, r:3, s:2, sp:'slow'},
+  {name:'Boomer', col:'#ffa657', d:3, r:2, s:1, sp:'splash'},
+  {name:'Sniper', col:'#e6edf3', d:5, r:5, s:1, sp:'none'},
+];
+
+/* ---------- Simulation (runs on host / local only) ---------- */
+function newGame() {
+  return {t:0, status:'countdown', cd:3, lives:20, gold:150, energy:60, towers:[], enemies:[], shots:[],
+          queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0};
+}
+const income = g => 6 + g.t/25;
+
+function applyCmd(g, role, c) {
+  if (!g || !c) return;
+  if (c.type === 'restart') { if (g.status === 'over') Object.assign(g, newGame()); return; }
+  if (g.status === 'over') return;
+  const def = role === 'def' || role === 'both', atk = role === 'atk' || role === 'both';
+  if (def && c.type === 'place') {
+    const x = c.x|0, y = c.y|0;
+    if (x < 0 || y < 0 || x >= COLS || y >= ROWS || PATH.has(x+','+y) || g.towers.some(t => t.x === x && t.y === y)) return;
+    const spec = cleanSpec(c.spec), st = stats(spec);
+    if (g.gold < st.cost) return;
+    g.gold -= st.cost;
+    g.towers.push({id:g.id++, x, y, spec, st, cd:0, spent:st.cost});
+  } else if (def && c.type === 'sell') {
+    const i = g.towers.findIndex(t => t.id === c.id);
+    if (i < 0) return;
+    g.gold += Math.floor(g.towers[i].spent * .7);
+    g.towers.splice(i, 1);
+  } else if (atk && c.type === 'send' && g.status === 'play') {
+    const E = ENEMIES[c.kind];
+    if (!E || g.energy < E.cost || g.queue.length > 60) return;
+    g.energy -= E.cost;
+    for (let i = 0; i < (E.count || 1); i++) g.queue.push(c.kind);
+  }
+}
+
+function hit(g, t, e) {
+  const sp = t.spec.sp;
+  const dmgTo = (o, mult) => {
+    const E = ENEMIES[o.k];
+    o.hp -= Math.max(1, t.st.dmg*mult - (E.armor || 0));
+    if (sp === 'slow' && !E.noSlow) o.slow = 1.6;
+  };
+  dmgTo(e, 1);
+  if (sp === 'splash') for (const o of g.enemies) if (o !== e && o.hp > 0 && Math.hypot(o.x-e.x, o.y-e.y) < .95) dmgTo(o, .6);
+  g.shots.push({x1:t.x+.5, y1:t.y+.5, x2:e.x, y2:e.y, c:t.spec.col, sp, ttl:.15});
+}
+
+function step(g, dt) {
+  if (g.status === 'over') return;
+  for (const s of g.shots) s.ttl -= dt;
+  g.shots = g.shots.filter(s => s.ttl > 0);
+  if (g.status === 'countdown') { g.cd -= dt; if (g.cd <= 0) g.status = 'play'; return; }
+
+  g.t += dt;
+  g.gold += 3*dt;
+  g.energy = Math.min(400, g.energy + income(g)*dt);
+
+  g.spawnT -= dt;
+  if (g.queue.length && g.spawnT <= 0) {
+    const k = g.queue.shift(), E = ENEMIES[k];
+    g.enemies.push({id:g.id++, k, d:0, hp:E.hp, m:E.hp, slow:0, x:WAY[0][0], y:WAY[0][1]});
+    g.spawnT = E.count ? .18 : .35;
+  }
+
+  for (const e of g.enemies) {
+    const E = ENEMIES[e.k];
+    e.slow = Math.max(0, e.slow - dt);
+    e.d += E.spd * (e.slow > 0 ? .5 : 1) * dt;
+    [e.x, e.y] = posAt(e.d);
+  }
+  for (const e of g.enemies) {
+    const heal = ENEMIES[e.k].heal;
+    if (heal) for (const o of g.enemies)
+      if (o !== e && o.hp > 0 && Math.hypot(o.x-e.x, o.y-e.y) < 1.6) o.hp = Math.min(o.m, o.hp + heal*dt);
+  }
+  g.enemies = g.enemies.filter(e => {
+    if (e.d >= PATHLEN) { g.lives -= ENEMIES[e.k].leak; return false; }
+    return true;
+  });
+
+  for (const t of g.towers) {
+    t.cd -= dt;
+    if (t.cd > 0) continue;
+    const cx = t.x+.5, cy = t.y+.5;
+    let best = null;
+    for (const e of g.enemies)
+      if (e.hp > 0 && Math.hypot(e.x-cx, e.y-cy) <= t.st.range && (!best || e.d > best.d)) best = e;
+    if (!best) { t.cd = 0; continue; }
+    t.cd = 1 / t.st.rate;
+    hit(g, t, best);
+  }
+  g.enemies = g.enemies.filter(e => {
+    if (e.hp <= 0) { g.gold += ENEMIES[e.k].reward; g.kills++; return false; }
+    return true;
+  });
+
+  if (g.lives <= 0) { g.lives = 0; g.status = 'over'; g.winner = 'atk'; }
+  else if (g.t >= g.dur) { g.status = 'over'; g.winner = 'def'; }
+}
+
+const r2 = v => Math.round(v*100)/100;
+function snap(g) {
+  return {
+    t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g),
+    w:g.winner, dur:g.dur, q:g.queue.length, k:g.kills,
+    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, sell:Math.floor(t.spent*.7)})),
+    em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0]),
+    sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl)]),
+  };
+}
+
+/* ---------- Session state ---------- */
+const PFX = 'towerclash-lj-';
+const SNAP_MS = 66;
+let mode = null;      // 'local' | 'host' | 'guest'
+let myRole = null;    // 'def' | 'atk' | 'both'
+let peer = null, conn = null, game = null;
+let prevS = null, curS = null, curAt = 0;
+let view = null;
+let selDesign = 0, selTower = null, hover = null, ended = false;
+
+const isDef = () => myRole === 'def' || myRole === 'both';
+const isAtk = () => myRole === 'atk' || myRole === 'both';
+
+function issue(c) {
+  if (mode === 'guest') { if (conn && conn.open) conn.send({t:'cmd', c}); }
+  else applyCmd(game, myRole, c);
+}
+
+/* ---------- Designs (saved per device) ---------- */
+let custom = [];
+try { custom = (JSON.parse(localStorage.getItem('tc_designs')) || []).map(cleanSpec); } catch (e) {}
+const designs = () => PRESETS.concat(custom);
+function saveCustom() { try { localStorage.setItem('tc_designs', JSON.stringify(custom)); } catch (e) {} }
+
+function renderDesigns() {
+  const box = $('#designCards'); box.innerHTML = '';
+  designs().forEach((d, i) => {
+    const st = stats(d), b = document.createElement('button');
+    b.className = 'card' + (i === selDesign ? ' sel' : '');
+    b.innerHTML = `<div class="nm"><span class="sw" style="background:${d.col}"></span>${esc(d.name)} ${SP_ICON[d.sp]}</div>
+      <div class="meta">DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s</div><div class="cost">💰 ${st.cost}</div>`;
+    b.onclick = () => { selDesign = i; selTower = null; renderDesigns(); };
+    if (i >= PRESETS.length) {
+      const x = document.createElement('button'); x.className = 'del'; x.textContent = '×'; x.title = 'Delete design';
+      x.onclick = ev => { ev.stopPropagation(); custom.splice(i - PRESETS.length, 1); saveCustom(); if (selDesign >= designs().length) selDesign = 0; renderDesigns(); };
+      b.appendChild(x);
+    }
+    box.appendChild(b);
+  });
+  const add = document.createElement('button');
+  add.className = 'card add'; add.textContent = '+ New tower';
+  add.onclick = openBuilder;
+  box.appendChild(add);
+}
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const enemyBtns = {};
+function renderEnemies() {
+  const box = $('#enemyCards'); box.innerHTML = '';
+  Object.entries(ENEMIES).forEach(([k, E], i) => {
+    const b = document.createElement('button'); b.className = 'card';
+    b.innerHTML = `<div class="nm"><span class="sw" style="background:${E.col};border-radius:50%"></span>${E.name}${E.count ? ' ×' + E.count : ''}</div>
+      <div class="meta"><span class="key">${i+1}</span>${E.desc}</div><div class="meta">HP ${E.hp}${E.armor ? ' · armour ' + E.armor : ''}</div>
+      <div class="ecost">⚡ ${E.cost}</div>`;
+    b.onclick = () => issue({type:'send', kind:k});
+    enemyBtns[k] = b; box.appendChild(b);
+  });
+}
+
+/* ---------- Tower builder ---------- */
+const SWATCHES = ['#58a6ff','#79c0ff','#3fb950','#a5d6a7','#f2cc60','#ffa657','#ff7b72','#ff9bce','#d2a8ff','#e6edf3'];
+let draft = null;
+function openBuilder() {
+  draft = cleanSpec({name:'My Tower', col:SWATCHES[(custom.length + 2) % SWATCHES.length], d:3, r:3, s:3, sp:'none'});
+  $('#bName').value = draft.name;
+  ['d','r','s'].forEach(k => $('#b' + k.toUpperCase()).value = draft[k]);
+  $('#builder').hidden = false;
+  updBuilder();
+}
+function updBuilder() {
+  draft.name = $('#bName').value.trim() || 'My Tower';
+  ['d','r','s'].forEach(k => draft[k] = +$('#b' + k.toUpperCase()).value);
+  const st = stats(draft);
+  $('#bDv').textContent = st.dmg + ' dmg';
+  $('#bRv').textContent = st.range + ' tiles';
+  $('#bSv').textContent = st.rate + '/sec';
+  $('#bSw').innerHTML = '';
+  SWATCHES.forEach(c => {
+    const b = document.createElement('button'); b.style.background = c;
+    if (c === draft.col) b.className = 'sel';
+    b.onclick = () => { draft.col = c; updBuilder(); };
+    $('#bSw').appendChild(b);
+  });
+  document.querySelectorAll('#bSp button').forEach(b => b.classList.toggle('sel', b.dataset.sp === draft.sp));
+  const spTxt = {none:'—', slow:'Slows enemies 50%', splash:'Hits nearby enemies too'}[draft.sp];
+  $('#bStats').innerHTML = `<span>Damage per second</span><b>${st.dps.toFixed(1)}</b>
+    <span>Special</span><b>${spTxt}</b><span>Cost</span><b style="color:var(--gold)">💰 ${st.cost}</b>`;
+}
+['#bD','#bR','#bS','#bName'].forEach(s => $(s).addEventListener('input', updBuilder));
+document.querySelectorAll('#bSp button').forEach(b => b.onclick = () => { draft.sp = b.dataset.sp; updBuilder(); });
+$('#bCancel').onclick = () => $('#builder').hidden = true;
+$('#bSave').onclick = () => {
+  custom.push(cleanSpec(draft)); if (custom.length > 8) custom.shift();
+  saveCustom(); selDesign = designs().length - 1; selTower = null;
+  $('#builder').hidden = true; renderDesigns();
+};
+
+/* ---------- Rendering ---------- */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let TS = 40;
+function resize() {
+  const w = $('#board').clientWidth, dpr = window.devicePixelRatio || 1;
+  TS = w / COLS;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(TS*ROWS*dpr);
+  cv.style.height = TS*ROWS + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener('resize', resize);
+
+function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
+
+function drawTower(x, y, spec, alpha = 1) {
+  const p = TS*.12;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#0d1117'; rrect(x*TS+p, y*TS+p, TS-2*p, TS-2*p, TS*.18); ctx.fill();
+  ctx.strokeStyle = spec.col; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = spec.col; ctx.beginPath(); ctx.arc((x+.5)*TS, (y+.5)*TS, TS*(.14 + spec.d*.03), 0, 7); ctx.fill();
+  if (spec.sp !== 'none') {
+    ctx.fillStyle = '#fff'; ctx.font = `${TS*.3}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(SP_ICON[spec.sp], (x+.78)*TS, (y+.24)*TS);
+  }
+  ctx.globalAlpha = 1;
+}
+function ring(x, y, r, stroke, fill) {
+  ctx.beginPath(); ctx.arc(x*TS, y*TS, r*TS, 0, 7);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+function draw(v) {
+  const W = COLS*TS, H = ROWS*TS;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    ctx.fillStyle = PATH.has(x+','+y) ? '#5c4b33' : ((x+y) % 2 ? '#183a26' : '#1b4029');
+    ctx.fillRect(x*TS, y*TS, TS+.5, TS+.5);
+  }
+  // path centre line
+  ctx.strokeStyle = 'rgba(255,230,180,.12)'; ctx.lineWidth = TS*.08; ctx.setLineDash([TS*.2, TS*.2]);
+  ctx.beginPath(); WAY.forEach(([x,y], i) => i ? ctx.lineTo(x*TS, y*TS) : ctx.moveTo(x*TS, y*TS)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = `${TS*.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('👾', .5*TS, 1.5*TS); ctx.fillText('🏰', 14.5*TS, 7.5*TS);
+  if (!v) return;
+
+  for (const t of v.tw) drawTower(t.x, t.y, t.spec);
+  const sel = v.tw.find(t => t.id === selTower);
+  if (sel) ring(sel.x+.5, sel.y+.5, sel.range, 'rgba(88,166,255,.9)', 'rgba(88,166,255,.08)');
+
+  for (const [, k, x, y, hp, m, slow] of v.em) {
+    const E = ENEMIES[k], r = E.r*TS;
+    ctx.beginPath(); ctx.arc(x*TS, y*TS, r, 0, 7);
+    ctx.fillStyle = E.col; ctx.fill();
+    ctx.lineWidth = E.armor ? 3 : 1.5; ctx.strokeStyle = E.armor ? '#8b949e' : '#0d1117'; ctx.stroke();
+    if (E.heal) { ctx.fillStyle = '#fff'; ctx.fillRect(x*TS - r*.5, y*TS - r*.15, r, r*.3); ctx.fillRect(x*TS - r*.15, y*TS - r*.5, r*.3, r); }
+    if (k === 'ghost') { ctx.globalAlpha = .5; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x*TS, y*TS, r*.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+    if (slow) ring(x, y, E.r + .06, '#a5d6ff');
+    if (hp < m) {
+      const bw = Math.max(TS*.4, r*2), bx = x*TS - bw/2, by = y*TS - r - 7;
+      ctx.fillStyle = '#000a'; ctx.fillRect(bx, by, bw, 4);
+      ctx.fillStyle = hp/m > .5 ? '#3fb950' : hp/m > .25 ? '#f2cc60' : '#ff7b72'; ctx.fillRect(bx, by, bw*hp/m, 4);
+    }
+  }
+
+  for (const [x1, y1, x2, y2, c, splash, ttl] of v.sh) {
+    ctx.globalAlpha = Math.min(1, ttl/.15);
+    ctx.strokeStyle = c; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x1*TS, y1*TS); ctx.lineTo(x2*TS, y2*TS); ctx.stroke();
+    if (splash) ring(x2, y2, .95*(1.2 - ttl/.15*.4), c);
+    ctx.globalAlpha = 1;
+  }
+
+  // placement preview
+  if (hover && isDef() && selTower == null && v.st !== 'over') {
+    const [hx, hy] = hover, d = designs()[selDesign];
+    if (d && !v.tw.some(t => t.x === hx && t.y === hy)) {
+      const ok = !PATH.has(hx+','+hy) && v.gd >= stats(d).cost;
+      ring(hx+.5, hy+.5, stats(d).range, ok ? 'rgba(63,185,80,.9)' : 'rgba(255,123,114,.9)', ok ? 'rgba(63,185,80,.08)' : 'rgba(255,123,114,.08)');
+      drawTower(hx, hy, d, .55);
+    }
+  }
+}
+
+function guestView() {
+  if (!curS || !prevS) return curS;
+  const a = Math.min(1, (performance.now() - curAt) / SNAP_MS);
+  const pm = new Map(prevS.em.map(e => [e[0], e]));
+  return {...curS, em: curS.em.map(e => {
+    const p = pm.get(e[0]); if (!p) return e;
+    return [e[0], e[1], p[2] + (e[2]-p[2])*a, p[3] + (e[3]-p[3])*a, e[4], e[5], e[6]];
+  })};
+}
+
+const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+let lastOverlay = '';
+function hud(v) {
+  if (!v) return;
+  $('#hLives').textContent = v.lv;
+  $('#hGold').textContent = v.gd;
+  $('#hEnergy').textContent = v.en;
+  $('#hInc').textContent = '+' + v.inc.toFixed(1) + '/s';
+  $('#hTime').textContent = fmt(v.dur - v.t);
+  for (const [k, b] of Object.entries(enemyBtns)) b.disabled = v.st !== 'play' || v.en < ENEMIES[k].cost;
+  $('#qInfo').textContent = v.q ? v.q + ' waiting to enter' : '';
+
+  const sel = v.tw.find(t => t.id === selTower);
+  if (!sel) selTower = null;
+  $('#selInfo').hidden = !sel;
+  if (sel) $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]} — sells for 💰 ${sel.sell}`;
+
+  let html = '';
+  if (v.st === 'countdown') html = `<div class="big">${Math.max(1, Math.ceil(v.cd))}</div><div>${isDef() ? 'Build towers now!' : 'Get ready…'}</div>`;
+  else if (v.st === 'over') {
+    const who = v.w === 'def' ? '🛡 Defender wins!' : '👾 Attacker wins!';
+    const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:20px;font-weight:700">You win!</div>' : '<div style="color:var(--atk);font-size:20px;font-weight:700">You lose</div>');
+    html = `<h2>${who}</h2>${me}<div style="color:var(--muted)">${v.k} enemies destroyed · survived ${fmt(v.t)}</div>
+      <div class="row" style="gap:10px"><button class="primary" id="btnAgain">Play again</button><button id="btnMenu">Menu</button></div>`;
+  }
+  if (ended) html = `<h2>Connection lost</h2><div style="color:var(--muted)">The other player left or the link dropped.</div><button class="primary" id="btnMenu">Back to menu</button>`;
+  if (html !== lastOverlay) {
+    lastOverlay = html;
+    $('#overlay').innerHTML = html; $('#overlay').hidden = !html;
+    const again = $('#btnAgain'); if (again) again.onclick = () => issue({type:'restart'});
+    const menu = $('#btnMenu'); if (menu) menu.onclick = () => location.reload();
+  }
+}
+
+function frame() {
+  view = mode === 'guest' ? guestView() : snap(game);
+  draw(view); hud(view);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Input ---------- */
+function tileAt(ev) {
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor((ev.clientX - r.left) / (r.width / COLS)), y = Math.floor((ev.clientY - r.top) / (r.height / ROWS));
+  return x >= 0 && y >= 0 && x < COLS && y < ROWS ? [x, y] : null;
+}
+cv.addEventListener('pointermove', ev => { hover = ev.pointerType === 'mouse' ? tileAt(ev) : null; });
+cv.addEventListener('pointerleave', () => hover = null);
+cv.addEventListener('pointerdown', ev => {
+  const p = tileAt(ev); if (!p || !view || !isDef()) return;
+  const [x, y] = p, t = view.tw.find(t => t.x === x && t.y === y);
+  if (t) { selTower = selTower === t.id ? null : t.id; return; }
+  if (selTower != null) { selTower = null; return; }
+  if (!PATH.has(x+','+y)) issue({type:'place', x, y, spec:designs()[selDesign]});
+});
+$('#btnSell').onclick = () => { if (selTower != null) { issue({type:'sell', id:selTower}); selTower = null; } };
+addEventListener('keydown', ev => {
+  if (!isAtk() || ev.target.tagName === 'INPUT') return;
+  const k = Object.keys(ENEMIES)[+ev.key - 1];
+  if (k) issue({type:'send', kind:k});
+});
+
+/* ---------- Screens & networking ---------- */
+function show(id) { ['#mMain','#mHost','#mJoin'].forEach(s => $(s).hidden = s !== id); }
+$('#goHost').onclick = () => { show('#mHost'); $('#hostInfo').textContent = ''; };
+$('#goJoin').onclick = () => { show('#mJoin'); $('#joinCode').focus(); };
+document.querySelectorAll('.back').forEach(b => b.onclick = () => { if (peer) { peer.destroy(); peer = null; } $('#hostCode').hidden = true; show('#mMain'); });
+$('#goLocal').onclick = () => { mode = 'local'; myRole = 'both'; game = newGame(); startGame(); };
+
+function startGame() {
+  $('#menu').hidden = true; $('#game').hidden = false;
+  $('#defPanel').hidden = !isDef(); $('#atkPanel').hidden = !isAtk();
+  $('#pGold').hidden = !isDef(); $('#pEnergy').hidden = !isAtk();
+  $('#panels').classList.toggle('both', myRole === 'both');
+  $('#hRole').textContent = {def:'You are the 🛡 Defender', atk:'You are the 👾 Attacker', both:'Same device · 2 players'}[myRole];
+  renderDesigns(); renderEnemies(); resize();
+  if (mode !== 'guest') {
+    let last = performance.now();
+    setInterval(() => { const now = performance.now(); step(game, Math.min(.1, (now - last)/1000)); last = now; }, 33);
+  }
+  if (mode === 'host') setInterval(() => { if (conn && conn.open) conn.send({t:'s', s:snap(game)}); }, SNAP_MS);
+  requestAnimationFrame(frame);
+}
+function lost() { if (!$('#game').hidden) ended = true; }
+
+const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const code4 = () => Array.from({length:4}, () => ALPHA[Math.floor(Math.random()*ALPHA.length)]).join('');
+function noPeer(el) { el.textContent = 'Online play could not load. Check the internet connection, or use “Both players on this device”.'; }
+
+document.querySelectorAll('#mHost [data-role]').forEach(b => b.onclick = () => hostGame(b.dataset.role));
+function hostGame(role) {
+  const info = $('#hostInfo');
+  if (!window.Peer) return noPeer(info);
+  if (peer) peer.destroy();
+  myRole = role;
+  const code = code4();
+  info.textContent = 'Creating game…';
+  peer = new Peer(PFX + code);
+  peer.on('open', () => {
+    $('#hostCode').textContent = code; $('#hostCode').hidden = false;
+    info.textContent = `You'll ${role === 'def' ? 'defend' : 'attack'}. Tell the other player this code. Waiting for them to join…`;
+  });
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') hostGame(role);
+    else info.textContent = 'Problem: ' + e.type;
+  });
+  peer.on('connection', c => {
+    if (conn) { c.on('open', () => c.close()); return; }
+    conn = c;
+    const guestRole = role === 'def' ? 'atk' : 'def';
+    c.on('open', () => { c.send({t:'hello', role:guestRole}); mode = 'host'; game = newGame(); startGame(); });
+    c.on('data', m => { if (m && m.t === 'cmd') applyCmd(game, guestRole, m.c); });
+    c.on('close', lost);
+  });
+  peer.on('disconnected', () => { if (peer && !peer.destroyed) peer.reconnect(); });
+}
+
+$('#joinCode').addEventListener('input', e => e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''));
+$('#joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnJoin').click(); });
+$('#btnJoin').onclick = () => {
+  const info = $('#joinInfo'), code = $('#joinCode').value;
+  if (code.length !== 4) { info.textContent = 'The code has 4 letters.'; return; }
+  if (!window.Peer) return noPeer(info);
+  if (peer) peer.destroy();
+  info.textContent = 'Connecting…';
+  peer = new Peer();
+  const timer = setTimeout(() => { if (mode !== 'guest') info.textContent = 'Could not reach that game. Check the code and try again.'; }, 15000);
+  peer.on('open', () => {
+    conn = peer.connect(PFX + code, {reliable:true, serialization:'json'});
+    conn.on('data', m => {
+      if (!m) return;
+      if (m.t === 'hello' && mode !== 'guest') { clearTimeout(timer); myRole = m.role; mode = 'guest'; startGame(); }
+      else if (m.t === 's') { prevS = curS; curS = m.s; curAt = performance.now(); }
+    });
+    conn.on('close', lost);
+  });
+  peer.on('error', e => { info.textContent = e.type === 'peer-unavailable' ? 'No game with that code. Check it and try again.' : 'Problem: ' + e.type; });
+};
+</script>
+</body>
+</html>
