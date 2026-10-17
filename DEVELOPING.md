@@ -167,7 +167,6 @@ Both of you work in this one repo as collaborators. Don't fork: a fork drifts ap
 
 `models/build_eradicator.py` builds the MK II in Blender (run it with `pip install bpy==5.2.2`, then `python models/build_eradicator.py`; add `--render <dir>` for preview stills). It writes `eradicator-mk2.glb` for Android and the web, and `eradicator-mk2.usdz` for iPhone/iPad AR Quick Look (Y-up, metres, feet on the floor, about 2 m tall). `eradicator-ar.html` shows it with Google's `<model-viewer>`; its "View in your room" button opens AR on phones. Change the script and re-run it rather than editing the exported files.
 
-## The battlefield in AR (`battlefield-ar.html`, `models/battle/`)
+## Battles in AR (`battlefield-ar.html`, `models/`)
 
-A real mid-battle moment from Tower Defence, exported from the game and dressed up in Blender (explosions, smoke, missile trails, glowing beams). It comes in two sizes: life size for walking around a sports oval (1 tile = 4.5 m, about 93 × 65 m) and table size for the lounge room. See `models/battle/README.md` for how to stage and rebuild it.
-
+Three frozen moments from the games, each life size for walking around a sports oval or table size for the lounge room: The Battlefield and Boss Assault (Tower Defence), and the Soccer Boss Round. Each was staged in the real game, exported, and dressed up in Blender with explosions, smoke, missile trails, glowing beams and mushroom clouds. The shared Blender toolkit is `models/arlib.py`. See `models/battle/README.md` for how to stage and rebuild a scene.

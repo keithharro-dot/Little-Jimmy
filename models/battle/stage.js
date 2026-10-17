@@ -63,6 +63,7 @@ window.freezeAndExport = function () {
     enemies: game.enemies.map(e => ({k: e.k, x: e.x - COLS/2, z: e.y - ROWS/2, fury: !!e.fury, boss: !!ENEMIES[e.k].boss, fly: !!ENEMIES[e.k].fly, r: ENEMIES[e.k].r})),
     towers: game.towers.map(t => ({x: t.x + .5 - COLS/2, z: t.y + .5 - ROWS/2, role: t.spec.role, lvl: t.lvl, name: t.spec.name})),
     way: WAY.map(([x, y]) => [x - COLS/2, y - ROWS/2]),
+    extra: window.EXTRA || {},
   };
   return new Promise(res => new T.GLTFExporter().parse(W, glb => {
     let bin = ''; const u8 = new Uint8Array(glb); for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
@@ -74,3 +75,46 @@ window.hiResGround = function () {
   window.groundTex = (0, eval)('(' + groundTex.toString().replace('const ts = 64', 'const ts = 160') + ')');
   buildWorld();
 };
+
+// ---- "Boss Assault": all three bosses together mid-road, missiles raining overhead, a MELTDOWN going off ----
+window.stageBoss = function () {
+  G3.ft = -1e9; game.status = 'play'; game.gold = 1e7; game.energy = 1e7; game.waveT = 1e9; game.wave = 48;
+  const LP = PRESETS.find(d => d.role === 'launcher'), P = n => PRESETS.find(d => d.name === n);
+  const tiles = [];
+  for (let x = 0; x < COLS; x++) for (let y = 0; y < ROWS; y++) {
+    if (PATH.has(x + ',' + y)) continue; let near = 99, at = 0;
+    for (let d = 0; d < PATHLEN; d += .1) { const [px, py] = posAt(d), r = Math.hypot(px - x - .5, py - y - .5); if (r < near) { near = r; at = d / PATHLEN; } }
+    tiles.push({x, y, near, at});
+  }
+  const used = new Set(), put = (spec, lvl, pred) => {
+    const t = tiles.filter(t => !used.has(t.x + ',' + t.y) && pred(t)).sort((a, b) => a.near - b.near)[0]; if (!t) return;
+    used.add(t.x + ',' + t.y); applyCmd(game, 'def', {type:'place', x:t.x, y:t.y, spec});
+    const tw = game.towers[game.towers.length - 1]; for (let l = 1; l < lvl; l++) applyCmd(game, 'def', {type:'upgrade', id:tw.id});
+  };
+  // a fortress around the middle of the road: three ANNIHILATORs and a laser out of rocket reach, a ring of soldiers close in
+  put(LP, 5, t => t.at > .3 && t.at < .45 && t.near > 2.2);
+  put(LP, 5, t => t.at > .5 && t.at < .65 && t.near > 2.2);
+  put(LP, 5, t => t.at > .65 && t.at < .85 && t.near > 2.2);
+  put(LP, 4, t => t.at > .2 && t.at < .35 && t.near > 1.5);
+  put(LP, 3, t => t.at > .7 && t.at < .9 && t.near > 1.2);
+  const army = [['Sniper', 4], ['Boomer', 4], ['Frost', 4], ['Trooper', 4], ['Boomer', 4], ['Sniper', 4], ['Trooper', 4], ['Frost', 3], ['DJ', 4], ['Reviver', 3], ['Trooper', 3], ['Boomer', 3]];
+  army.forEach(([n, l], i) => put(P(n), l, t => t.near < 1.7 && Math.abs(t.at - (.25 + .5*(i + .5)/army.length)) < .1));
+  const at = (k, f, mul = 1) => { spawnEnemy(game, k, mul, false); const e = game.enemies[game.enemies.length - 1]; e.d = f*routeLen(e); return e; };
+  window.BOSSES = {m1: at('erad', .4, 60), m2: at('erad2', .55, 60), vd: at('void', .68, 60)};
+  BOSSES.m2.hp = BOSSES.m2.m*.4;
+  const escort = ['avatar', 'avatar', 'brute', 'riot', 'zombie', 'medic', 'avatar', 'brute', 'phantom', 'zombie'];
+  for (let i = 0; i < 30; i++) at(escort[i % escort.length], .3 + i*.45/30 + (Math.random() - .5)*.01, 60);
+  for (let i = 0; i < 6; i++) at('bat', .35 + i*.07, 60);
+  return {towers: game.towers.length, enemies: game.enemies.length};
+};
+// keep the bosses firing: missile rain and rocket bursts on a short fuse, the MK II laser charging
+window.bossTick = function () {
+  keepAlive();
+  const {m1, m2} = BOSSES;
+  if (m2 && m2.mr > .8) m2.mr = .8;
+  if (m1 && m1.emp > 1.2) m1.emp = 1.2;
+  if (m2 && m2.emp > 1.6) m2.emp = 1.6;
+  for (const e of game.enemies) if (ENEMIES[e.k].boss && e.d > routeLen(e)*.7) e.d = routeLen(e)*.7;
+};
+// go out with a bang: the MK I melts down just before the freeze
+window.meltdown = () => { const e = BOSSES.m1; window.EXTRA = {meltdown: [e.x - COLS/2, e.y - ROWS/2]}; e.hp = 0; };
