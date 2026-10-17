@@ -181,6 +181,21 @@ details p,details li{color:var(--muted)}
 @media (max-height:420px){#selInfo{font-size:11px;padding:4px 8px;gap:6px;bottom:4px}#selInfo button{padding:4px 8px;font-size:12px}#selInfo .sel-btns{gap:5px}}   /* short screens: keep it from covering the board */
 #rotate{display:none}
 #zoomBtn.on{background:#0c2d4d;border-radius:8px}
+/* 🎛 Characters & tuning */
+#tune{position:fixed;inset:0;z-index:9000;background:var(--bg);display:flex;flex-direction:column}
+#tune header{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top)) 14px 8px;border-bottom:1px solid var(--line)}
+#tune header h2{margin:0;font-size:18px;flex:1}
+#tuneTabs{display:flex;gap:6px;overflow-x:auto;padding:8px 14px;border-bottom:1px solid var(--line)}
+#tuneTabs button{flex:none;padding:7px 12px;border-radius:999px;font-size:14px}
+#tuneTabs button.sel{background:var(--def);color:#0d1117;border-color:var(--def)}
+#tuneList{flex:1;overflow-y:auto;padding:10px 14px max(16px,env(safe-area-inset-bottom));display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-content:start}
+.tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;grid-template-columns:64px 1fr;gap:4px 10px}
+.tcard canvas{width:64px;height:64px;grid-row:span 2;background:var(--panel2);border-radius:10px}
+.tcard .nm{font-weight:700}.tcard .st{font-size:12px;color:var(--muted)}
+.tcard .ds{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.tslider{grid-column:1/-1;display:grid;grid-template-columns:110px 1fr 54px;align-items:center;gap:8px;font-size:13px}
+.tslider input{width:100%}.tslider b{text-align:right;font-variant-numeric:tabular-nums}
+.tslider b.chg{color:var(--gold)}
 #closeCard{position:absolute;left:8px;bottom:8px;z-index:5;width:min(300px,calc(100% - 16px));background:rgba(13,17,23,.92);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 4px 16px #000a}
 #closeCard .cc-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
 #closeCard .cc-top b{font-size:14px}
@@ -211,6 +226,13 @@ details p,details li{color:var(--muted)}
 </head>
 <body>
 
+<div id="tune" hidden>
+  <header><h2>🎛 Characters &amp; tuning</h2><button id="tuneReset">Reset all</button><button class="primary" id="tuneClose">Done</button></header>
+  <div id="tuneTabs"></div>
+  <div class="small" style="padding:6px 14px 0">Slide to make anything stronger or weaker (×1 = as designed). Changes save on this phone and work straight away, even mid-game, in games this phone runs (hosting, or two players on one phone).</div>
+  <div id="tuneList"></div>
+</div>
+
 <div id="menu">
   <h1><span>Tower</span> <b>Defence</b></h1>
   <p class="sub">Two players. One sends the zombies, one builds the towers.</p>
@@ -227,6 +249,7 @@ details p,details li{color:var(--muted)}
     <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
     <button id="goLocal">📱 Two players, one phone</button>
     <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
+    <button id="goTune">🎛 Characters & tuning</button>
     <button id="musicChip" class="nowplaying"><img src="music/covers/dikshifter-the-2nd-take.jpg" alt=""><span>🎵 Music: <b id="songName">Dikshifter — The 2nd Take</b><br><small id="songHint">Tap to pick a song</small></span><span id="musicState">On</span></button>
     <div class="seg gfxSeg"><button data-gfx="3d">🧊 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
     <div class="small" id="musicRow" style="text-align:center;display:grid;gap:6px"></div>
@@ -292,6 +315,7 @@ details p,details li{color:var(--muted)}
     <span class="pill">🌊 <span id="hTime">Wave 0/50</span></span>
     <span class="role" id="hRole"></span>
     </div>
+    <button class="hbtn" id="tuneBtn" title="Characters & tuning">🎛</button>
     <button class="hbtn" id="zoomBtn" title="Close-up camera">🔍</button>
     <button class="hbtn" id="fsBtn" title="Full screen">⛶</button>
     <button class="hbtn" id="mute" title="Sound on/off">🔊</button>
@@ -437,6 +461,9 @@ const ENEMIES = {
   // Doom Dad: the ultimate boss of wave 45, a cartoon space marine with Keith's face on it.
   doom:    {name:'Doom Dad', hp:15000, shield:500, spd:.27, eco:-40, build:60, cost:2500, reward:120, leak:200, r:.56, armor:5, boss:true, doomBoss:true,
             splashRes:.2, desc:'ULTIMATE BOSS: BFG blasts wreck whole groups of towers, a grappling hook rips out your best tower and he EATS it, a super shotgun knocks out the closest ones, and at half HP he goes BERSERK'},
+  // The Iron Spartan: an armoured super-soldier boss on wave 30 (original design, in the spirit of sci-fi shooters).
+  spartan: {name:'Iron Spartan', hp:11000, shield:1500, spd:.3, eco:-35, build:50, cost:2200, reward:90, leak:150, r:.5, armor:4, boss:true, spartan:true,
+            desc:'Recharging energy shield (back to full if you stop hitting it for 4s), sticky plasma grenades, and an energy sword that slices the tower next to him'},
   avatar:  {name:'Avatar', hp:750, spd:1, eco:0, build:0, cost:0, reward:15, leak:10, r:.32, minion:true, desc:'Called in by Eradicators'},
   voidling:{name:'Voidling', hp:500, spd:.9, eco:0, build:0, cost:0, reward:10, leak:10, r:.3, minion:true, desc:'Summoned by the Void'},
 };
@@ -469,13 +496,21 @@ const DJ_BUFF = [null, {range:.2, dmg:.05, rate:.1}, {range:.3, dmg:.08, rate:.1
 // dmg is per hit (per blast for shells and missiles, per tick for beams); blast = splash radius in tiles;
 // air = can hit flying zombies; det = sees hidden ones; up = price to upgrade to this level.
 const LAUNCHER = [null,
-  {w:'mortar',  name:'Mortar',      dmg:20, rate:.6, range:2.6, blast:1,   air:false, det:false},
-  {w:'missile', name:'Missile pod', dmg:34, rate:.8, range:3.2, blast:1.1, air:true,  det:false, up:220},
-  {w:'twin',    name:'Twin pods',   dmg:34, rate:.85, range:3.6, blast:1.2, air:true,  det:false, up:380},
-  {w:'laser',   name:'Laser',       dmg:16, rate:7,  range:4,   blast:0,   air:true,  det:true,  up:600},
-  {w:'anni',    name:'ANNIHILATOR', dmg:20, rate:8,  range:4.6, blast:0,   air:true,  det:true,  up:1000, swarm:{every:2.5, n:6, dmg:50, blast:1.2}},
+  {w:'mortar',  name:'Mortar',      dmg:14, rate:.6, range:2.6, blast:1,   air:false, det:false},
+  {w:'missile', name:'Missile pod', dmg:21, rate:.8, range:3.2, blast:1.1, air:true,  det:false, up:220},
+  {w:'twin',    name:'Twin pods',   dmg:21, rate:.85, range:3.6, blast:1.2, air:true,  det:false, up:380},
+  {w:'laser',   name:'Laser',       dmg:9,  rate:7,  range:4,   blast:0,   air:true,  det:true,  up:600},
+  {w:'anni',    name:'ANNIHILATOR', dmg:12, rate:8,  range:4.6, blast:0,   air:true,  det:true,  up:1000, swarm:{every:2.5, n:6, dmg:30, blast:1.2}},
 ];
 const LAUNCHER_COST = 180;
+// Tuning (the 🎛 Characters screen): multipliers on top of the numbers in this file, saved on this phone. They act on
+// games this phone runs (hosting, or two players on one phone), and take effect straight away, even mid-game.
+//   e:<kind>:hp / spd / ab   a zombie's health (and shield), speed, and for bosses how often they use their powers
+//   tw:dmg / range / rate    every tower you design;  la:1..5 the Launcher's damage at each level, la:range its range
+//   leo:dmg / leo:charge     the LEO BOMB;  gold / energy  both sides' income
+let TUNE = {}; try { TUNE = JSON.parse(localStorage.getItem('td_tune') || '{}') || {}; } catch (e) {}
+const tune = k => typeof TUNE[k] === 'number' ? TUNE[k] : 1;
+const spdOf = e => ENEMIES[e.k].spd*tune('e:' + e.k + ':spd');
 // LEO BOMB: the most powerful weapon in the game. A thermonuclear soccer ball that charges up over time (the first in
 // 3 minutes, then 5 between bombs). Kicked from the castle, it lands where you tap and wipes out everything near it:
 // full damage within 1.2 tiles, fading to 30% at the edge, straight through shields and armour, flyers included.
@@ -524,7 +559,7 @@ const ECO = {start:5, min:2, max:150, defGold:2};  // defGold: tower gold per se
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const BASE_HP = 150;   // the tower builder's base; each zombie that gets through damages it
-const FX_LIFE = {leoK:LEO.flight, leo:2.6, shell:FLIGHT.shell, msl:FLIGHT.msl, boom:.45, tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4, bfg:1.3, sgun:.35, hook:1.7, rip:.9, crunch:1.1};
+const FX_LIFE = {leoK:LEO.flight, leo:2.6, shell:FLIGHT.shell, msl:FLIGHT.msl, boom:.45, tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4, bfg:1.3, sgun:.35, hook:1.7, rip:.9, crunch:1.1, pgren:1.1, pblast:.8, sword:.5, shieldup:1.2};
 // Every Eradicator stun cracks a tower; the third one destroys it (no refund).
 const STUNS_TO_BREAK = 3;
 // crack = false: knocked out for a moment but not damaged (lasers, missile rain, meltdowns).
@@ -558,7 +593,7 @@ function applyCmd(g, role, c) {
     addFx(g, 'build', x+.5, y+.5);
   } else if (def && c.type === 'leo' && g.status === 'play' && g.leo >= g.leoNeed) {
     const x = Math.max(.5, Math.min(COLS - .5, +c.x || 0)), y = Math.max(.5, Math.min(ROWS - .5, +c.y || 0)), [cx, cy] = WAY[WAY.length - 1];
-    g.leo = 0; g.leoNeed = LEO.again;
+    g.leo = 0; g.leoNeed = LEO.again*tune('leo:charge');
     g.proj.push({x, y, t:LEO.flight, leo:true});
     addFx(g, 'leoK', cx + .6, cy, '', x, y);   // kicked from the castle
   } else if (def && c.type === 'upgrade') {
@@ -586,6 +621,7 @@ function applyCmd(g, role, c) {
 
 // Shields soak damage first (splash hits them twice as hard); armour cuts each hit after that.
 function damage(g, o, amt, isSplash) {
+  o.hitT = g.t;
   if (o.sh > 0) {
     if (isSplash && ENEMIES[o.k].splashRes) amt *= 1 - ENEMIES[o.k].splashRes;
     o.sh -= amt * (isSplash ? 2 : 1);
@@ -610,7 +646,7 @@ const routeLen = e => ENEMIES[e.k].fly ? FLYLEN : PATHLEN;
 // route, so that's known), then blast everything nearby. Beams hit every zombie along the line, out to full range.
 function launch(g, t, e, kind, dmg, blast, air) {
   const E = ENEMIES[e.k], T = FLIGHT[kind];
-  const ahead = e.hold > 0 ? 0 : E.spd * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : e.zerk ? 1.7 : 1) * T;
+  const ahead = e.hold > 0 ? 0 : spdOf(e) * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : e.zerk ? 1.7 : 1) * T;
   const [tx, ty] = (E.fly ? flyAt : posAt)(Math.min(routeLen(e), e.d + ahead));
   g.proj.push({x:tx, y:ty, t:T, dmg, blast, air});
   addFx(g, kind, t.x+.5, t.y+.5, '', tx, ty);
@@ -642,7 +678,7 @@ function swarm(g, t, dt, S) {
   const cx = t.x+.5, cy = t.y+.5, L = LAUNCHER[t.lvl];
   const targets = g.enemies.filter(canTarget(L, cx, cy, (t.eff || t.st).range)).sort((a, b) => b.d/routeLen(b) - a.d/routeLen(a));
   if (!targets.length) { t.sw = 0; return; }
-  for (let i = 0; i < S.n; i++) launch(g, t, targets[i % targets.length], 'msl', S.dmg, S.blast, true);
+  for (let i = 0; i < S.n; i++) launch(g, t, targets[i % targets.length], 'msl', S.dmg*tune('la:5'), S.blast, true);
   t.sw = S.every;
 }
 
@@ -653,15 +689,15 @@ function step(g, dt) {
   g.shots = g.shots.filter(s => s.ttl > 0);
   g.fx = g.fx.filter(f => f.ttl > 0);
   if (!g.proj) g.proj = [];
-  if (g.leoNeed === undefined) { g.leo = 0; g.leoNeed = LEO.first; }
+  if (g.leoNeed === undefined) { g.leo = 0; g.leoNeed = LEO.first*tune('leo:charge'); }
   if (g.status === 'play') g.leo = Math.min(g.leoNeed, g.leo + dt);
   if (g.status === 'countdown') { g.cd -= dt; if (g.cd <= 0) g.status = 'play'; return; }
 
   g.t += dt;
   // While a raging MK II is on the map, both players earn half as much per second.
   const pay = incomeMult(g);
-  g.gold += (4 + g.eco*ECO.defGold) * pay * dt;
-  g.energy = Math.min(2500, g.energy + income(g) * pay * dt);
+  g.gold += (4 + g.eco*ECO.defGold) * pay * tune('gold') * dt;
+  g.energy = Math.min(2500, g.energy + income(g) * pay * tune('energy') * dt);
   for (const k in g.cool) g.cool[k] = Math.max(0, g.cool[k] - dt);
 
   // Zombies the sender sent, and the automatic filler waves, come out of the gravestone separately.
@@ -683,12 +719,14 @@ function step(g, dt) {
     e.slow = Math.max(0, e.slow - dt);
     // Bosses stand still while using an ability (holdK 1 = rocket burst, 2 = going into rage).
     if (e.hold > 0) e.hold = Math.max(0, e.hold - dt);
-    else e.d += E.spd * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : e.zerk ? 1.7 : 1) * dt;
+    else e.d += spdOf(e) * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : e.zerk ? 1.7 : 1) * dt;
     const [nx, ny] = E.fly ? flyAt(e.d) : posAt(e.d);
     if (Math.abs(nx - e.x) > 1e-4) e.face = nx > e.x ? 1 : -1;
     e.x = nx; e.y = ny;
-    if (E.voidBoss) voidAbilities(g, e, dt, summons);
-    else if (E.doomBoss) doomAbilities(g, e, dt);
+    const adt = dt*tune('e:' + e.k + ':ab');   // bosses: how often they use their powers
+    if (E.voidBoss) voidAbilities(g, e, adt, summons);
+    else if (E.doomBoss) doomAbilities(g, e, adt);
+    else if (E.spartan) spartanAbilities(g, e, adt, dt);
     else if (E.boss) {
       // Phase 2 (MK II): at half health it rages, recharging its shield and speeding up.
       if (E.fury && !e.fury && e.hp < e.m/2) { e.fury = true; e.sh = e.shm; e.hold = 2.5; e.holdK = 2; e.emp = Math.max(e.emp, 3);
@@ -696,7 +734,7 @@ function step(g, dt) {
         addFx(g, 'fury', e.x, e.y, 'RAGE!'); }
       // Every 15s (first after 6s) it stops and calls 3 Avatars into the middle of the path.
       if (e.av === undefined) e.av = 6;
-      e.av -= dt;
+      e.av -= adt;
       if (e.av <= 0 && !(e.hold > 0)) {
         e.av = 15; e.hold = 1.5; e.holdK = 6;
         const A = ENEMIES.avatar, mid = PATHLEN / 2, [mx, my] = posAt(mid);
@@ -709,7 +747,7 @@ function step(g, dt) {
       }
       // Laser sweep (every 12s, first after 9s): a beam through the busiest group of towers within 6 tiles.
       if (e.lz === undefined) e.lz = 9;
-      e.lz -= dt;
+      e.lz -= adt;
       if (e.lz <= 0 && !(e.hold > 0)) {
         e.lz = 12;
         const near = g.towers.filter(t => Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 6);
@@ -726,14 +764,14 @@ function step(g, dt) {
       }
       // MK II in a rage rains missiles on 4 random towers every 5s.
       if (e.fury) {
-        e.mr = (e.mr === undefined ? 2 : e.mr) - dt;
+        e.mr = (e.mr === undefined ? 2 : e.mr) - adt;
         if (e.mr <= 0) {
           e.mr = 5; const pool = g.towers.slice();
           for (let i = 0; i < 4 && pool.length; i++) { const t = pool.splice(Math.floor(Math.random()*pool.length), 1)[0]; stunTower(g, t, 1.5, false); addFx(g, 'mrain', t.x+.5, t.y+.5, i ? '' : '', e.x, e.y); }
           addFx(g, 'roar', e.x, e.y, 'MISSILES!');
         }
       }
-      e.emp -= dt;
+      e.emp -= adt;
       if (e.emp <= 0) {
         e.emp = E.rocket; e.hold = 1.5; e.holdK = 1;
         for (const t of g.towers) if (Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 2.2) stunTower(g, t, 2.5);
@@ -766,7 +804,7 @@ function step(g, dt) {
     if (p.leo) {   // thermonuclear
       for (const o of g.enemies) {
         const d = Math.hypot(o.x-p.x, o.y-p.y);
-        if (o.hp > 0 && d < LEO.radius) { o.sh = 0; o.hp -= LEO.dmg*(d < LEO.core ? 1 : 1 - .7*(d - LEO.core)/(LEO.radius - LEO.core)); }
+        if (o.hp > 0 && d < LEO.radius) { o.sh = 0; o.hp -= LEO.dmg*tune('leo:dmg')*(d < LEO.core ? 1 : 1 - .7*(d - LEO.core)/(LEO.radius - LEO.core)); }
       }
       addFx(g, 'leo', p.x, p.y, 'LEO BOMB!');
       continue;
@@ -778,6 +816,12 @@ function step(g, dt) {
     addFx(g, 'boom', p.x, p.y);
   }
   g.proj = g.proj.filter(p => p.t > 0);
+  if (!g.gren) g.gren = [];
+  for (const q of g.gren) if ((q.t -= dt) <= 0) {   // the Spartan's plasma grenades
+    for (const t of g.towers) if (Math.hypot(t.x+.5-q.x, t.y+.5-q.y) < SPARTAN.grenR) stunTower(g, t, 2.5);
+    addFx(g, 'pblast', q.x, q.y);
+  }
+  g.gren = g.gren.filter(q => q.t > 0);
 
   // DJ buffs: each attacking tower takes the strongest working DJ whose range covers it.
   const djs = g.towers.filter(d => d.spec.role === 'dj' && !(d.stun > 0) && !(d.mc > 0));
@@ -786,7 +830,8 @@ function step(g, dt) {
     if (fires(t.spec)) for (const d of djs)
       if (Math.hypot(d.x-t.x, d.y-t.y) <= d.st.range && (!b || DJ_BUFF[d.lvl].range > b.range)) b = DJ_BUFF[d.lvl];
     t.buff = b ? b.range : 0;
-    t.eff = b ? {dmg:t.st.dmg*(1 + b.dmg), range:t.st.range*(1 + b.range), rate:t.st.rate*(1 + b.rate)} : t.st;
+    const L = t.spec.role === 'launcher', m = L ? {dmg:tune('la:' + t.lvl), range:tune('la:range'), rate:1} : {dmg:tune('tw:dmg'), range:tune('tw:range'), rate:tune('tw:rate')};
+    t.eff = {dmg:t.st.dmg*(1 + (b ? b.dmg : 0))*m.dmg, range:t.st.range*(1 + (b ? b.range : 0))*m.range, rate:t.st.rate*(1 + (b ? b.rate : 0))*m.rate};
   }
   for (const t of g.towers) {
     if (t.stun > 0) { t.stun -= dt; continue; }
@@ -825,7 +870,7 @@ function step(g, dt) {
       const reward = ENEMIES[e.k].reward;
       if (ENEMIES[e.k].boss && !ENEMIES[e.k].voidBoss) {   // Eradicators go out with a bang
         for (const t of g.towers) if (Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 2.5) stunTower(g, t, 3, false);
-        addFx(g, 'blast', e.x, e.y, ENEMIES[e.k].doomBoss ? 'DOOM DAD DOWN!' : 'MELTDOWN!');
+        addFx(g, 'blast', e.x, e.y, ENEMIES[e.k].doomBoss ? 'DOOM DAD DOWN!' : ENEMIES[e.k].spartan ? 'SPARTAN DOWN!' : 'MELTDOWN!');
       }
       g.gold += reward; g.kills++; addFx(g, 'pop', e.x, e.y, '+' + reward);
       return false;
@@ -844,7 +889,7 @@ const WAVES = 50, WAVE_GAP = 18;
 const WAVE_BONUS = {base:100, per:20};
 const WAVE_SCALE = {count:.5, hp:.03};   // zombies per wave and extra health per wave   // gold the tower builder gets as each wave starts
 const WAVE_UNLOCK = [['zombie', 1], ['speedy', 3], ['riot', 6], ['phantom', 8], ['medic', 10], ['bat', 12], ['brute', 15]];
-const WAVE_BOSS = {20: 'erad', 40: 'erad2', 45: 'doom', 50: 'void'};
+const WAVE_BOSS = {20: 'erad', 30: 'spartan', 40: 'erad2', 45: 'doom', 50: 'void'};
 
 // The Void stops every 6s to use its next ability, in turn: mind control, summon Voidlings, stomp.
 const VOID_ABILITIES = ['mind', 'summon', 'stomp'];
@@ -867,6 +912,33 @@ function voidAbilities(g, e, dt, summons) {
   } else {                        // stomp: stuns (and cracks) towers nearby
     for (const t of g.towers) if (Math.hypot(t.x+.5-e.x, t.y+.5-e.y) < 2.5) stunTower(g, t, 2.5);
     addFx(g, 'emp', e.x, e.y, 'STOMP!');
+  }
+}
+// Iron Spartan: his shield comes back to full if nothing hits it for 4s. Every 7s he throws 2 plasma grenades that stick
+// to towers and blow 1.1s later (stun and crack everything within 1.1 tiles); every 11s his energy sword slices the
+// nearest tower within 2.2 tiles (two cracks and a 3s stun).
+const SPARTAN = {regen:4, regenRate:.35, gren:7, grenN:2, grenReach:6, fuse:1.1, grenR:1.1, sword:11, swordReach:2.2};
+function spartanAbilities(g, e, dt, realDt) {
+  if (e.gr === undefined) { e.gr = 4; e.sw = 8; e.hitT = g.t; }
+  if (g.t - e.hitT > SPARTAN.regen && e.sh < e.shm) {   // shield recharging
+    if (!e.regen) { e.regen = true; addFx(g, 'shieldup', e.x, e.y, 'SHIELD RECHARGING'); }
+    e.sh = Math.min(e.shm, e.sh + e.shm*SPARTAN.regenRate*realDt);
+  } else e.regen = false;
+  if (e.hold > 0) return;
+  e.gr -= dt; e.sw -= dt;
+  const dist = t => Math.hypot(t.x+.5-e.x, t.y+.5-e.y);
+  if (e.sw <= 0) {
+    e.sw = SPARTAN.sword;
+    const t = g.towers.filter(t => dist(t) < SPARTAN.swordReach).sort((a, b) => dist(a) - dist(b))[0];
+    if (t) { stunTower(g, t, 3); stunTower(g, t, 3); e.hold = .9; e.holdK = 13; addFx(g, 'sword', t.x+.5, t.y+.5, 'SLICED!', e.x, e.y); }
+  } else if (e.gr <= 0) {
+    e.gr = SPARTAN.gren;
+    const pool = g.towers.filter(t => dist(t) < SPARTAN.grenReach);
+    for (let i = 0; i < SPARTAN.grenN && pool.length; i++) {
+      const t = pool.splice(Math.floor(Math.random()*pool.length), 1)[0];
+      g.gren.push({x:t.x+.5, y:t.y+.5, t:SPARTAN.fuse}); addFx(g, 'pgren', t.x+.5, t.y+.5, i ? '' : 'GRENADE!', e.x, e.y);
+    }
+    if (g.gren.length) { e.hold = .8; e.holdK = 12; }
   }
 }
 // Doom Dad charges his BFG every 10s (6s once berserk) and fires it into the biggest group of towers within 7 tiles,
@@ -936,8 +1008,8 @@ function startWave(g) {
   addFx(g, 'roar', 2, WAY[0][1], 'WAVE ' + g.wave);
 }
 function spawnEnemy(g, k, mul, wave) {
-  const E = ENEMIES[k], hp = Math.round(E.hp * mul);
-  g.enemies.push({id:g.id++, k, d:0, hp, m:hp, sh:E.shield || 0, shm:E.shield || 0, slow:0, emp:4, fury:false, face:1, hold:0, holdK:0,
+  const E = ENEMIES[k], th = tune('e:' + k + ':hp'), hp = Math.round(E.hp * mul * th), sh = Math.round((E.shield || 0)*th);
+  g.enemies.push({id:g.id++, k, d:0, hp, m:hp, sh, shm:sh, slow:0, emp:4, fury:false, face:1, hold:0, holdK:0,
                   wave, x:WAY[0][0], y:WAY[0][1]});
   if (E.boss) addFx(g, 'roar', 1, WAY[0][1], 'BOSS!');
 }
@@ -1037,6 +1109,70 @@ function updateLeo(v) {
   card.classList.toggle('ready', ready && !leoAim); card.classList.toggle('aim', leoAim);
   $('#leoState').textContent = leoAim ? '🎯 Tap the board!' : ready ? '☢ READY' : `⏳ ${Math.round(p*100)}%`;
 }
+/* ---------- 🎛 Characters & tuning screen ---------- */
+// Every character with its powers, and sliders that set the TUNE multipliers. Sliders run ×0.25 to ×4 on a log scale.
+const TUNE_TABS = [['zombies', '🧟 Zombies'], ['bosses', '👹 Bosses'], ['towers', '🛡 Towers'], ['launcher', '🚀 Launcher'], ['other', '⚽ LEO BOMB & money']];
+let tuneTab = 'bosses';
+const toSlider = v => Math.round(50 + 25*Math.log2(v)), fromSlider = x => Math.round(Math.pow(2, (x - 50)/25)*100)/100;
+function setTune(k, v) { if (Math.abs(v - 1) < .005) delete TUNE[k]; else TUNE[k] = v; try { localStorage.setItem('td_tune', JSON.stringify(TUNE)); } catch (e) {} }
+function tuneCard(draw, name, stats, desc, sliders) {
+  const el = document.createElement('div'); el.className = 'tcard';
+  const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 128; el.appendChild(cv2);
+  const c = cv2.getContext('2d'); c.imageSmoothingEnabled = false; try { draw(c); } catch (e) {}
+  el.insertAdjacentHTML('beforeend', `<div class="nm">${esc(name)}</div><div class="st">${stats}</div>${desc ? `<div class="ds">${esc(desc)}</div>` : ''}`);
+  for (const [label, key] of sliders) {
+    const row = document.createElement('label'); row.className = 'tslider';
+    row.innerHTML = `<span>${label}</span><input type="range" min="0" max="100" step="1"><b></b>`;
+    const inp = row.querySelector('input'), out = row.querySelector('b');
+    const show = () => { const v = tune(key); out.textContent = '×' + v.toFixed(2); out.classList.toggle('chg', Math.abs(v - 1) > .005); };
+    inp.value = toSlider(tune(key)); show();
+    inp.oninput = () => { setTune(key, fromSlider(+inp.value)); show(); };
+    row.ondblclick = () => { setTune(key, 1); inp.value = 50; show(); };
+    el.appendChild(row);
+  }
+  return el;
+}
+function renderTune() {
+  $('#tuneTabs').innerHTML = TUNE_TABS.map(([k, n]) => `<button data-t="${k}" class="${k === tuneTab ? 'sel' : ''}">${n}</button>`).join('');
+  $('#tuneTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tuneTab = b.dataset.t; renderTune(); });
+  const list = $('#tuneList'); list.innerHTML = '';
+  const unit = k => c => drawUnit(c, k, 64, ENEMIES[k].boss ? 76 : 70, ENEMIES[k].boss ? 70 : 80, 0, false, 1);
+  if (tuneTab === 'zombies' || tuneTab === 'bosses') {
+    for (const k of Object.keys(ENEMIES)) {
+      const E = ENEMIES[k]; if (!!E.boss !== (tuneTab === 'bosses')) continue;
+      const wave = Object.keys(WAVE_BOSS).find(n => WAVE_BOSS[n] === k);
+      const stats = `❤️ ${E.hp}${E.shield ? ' + 🛡 ' + E.shield : ''} · 🏃 ${E.spd}${E.armor ? ' · armour ' + E.armor : ''}${E.minion ? '' : ' · ⚡' + E.cost}${wave ? ' · wave ' + wave : ''}`;
+      const sl = [['❤️ Health', 'e:' + k + ':hp'], ['🏃 Speed', 'e:' + k + ':spd']];
+      if (E.boss) sl.push(['💥 Powers (how often)', 'e:' + k + ':ab']);
+      list.appendChild(tuneCard(unit(k), E.name, stats, E.desc, sl));
+    }
+  } else if (tuneTab === 'towers') {
+    const tw = PRESETS.filter(p => p.role !== 'launcher' && p.role !== 'revive' && p.role !== 'dj');
+    list.appendChild(tuneCard(c => tw.forEach((p, i) => drawSoldier(c, 26 + (i % 2)*76, 42 + Math.floor(i/2)*58, 50, cleanSpec(p))), 'All your towers',
+      'Every tower you build or design (Trooper, Frost, Boomer, Sniper and your own)', 'Splash, slow and sensor powers stay as they are; these scale their basic numbers.',
+      [['💥 Damage', 'tw:dmg'], ['🎯 Range', 'tw:range'], ['⏱ Fire rate', 'tw:rate']]));
+    for (const p of PRESETS.filter(p => p.role === 'revive' || p.role === 'dj'))
+      list.appendChild(tuneCard(c => drawSoldier(c, 64, 70, 90, cleanSpec(p)), p.name, p.role === 'revive' ? 'Brings back destroyed towers' : 'Boosts the towers around it', 'Support tower: no sliders.', []));
+  } else if (tuneTab === 'launcher') {
+    for (let l = 1; l < LAUNCHER.length; l++) {
+      const L = LAUNCHER[l];
+      list.appendChild(tuneCard(c => drawLauncher(c, 64, 74, 96, l), `Level ${l}: ${L.name}`,
+        `💥 ${L.dmg}${L.blast ? ' blast ' + L.blast : ' beam'} · ${L.rate}/s · 🎯 ${L.range}${L.swarm ? ' · swarm ' + L.swarm.n + '×' + L.swarm.dmg : ''}`,
+        {mortar:'Lobbed shells; can\'t hit flyers', missile:'Homing missiles', twin:'Two missiles at once, at different zombies', laser:'Burns through every zombie in a line; sees hidden ones', anni:'Death ray plus a missile swarm every 2.5s'}[L.w],
+        [['💥 Damage', 'la:' + l]]));
+    }
+    list.appendChild(tuneCard(c => drawLauncher(c, 64, 74, 96, 3), 'Launcher range', 'Every level', '', [['🎯 Range', 'la:range']]));
+  } else {
+    list.appendChild(tuneCard(c => { c.fillStyle = '#fff6c8'; c.shadowColor = '#ffd23f'; c.shadowBlur = 20; c.beginPath(); c.arc(64, 64, 36, 0, 7); c.fill(); c.shadowBlur = 0; c.fillStyle = '#222'; for (let i = 0; i < 5; i++) { const a = i*1.257; c.beginPath(); c.arc(64 + Math.cos(a)*20, 64 + Math.sin(a)*20, 7, 0, 7); c.fill(); } },
+      'LEO BOMB', `💥 ${LEO.dmg} · charges in ${LEO.first}s, then ${LEO.again}s`, 'The thermonuclear soccer ball.', [['💥 Damage', 'leo:dmg'], ['⏳ Charge time', 'leo:charge']]));
+    list.appendChild(tuneCard(c => { c.font = '72px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('💰', 64, 68); }, 'Gold income', 'Tower builder', 'Gold per second, for building and upgrading.', [['💰 Gold', 'gold']]));
+    list.appendChild(tuneCard(c => { c.font = '72px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('⚡', 64, 68); }, 'Energy income', 'Zombie sender', 'Energy per second, for sending zombies.', [['⚡ Energy', 'energy']]));
+  }
+}
+function openTune() { renderTune(); $('#tune').hidden = false; }
+$('#goTune').onclick = openTune; $('#tuneBtn').onclick = openTune;
+$('#tuneClose').onclick = () => { $('#tune').hidden = true; };
+$('#tuneReset').onclick = () => { if (!confirm('Put every setting back to ×1?')) return; TUNE = {}; try { localStorage.removeItem('td_tune'); } catch (e) {} renderTune(); };
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const enemyBtns = {};
@@ -1338,7 +1474,22 @@ function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
       c.drawImage(DOOM_FACE, -.15*s, -.8*s, .3*s, .3*s*DOOM_FACE.naturalHeight/DOOM_FACE.naturalWidth); c.imageSmoothingEnabled = sm; }
     R(-.18, -.9, .36, .07, GL);   // helmet ridge over the forehead
   };
+  // Iron Spartan: olive power armour, a gold mirrored visor, a chunky helmet and an assault rifle.
+  const spartan = () => {
+    const OL = '#55652f', OD = '#3a4521', OLL = '#7a8b45', BK = '#1f2326', GN = '#33373b';
+    const glow = (col, blur, f) => { c.shadowColor = col; c.shadowBlur = s*blur; f(); c.shadowBlur = 0; };
+    for (const [lx, b] of [[-.22, sw*.5], [.04, -sw*.5]]) { R(lx, .04 + b, .18, .2, BK); R(lx - .01, .2 + b, .2, .2, OL); R(lx, .24 + b, .18, .05, OLL); R(lx - .03, .4 + b, .24, .1, OD); }
+    R(-.24, -.02, .48, .08, BK);
+    R(-.28, -.42, .56, .42, OL); R(-.22, -.38, .2, .16, OLL); R(.02, -.38, .2, .16, OLL); R(-.05, -.42, .1, .36, OD); R(-.18, -.16, .36, .06, BK);
+    for (const d of [-1, 1]) { R(d > 0 ? .22 : -.42, -.44, .2, .14, OL); R(d > 0 ? .24 : -.4, -.32, .16, .03, OD); }
+    R(-.44, -.3, .12, .32, BK); R(.32, -.3, .12, .2, BK);   // arms
+    R(-.3, -.1, .62, .12, GN); R(.26, -.06, .1, .16, GN); R(-.42, -.08, .14, .07, GN); glow('#3ee6ff', .2, () => R(.0, -.1, .06, .03, '#3ee6ff'));   // rifle and ammo counter
+    R(-.17, -.78, .34, .34, OL); R(-.19, -.72, .38, .2, OL); R(-.17, -.8, .34, .05, OLL); R(-.06, -.83, .12, .06, OD);   // helmet
+    glow('#ffb020', .3, () => { const gr = c.createLinearGradient(0, -.7*s, 0, -.56*s); gr.addColorStop(0, '#ffe08a'); gr.addColorStop(1, '#c46a00'); c.fillStyle = gr; c.fillRect(-.14*s, -.7*s, .28*s, .14*s); });
+    c.fillStyle = 'rgba(255,255,255,.55)'; c.fillRect(-.1*s, -.68*s, .08*s, .03*s);
+  };
   switch (k) {
+    case 'spartan': spartan(); break;
     case 'doom': doomDad(); break;
     case 'zombie':  zomb({shirt:'#3d6fb6', pants:'#5b4636', skin:G, tear:1}); break;
     case 'speedy':  zomb({shirt:'#e5534b', pants:'#1b1f23', skin:'#8fc26a', tear:1}); R(-.19, -.47, .38, .04, '#fff'); break;
@@ -1835,6 +1986,24 @@ function batTpl() {
   g.userData = {wings, fly:true}; return g;
 }
 // Doom Dad: a chunky cartoon space marine in green armour carrying a BFG, his own face looking out of a blocky helmet.
+// Iron Spartan: olive power armour, gold glowing visor, a chunky helmet and an assault rifle. His shield shows as a bubble.
+function spartanTpl() {
+  const T = THREE, g = new T.Group(), L = c => new T.MeshLambertMaterial({color:c});
+  const ol = L('#55652f'), od = L('#3a4521'), oll = L('#7a8b45'), bk = L('#1f2326'), gun = L('#33373b');
+  const box = (w, h, d, m, x, y, z, parent = g) => { const b = new T.Mesh(new T.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; parent.add(b); return b; };
+  const legs = [-.13, .13].map(z => { const p = new T.Group(); p.position.set(0, .48, z); g.add(p);
+    box(.16, .2, .16, bk, 0, -.1, 0, p); box(.2, .22, .19, ol, .01, -.3, 0, p); box(.27, .1, .21, od, .04, -.43, 0, p); return p; });
+  box(.28, .08, .42, bk, 0, .5, 0);
+  box(.3, .38, .48, ol, 0, .73, 0); box(.04, .16, .2, oll, .16, .8, -.11); box(.04, .16, .2, oll, .16, .8, .11); box(.12, .3, .36, od, -.18, .74, 0);   // chest and back pack
+  for (const z of [-.3, .3]) box(.24, .14, .16, ol, 0, .9, z);
+  const arms = new T.Group(); arms.position.set(0, .84, 0); g.add(arms);
+  for (const z of [-.3, .3]) { box(.11, .26, .11, bk, 0, -.12, z, arms); box(.22, .1, .1, bk, .1, -.26, z*.7, arms); }
+  box(.62, .1, .1, gun, .25, -.24, 0, arms); box(.1, .14, .08, gun, .14, -.33, 0, arms); box(.03, .04, .06, new T.MeshBasicMaterial({color:0x3ee6ff}), .2, -.18, 0, arms);
+  const head = new T.Group(); head.position.set(0, 1.08, 0); g.add(head);
+  box(.3, .3, .3, ol, -.01, 0, 0, head); box(.32, .14, .32, ol, -.01, -.05, 0, head); box(.26, .04, .1, oll, -.02, .16, 0, head);
+  const visor = new T.Mesh(new T.BoxGeometry(.03, .12, .24), new T.MeshBasicMaterial({color:0xffb020})); visor.position.set(.15, .02, 0); head.add(visor);
+  g.userData = {legs, arms, core:visor, coreCol:0xffb020, big:true, showShield:true}; return g;
+}
 function doomTpl() {
   const T = THREE, g = new T.Group(), L = c => new T.MeshLambertMaterial({color:c});
   const green = L('#4f7a2e'), dkg = L('#36561f'), ltg = L('#6f9e45'), pants = L('#6b5a45'), boot = L('#2a2016'), steel = L('#5c616b'), dark = L('#2b2e33');
@@ -1880,6 +2049,7 @@ function enemyTpl(k) {
     erad2: mk2Tpl,
     void: voidTpl,
     doom: doomTpl,
+    spartan: spartanTpl,
   }[k] || (() => zombieTpl({shirt:'#555', pants:'#333', skin:G}));
   return (G3.enemyTpl[k] = t());
 }
@@ -1893,7 +2063,7 @@ function makeEnemy(k) {
     const n = x => g.getObjectByName(x);
     g.userData = {mech:true, legs:[n('hip-1'), n('hip1')], shins:[n('knee-1'), n('knee1')], torso:n('torso'), guns:['gun-1', 'gun1', 'gun-2', 'gun2'].map(n).filter(Boolean), reactor:n('reactor'), core:n('core'), rage:n('rage'), coreCol:u.coreCol, flame:u.flame};
     g.userData.core.material = g.userData.core.material.clone();
-  } else g.userData = {legs:u.legs && u.legs.map(pick), arms:u.arms && pick(u.arms), wings:u.wings && u.wings.map(pick), tent:u.tent && u.tent.map(pick), core:u.core && pick(u.core), rage:u.rage && pick(u.rage), coreCol:u.coreCol, float:u.float, fly:u.fly, big:u.big, head:u.head && pick(u.head)};
+  } else g.userData = {legs:u.legs && u.legs.map(pick), arms:u.arms && pick(u.arms), wings:u.wings && u.wings.map(pick), tent:u.tent && u.tent.map(pick), core:u.core && pick(u.core), rage:u.rage && pick(u.rage), coreCol:u.coreCol, float:u.float, fly:u.fly, big:u.big, showShield:u.showShield, head:u.head && pick(u.head)};
   if (g.userData.core && !u.mech) g.userData.core.material = g.userData.core.material.clone();
   const T = THREE;
   g.userData.shield = new T.Mesh(new T.SphereGeometry(.62, 16, 10), new T.MeshBasicMaterial({color:0x3ee6ff, transparent:true, opacity:.2, depthWrite:false})); g.userData.shield.position.y = .55; g.add(g.userData.shield);
@@ -1912,7 +2082,7 @@ function ring3(x, y, r, color, alpha, fill) {
   if (!m) { m = new THREE.Mesh(new THREE.RingGeometry(.9, 1, 40), new THREE.MeshBasicMaterial({transparent:true, depthWrite:false, side:THREE.DoubleSide})); m.rotation.x = -Math.PI/2; G3.world.add(m); G3.rings.push(m); }
   m.userData.used = true; m.visible = true; m.position.set(...W3(x, y, .05)); m.scale.set(r, r, 1); m.material.color.set(color); m.material.opacity = alpha;
 }
-const FX_COL = {bfg:'#8dff4a', leo:'#ffd23f', boom:'#ffa657', pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
+const FX_COL = {pblast:'#3ee6ff', sword:'#93c5fd', shieldup:'#ffd23f', bfg:'#8dff4a', leo:'#ffd23f', boom:'#ffa657', pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
 
 // Camera: a tilted view from the front of the board, sized so the board, gravestone and castle all fit.
 function fit3D() {
@@ -2043,10 +2213,10 @@ function render3D(v) {
     if (U.tent) U.tent.forEach((tt, i) => { const a = t*.8 + i*Math.PI/2; tt.position.set(Math.cos(a)*.42, .15, Math.sin(a)*.3); tt.rotation.z = Math.sin(t*2 + i)*.4; });
     if (U.core) U.core.material.color.setHex(fury ? 0xff3b30 : U.coreCol);
     if (U.rage) U.rage.visible = !!fury;
-    U.shield.visible = sh > 0 && !U.mech && !U.big; if (U.shield.visible) U.shield.material.opacity = .04 + .12*sh/shm;   // mechs show their shield in the boss bar instead, so their colours stay true
+    U.shield.visible = sh > 0 && !U.mech && (!U.big || U.showShield); if (U.shield.visible) U.shield.material.opacity = .04 + .12*sh/shm;   // mechs show their shield in the boss bar instead, so their colours stay true
     U.slow.visible = !!slow;
     U.hold.visible = !!hold;
-    if (hold) { U.hold.material.color.set(hold === 11 ? '#c9d1d9' : hold === 8 ? '#8dff4a' : hold === 9 ? '#ff3b30' : hold === 10 ? '#ff9a3c' : hold === 2 ? '#ff3b30' : hold === 6 ? '#3ee6ff' : hold >= 3 ? '#963ce6' : '#ff9a3c'); const p = 1.6 + .2*Math.sin(t*11); U.hold.scale.set(p, p, 1); }
+    if (hold) { U.hold.material.color.set(hold === 12 || hold === 13 ? '#3ee6ff' : hold === 11 ? '#c9d1d9' : hold === 8 ? '#8dff4a' : hold === 9 ? '#ff3b30' : hold === 10 ? '#ff9a3c' : hold === 2 ? '#ff3b30' : hold === 6 ? '#3ee6ff' : hold >= 3 ? '#963ce6' : '#ff9a3c'); const p = 1.6 + .2*Math.sin(t*11); U.hold.scale.set(p, p, 1); }
     if (E.heal) ring3(x, y, 1.6, '#3fb950', .35);
   }
   for (const [id, g] of G3.enemies) if (!seenE.has(id)) { G3.world.remove(g); G3.enemies.delete(id); }
@@ -2055,6 +2225,7 @@ function render3D(v) {
   for (const [id, k, x, y, ttl] of v.fx) {
     const p = 1 - ttl/FX_LIFE[k], col = FX_COL[k] || '#f2cc60', a = Math.max(0, 1 - p);
     const R = {bfg:p < .25 ? 0 : DOOM.radius*Math.min(1, (p - .25)*3.3), leo:LEO.radius*Math.min(1, p*2), boom:.2 + p*.9, pop:.2 + p*.5, build:.3 + p*.6, leak:.3 + p*1.2, roar:.3 + p*1.2, shieldbreak:.3 + p*.6, fury:.4 + p*1.5, emp:2.2*p, revive:.3 + p*.8, tele:.3 + p*1.3, mind:.4 + p*3, summon:.4 + p*1.2, wreck:.3 + p*.9}[k];
+    if (k === 'pblast') ring3(x, y, .2 + p*SPARTAN.grenR, '#3ee6ff', a); else if (k === 'shieldup') ring3(x, y, .4 + p*.8, '#ffd23f', a);
     if (R) ring3(x, y, R, col, a);
     const key = v.ep + ':' + id; if (G3.seen.has(key)) continue; G3.seen.add(key);
     if (k === 'pop') spawnBurst(x, y, .4, 8, 2.2, .45, .14, ['#bfe3a0', '#ffffff']);
@@ -2074,6 +2245,9 @@ function render3D(v) {
     if (k === 'leoK') { const f = v.fx.find(f => f[0] === id); launchMissile(x, y, 1.8, f[6], f[7], ttl, 3.5, 'leo'); }
     if (k === 'bfg') { const f = v.fx.find(f => f[0] === id); if (f[6] !== null) launchMissile(f[6], f[7], 1.1, x, y, FX_LIFE.bfg*.25, .4, 'bfg'); }
     if (k === 'rip') spawnBurst(x, y, .1, 26, 3, .9, .3, ['#6e5a3c', '#8a7650', '#4a3a28', '#c9a227'], 5);
+    if (k === 'pgren') { const f = v.fx.find(f => f[0] === id); if (f[6] !== null) launchMissile(f[6], f[7], 1.4, x, y, FX_LIFE.pgren*.32, .9, 'pgren'); }
+    if (k === 'pblast') { spawnBurst(x, y, .4, 30, 4, .7, .35, ['#3ee6ff', '#bff6ff', '#ffffff', '#1d4ed8'], 3); G3.shake = Math.max(G3.shake || 0, .3); }
+    if (k === 'sword') spawnBurst(x, y, .5, 22, 4, .5, .2, ['#bfe3ff', '#3ee6ff', '#ffffff']);
     if (k === 'crunch') { for (let i = 0; i < 30; i++) spawn3(x + (Math.random() - .5)*.3, y + (Math.random() - .5)*.3, HOOK_MOUTH, [(Math.random() - .5)*3, 1 + Math.random()*2, (Math.random() - .5)*3], .9, .14, .06, ['#8b949e', '#5a4a32', '#c9d1d9', '#ffd23f', '#ff7a1a'][i % 5], 5); G3.shake = Math.max(G3.shake || 0, .4); }
     if (k === 'sgun') { const f = v.fx.find(f => f[0] === id); if (f[6] !== null) for (let i = 0; i < 8; i++) { const q = Math.random(); spawn3(f[6] + (x - f[6])*q, f[7] + (y - f[7])*q, .6, [(Math.random() - .5), .4, (Math.random() - .5)], .25, .1, .03, '#ffd23f'); } spawnBurst(x, y, .4, 8, 2, .4, .15, ['#ffd23f', '#ffffff']); }
     if (k === 'leo') {   // thermonuclear: the brightest flash, a fireball, a towering column and the hardest shake in the game
@@ -2131,9 +2305,9 @@ function launchMissile(fx, fy, fh, tx, ty, dur, arc, shell = false) {
     const ball = new T.Mesh(new T.SphereGeometry(.09, 10, 8), new T.MeshLambertMaterial({color:0x1b1f23})); m.add(ball);   // mortar shell
     G3.world.add(m); G3.missiles.push(m);
   }
-  const leo = shell === 'leo', bfg = shell === 'bfg', b = m.children[2];   // the LEO BOMB and the BFG's plasma ride the same rig: a big glowing ball
+  const leo = shell === 'leo', bfg = shell === 'bfg', pg = shell === 'pgren', b = m.children[2];   // the LEO BOMB, the BFG's plasma and plasma grenades ride the same rig: a glowing ball
   m.children[0].visible = m.children[1].visible = !shell; b.visible = !!shell;
-  b.scale.setScalar(leo ? 3.4 : bfg ? 2.6 : 1); b.material.color.setHex(leo ? 0xfff6c8 : bfg ? 0xd8ffc0 : 0x1b1f23); b.material.emissive.setHex(leo ? 0xffb020 : bfg ? 0x40ff20 : 0x000000);
+  b.scale.setScalar(leo ? 3.4 : bfg ? 2.6 : pg ? 1.3 : 1); b.material.color.setHex(leo ? 0xfff6c8 : bfg ? 0xd8ffc0 : pg ? 0xbff6ff : 0x1b1f23); b.material.emissive.setHex(leo ? 0xffb020 : bfg ? 0x40ff20 : pg ? 0x1aa0ff : 0x000000);
   m.userData = {live:true, a:[fx, fy, fh], b:[tx, ty], t:0, dur, arc, shell}; m.visible = true;
 }
 function stepMissiles(dt) {
@@ -2141,10 +2315,11 @@ function stepMissiles(dt) {
     const u = m.userData; if (!u.live) continue;
     u.t += dt; const k = Math.min(1, u.t/u.dur), at = q => { const x = u.a[0] + (u.b[0] - u.a[0])*q, y = u.a[1] + (u.b[1] - u.a[1])*q; return new THREE.Vector3(...W3(x, y, u.a[2]*(1 - q) + .2*q + Math.sin(Math.PI*q)*u.arc)); };
     const p = at(k); m.position.copy(p); m.lookAt(at(Math.min(1, k + .03)));
-    const glowy = u.shell === 'leo' || u.shell === 'bfg';
-    spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, .3, 0], .5, glowy ? .35 : .12, glowy ? .7 : .3, u.shell === 'leo' ? '#ffd23f' : u.shell === 'bfg' ? '#8dff4a' : u.shell ? '#6e6a62' : '#b0aaa0'); if (!u.shell) spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, 0, 0], .12, .14, .04, '#ffb040');
+    const glowy = u.shell === 'leo' || u.shell === 'bfg' || u.shell === 'pgren';
+    spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, .3, 0], .5, glowy ? .35 : .12, glowy ? .7 : .3, u.shell === 'leo' ? '#ffd23f' : u.shell === 'bfg' ? '#8dff4a' : u.shell === 'pgren' ? '#3ee6ff' : u.shell ? '#6e6a62' : '#b0aaa0'); if (!u.shell) spawn3(p.x + COLS/2, p.z + ROWS/2, p.y, [0, 0, 0], .12, .14, .04, '#ffb040');
     if (k >= 1) { u.live = false; m.visible = false;
-      if (u.shell === 'bfg') { spawnBurst(u.b[0], u.b[1], .4, 40, 5, .9, .45, ['#8dff4a', '#d8ffc0', '#ffffff', '#3fb950'], 3); G3.shake = Math.max(G3.shake || 0, .6); }
+      if (u.shell === 'pgren') {}   // it sticks; the blast comes with the fuse
+      else if (u.shell === 'bfg') { spawnBurst(u.b[0], u.b[1], .4, 40, 5, .9, .45, ['#8dff4a', '#d8ffc0', '#ffffff', '#3fb950'], 3); G3.shake = Math.max(G3.shake || 0, .6); }
       else spawnBurst(u.b[0], u.b[1], .2, 14, 2.6, .5, .25, ['#ff7a1a', '#ffd23f', '#ffffff'], 3); }
   }
 }
@@ -2291,7 +2466,7 @@ function draw2D(v) {
     ctx.globalAlpha = E.stealth ? .4 + .15*Math.sin(now/200 + id) : 1;
     if (hold) {   // planted and powering up: a pulsing glow, legs still
       ctx.beginPath(); ctx.arc(px, py, s*(.6 + .08*Math.sin(now/90)), 0, 7);
-      ctx.fillStyle = hold === 11 ? 'rgba(201,209,217,.25)' : hold === 8 ? 'rgba(141,255,74,.3)' : hold === 9 ? 'rgba(255,59,48,.28)' : hold === 10 ? 'rgba(255,154,60,.25)' : hold === 2 ? 'rgba(255,59,48,.28)' : hold === 6 ? 'rgba(62,230,255,.28)' : hold >= 3 ? 'rgba(150,60,230,.3)' : 'rgba(255,154,60,.25)'; ctx.fill();
+      ctx.fillStyle = hold === 12 || hold === 13 ? 'rgba(62,230,255,.25)' : hold === 11 ? 'rgba(201,209,217,.25)' : hold === 8 ? 'rgba(141,255,74,.3)' : hold === 9 ? 'rgba(255,59,48,.28)' : hold === 10 ? 'rgba(255,154,60,.25)' : hold === 2 ? 'rgba(255,59,48,.28)' : hold === 6 ? 'rgba(62,230,255,.28)' : hold >= 3 ? 'rgba(150,60,230,.3)' : 'rgba(255,154,60,.25)'; ctx.fill();
     }
     drawUnit(ctx, k, px, E.fly ? py - s*.2 : py, s, hold ? 0 : now/1000*E.spd*7 + id, fury, face);
     ctx.globalAlpha = 1;
@@ -2377,13 +2552,21 @@ function draw2D(v) {
       else { const q = (p - .25)/.75; ring(x, y, DOOM.radius*Math.min(1, q*2.5), '#8dff4a', 'rgba(141,255,74,.25)'); ring(x, y, .2 + q*1.2, '#ffffff', 'rgba(220,255,200,.3)'); }
     }
     if (k === 'rip') { ring(x, y, .2 + p*.9, '#8a7650', 'rgba(90,70,40,.3)'); }
+    if (k === 'pgren' && x2 !== null) {   // a glowing blue grenade lobbed onto the tower, then blinking there
+      const q = Math.min(1, p/.35), gx = x2 + (x - x2)*q, gy = y2 + (y - y2)*q - Math.sin(Math.PI*q)*1.2;
+      ctx.save(); ctx.globalAlpha = 1; ctx.shadowColor = '#3ee6ff'; ctx.shadowBlur = TS*.5; ctx.fillStyle = (q < 1 || Math.sin(p*40) > 0) ? '#bff6ff' : '#3ee6ff';
+      ctx.beginPath(); ctx.arc(gx*TS, gy*TS, TS*.13, 0, 7); ctx.fill(); ctx.restore(); }
+    if (k === 'pblast') { ring(x, y, .2 + p*SPARTAN.grenR, '#3ee6ff', 'rgba(62,230,255,.3)'); ring(x, y, .1 + p*.6, '#ffffff'); }
+    if (k === 'sword' && x2 !== null) { ctx.strokeStyle = '#bfe3ff'; ctx.shadowColor = '#3ee6ff'; ctx.shadowBlur = TS*.4; ctx.lineWidth = TS*.12*(1 - p); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(x*TS, y*TS, TS*.6, -2.4 + p*2, -.6 + p*2); ctx.stroke(); ctx.shadowBlur = 0; }
+    if (k === 'shieldup') ring(x, y, .4 + p*.8, '#ffd23f', 'rgba(255,210,63,.12)');
     if (k === 'crunch') { ctx.fillStyle = '#8b949e'; for (let i = 0; i < 9; i++) { const a = i*.7 + 1, d = .3 + p*1.1; ctx.fillRect((x + Math.cos(a)*d)*TS - 3, (y - .62 - Math.sin(a)*d*.6 + p*p*1.2)*TS - 3, 6, 6); } }
     if (k === 'sgun' && x2 !== null) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.beginPath();
       for (let i = -2; i <= 2; i++) { ctx.moveTo(x2*TS, y2*TS); ctx.lineTo((x + i*.08)*TS, (y - i*.06)*TS); } ctx.stroke(); }
     if (txt) {
       ctx.font = `bold ${TS*.4}px system-ui,sans-serif`;
       if (k === 'leo') ctx.font = `900 ${TS*.8}px system-ui,sans-serif`;
-      ctx.fillStyle = {leo:'#ffd23f', leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72', mind:'#d2a8ff', summon:'#d2a8ff', revive:'#3fb950', tele:'#3ee6ff', laser:'#ff3b30', blast:'#ffd23f', bfg:'#8dff4a', hook:'#c9d1d9', rip:'#ffa657', crunch:'#ff7b72'}[k] || '#f2cc60';
+      ctx.fillStyle = {leo:'#ffd23f', leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72', mind:'#d2a8ff', summon:'#d2a8ff', revive:'#3fb950', tele:'#3ee6ff', laser:'#ff3b30', blast:'#ffd23f', bfg:'#8dff4a', hook:'#c9d1d9', rip:'#ffa657', crunch:'#ff7b72', pgren:'#3ee6ff', sword:'#93c5fd', shieldup:'#ffd23f'}[k] || '#f2cc60';
       ctx.fillText(txt, x*TS, (y - .3 - p*.7)*TS);
     }
     ctx.globalAlpha = 1;
@@ -2440,7 +2623,7 @@ function hud(v) {
   if (bosses.length) {
     const [, k, , , hp, m, , sh, shm, fury, , hold] = bosses[0];
     $('#bossBar').classList.toggle('rage', !!fury);
-    $('#bbName').textContent = ENEMIES[k].name.toUpperCase() + (hold === 1 ? '  FIRING ROCKETS!' : hold === 2 ? '  POWERING UP…' : hold === 3 ? '  MIND CONTROL!' : hold === 4 ? '  SUMMONING VOIDLINGS!' : hold === 5 ? '  STOMP!' : hold === 6 ? '  CALLING AVATARS!' : hold === 7 ? '  LASER CHARGING!' : hold === 8 ? '  BFG CHARGING!' : hold === 9 ? '  BERSERK!' : hold === 10 ? '  SHOTGUN!' : hold === 11 ? '  GRAPPLE HOOK!' : fury ? (ENEMIES[k].doomBoss ? '  BERSERK!' : '  RAGE! · ALL INCOME HALVED') : '') + (bosses.length > 1 ? `  ×${bosses.length}` : '');
+    $('#bbName').textContent = ENEMIES[k].name.toUpperCase() + (hold === 1 ? '  FIRING ROCKETS!' : hold === 2 ? '  POWERING UP…' : hold === 3 ? '  MIND CONTROL!' : hold === 4 ? '  SUMMONING VOIDLINGS!' : hold === 5 ? '  STOMP!' : hold === 6 ? '  CALLING AVATARS!' : hold === 7 ? '  LASER CHARGING!' : hold === 8 ? '  BFG CHARGING!' : hold === 9 ? '  BERSERK!' : hold === 10 ? '  SHOTGUN!' : hold === 11 ? '  GRAPPLE HOOK!' : hold === 12 ? '  PLASMA GRENADES!' : hold === 13 ? '  ENERGY SWORD!' : fury ? (ENEMIES[k].doomBoss ? '  BERSERK!' : '  RAGE! · ALL INCOME HALVED') : '') + (bosses.length > 1 ? `  ×${bosses.length}` : '');
     $('#bbHp').textContent = `${Math.max(0, hp)} HP` + (sh > 0 ? ` + ${sh} shield` : '');
     $('#bbFill').style.width = Math.max(0, hp)/m*100 + '%';
     $('#bbShield').style.width = (shm ? sh/shm*100 : 0) + '%';
@@ -2591,6 +2774,10 @@ const SFX = {
   sgun:   every(100, () => { tone(170, 40, .22, 'sawtooth', .12); tone(2400, 300, .08, 'square', .05); }),
   hook:   () => { tone(260, 1300, .5, 'sawtooth', .05); tone(2200, 1900, .06, 'square', .06, .58); },
   rip:    () => { tone(95, 28, .55, 'sawtooth', .14); tone(420, 70, .35, 'square', .06, .05); },
+  pgren:  () => { tone(600, 1400, .25, 'sine', .06); tone(2200, 2000, .05, 'square', .04, .3); },
+  pblast: every(90, () => { tone(900, 120, .4, 'sawtooth', .08); tone(140, 50, .35, 'square', .08); }),
+  sword:  () => { tone(1800, 600, .25, 'sawtooth', .08); tone(400, 1200, .2, 'sine', .06, .05); },
+  shieldup: () => [400, 600, 800, 1000].forEach((f, i) => tone(f, f*1.05, .12, 'sine', .05, i*.08)),
   crunch: () => [0, .13, .26, .4, .55, .7].forEach(d => tone(150 + Math.random()*120, 35, .1, 'square', .13, d)),
   win:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, .18, 'triangle', .1, i*.13)),
   lose:   () => trombone(),
