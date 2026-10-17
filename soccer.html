@@ -118,9 +118,21 @@ details summary{color:var(--gold)}
 .gearbg.a{width:260px;height:260px;right:-90px;top:-80px}.gearbg.b{width:180px;height:180px;left:-70px;bottom:-60px;animation-direction:reverse;animation-duration:28s}
 @keyframes spin{to{transform:rotate(360deg)}}
 #endbox{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:420px;margin:0 auto;text-align:center}
+
+/* on-screen PIN pad (instead of the browser's prompt box) */
+#pinPad{position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+#pinPad .pp{background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:16px;padding:18px;width:min(320px,100%);text-align:center;font:15px/1.4 system-ui,-apple-system,sans-serif}
+#pinPad .pt{font-weight:700;font-size:17px;margin-bottom:4px}#pinPad .ps{font-size:13px;color:#8b949e;margin-bottom:10px;white-space:pre-line}
+#pinPad .pd{font:700 28px ui-monospace,monospace;letter-spacing:10px;min-height:40px;margin:6px 0 12px}
+#pinPad .pk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#pinPad button{font:600 22px system-ui,sans-serif;padding:12px 0;border-radius:12px;border:1px solid #30363d;background:#21262d;color:#e6edf3}
+#pinPad .pa{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}#pinPad .pa button{font-size:16px}
+#pinPad .ok{background:#58a6ff;color:#04121f;border-color:transparent}
 </style>
 </head>
 <body>
+<div id="pinPad" hidden><div class="pp"><div class="pt"></div><div class="ps"></div><div class="pd"></div><div class="pk"></div><div class="pa"><button class="no">Cancel</button><button class="ok">OK</button></div></div></div>
+
 <svg class="gearbg a" viewBox="-50 -50 100 100" aria-hidden="true"><g fill="#d4a537"><path id="gearpath" d="M-6-48h12l2 10 7 3 9-6 8 8-6 9 3 7 10 2v12l-10 2-3 7 6 9-8 8-9-6-7 3-2 10h-12l-2-10-7-3-9 6-8-8 6-9-3-7-10-2v-12l10-2 3-7-6-9 8-8 9 6 7-3z"/></g><circle r="14" fill="#1a120b"/></svg>
 <svg class="gearbg b" viewBox="-50 -50 100 100" aria-hidden="true"><use href="#gearpath" fill="#b87333"/><circle r="14" fill="#1a120b"/></svg>
 
@@ -2235,21 +2247,47 @@ function startLocal(kind) {
   game = newMatch(players, 180); info = matchInfo(game);
   runSim(); startView();
 }
+// On-screen PIN pad and yes/no box: askPin(title, sub) and askYes(text) return promises (null / false on Cancel).
+// Used instead of prompt()/confirm(), which some phone web views block or freeze on.
+function askPin(title, sub = '') {
+  return new Promise(done => {
+    const box = document.getElementById('pinPad'), dots = box.querySelector('.pd'), keys = box.querySelector('.pk');
+    let v = ''; const show = () => { dots.textContent = v ? '•'.repeat(v.length) : '—'; };
+    box.querySelector('.pt').textContent = title; box.querySelector('.ps').textContent = sub; keys.hidden = false; dots.hidden = false;
+    keys.innerHTML = ''; ['1','2','3','4','5','6','7','8','9','⌫','0','✓'].forEach(k => { const b = document.createElement('button'); b.textContent = k; keys.appendChild(b);
+      b.onclick = () => { if (k === '⌫') v = v.slice(0, -1); else if (k === '✓') return end(v || null); else if (v.length < 8) v += k; show(); }; });
+    const end = r => { box.hidden = true; document.removeEventListener('keydown', kb); done(r); };
+    const kb = e => { if (/^\d$/.test(e.key) && v.length < 8) { v += e.key; show(); } else if (e.key === 'Backspace') { v = v.slice(0, -1); show(); } else if (e.key === 'Enter') end(v || null); else if (e.key === 'Escape') end(null); };
+    document.addEventListener('keydown', kb);
+    box.querySelector('.ok').textContent = 'OK'; box.querySelector('.ok').onclick = () => end(v || null); box.querySelector('.no').onclick = () => end(null);
+    show(); box.hidden = false;
+  });
+}
+function askYes(text) {
+  return new Promise(done => {
+    const box = document.getElementById('pinPad');
+    box.querySelector('.pt').textContent = text.split('\n')[0]; box.querySelector('.ps').textContent = text.split('\n').slice(1).join('\n').trim();
+    box.querySelector('.pk').hidden = true; box.querySelector('.pd').hidden = true;
+    const end = r => { box.hidden = true; done(r); };
+    box.querySelector('.ok').textContent = 'Yes'; box.querySelector('.ok').onclick = () => end(true); box.querySelector('.no').onclick = () => end(false);
+    box.hidden = false;
+  });
+}
 function showAge() { document.querySelectorAll('.ageSeg button').forEach(b => b.classList.toggle('sel', b.dataset.age === AGE)); }
 function setAge(a) { AGE = a; try { localStorage.setItem('ps_age', a); } catch (e) {} showAge(); }
-document.querySelectorAll('.ageSeg button').forEach(b => b.onclick = () => {
+document.querySelectorAll('.ageSeg button').forEach(b => b.onclick = async () => {
   if (b.dataset.age === 'kids') return setAge('kids');
   if (AGE === 'adult') return;
   let pin = null; try { pin = localStorage.getItem('ps_pin'); } catch (e) {}
   if (!pin) {
-    if (!confirm('18+ mode: bikini cheerleaders and a beer chug in the goal movies.\n\nSet a 4-digit parent PIN so kids can\'t switch it on?')) return;
-    const p1 = prompt('Choose a 4-digit parent PIN:'); if (!p1) return;
+    if (!(await askYes('🔞 18+ mode\nBikini cheerleaders and a beer chug in the goal movies.\n\nSet a 4-digit parent PIN so kids can\'t switch it on?'))) return;
+    const p1 = await askPin('Choose a 4-digit parent PIN'); if (!p1) return;
     if (!/^\d{4}$/.test(p1)) return toast('The PIN must be 4 digits');
-    if (prompt('Type the PIN again:') !== p1) return toast("The PINs didn't match");
+    if (await askPin('Type the PIN again') !== p1) return toast("The PINs didn't match");
     try { localStorage.setItem('ps_pin', p1); } catch (e) {}
     return setAge('adult');
   }
-  const p = prompt('Parent PIN for 18+ mode:'); if (p === null) return;
+  const p = await askPin('🔞 Parent PIN for 18+ mode'); if (p === null) return;
   if (p === pin) setAge('adult'); else toast('Wrong PIN');
 });
 showAge();
