@@ -367,7 +367,7 @@ function cleanSpec(s) {
 }
 // Support towers don't attack: the Reviver brings destroyed towers back, the DJ buffs towers near it.
 const SUPPORT_COST = {revive:250, dj:300};
-const REVIVE = {every:5, max:3};
+const REVIVE = {every:5, max:3, window:3};   // a destroyed tower can only be revived for 3s
 // DJ buff by DJ level: extra range, damage and fire speed for attacking towers in its range.
 const DJ_BUFF = [null, {range:.2, dmg:.05, rate:.1}, {range:.3, dmg:.08, rate:.15}, {range:.4, dmg:.11, rate:.2}, {range:.5, dmg:.15, rate:.25}];
 function stats(s) {
@@ -530,7 +530,8 @@ function step(g, dt) {
     }
   }
   g.enemies.push(...summons);
-  for (const t of g.towers) if (t.dead) g.graves.push({id:t.id, x:t.x, y:t.y, spec:t.spec, lvl:t.lvl, spent:t.spent});
+  g.graves = g.graves.filter(gr => (gr.ttl -= dt) > 0);
+  for (const t of g.towers) if (t.dead) g.graves.push({id:t.id, x:t.x, y:t.y, spec:t.spec, lvl:t.lvl, spent:t.spent, ttl:REVIVE.window});
   g.towers = g.towers.filter(t => !t.dead);
   for (const e of g.enemies) {
     const heal = ENEMIES[e.k].heal;
@@ -582,6 +583,7 @@ function step(g, dt) {
     }
     if (!best) { t.cd = 0; continue; }
     t.cd = 1 / t.eff.rate;
+    t.face = best.x >= cx ? 1 : -1;
     hit(g, t, best);
   }
   g.enemies = g.enemies.filter(e => {
@@ -658,8 +660,8 @@ function snap(g) {
     mp:g.map, t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g), hm:incomeMult(g) < 1,
     w:g.winner, wv:g.wave, wt:r2(Math.max(0, g.waveT)), wl:g.wq.length, cl:Object.fromEntries(Object.entries(g.cool).map(([k, v]) => [k, r2(v)])), q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
-    gv:g.graves.map(gr => [gr.x, gr.y, gr.spec.col]),
-    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:r2((t.eff || t.st).range), dmg:Math.round((t.eff || t.st).dmg), bf:t.buff || 0, cdl:t.spec.role === 'revive' ? r2(Math.max(0, t.cd)) : 0, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, mc:t.mc > 0 ? 1 : 0, hits:t.stuns || 0})),
+    gv:g.graves.map(gr => [gr.x, gr.y, gr.spec.col, r2(gr.ttl)]),
+    tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:r2((t.eff || t.st).range), dmg:Math.round((t.eff || t.st).dmg), bf:t.buff || 0, cdl:t.spec.role === 'revive' ? r2(Math.max(0, t.cd)) : 0, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, mc:t.mc > 0 ? 1 : 0, fc:t.face || 1, hits:t.stuns || 0})),
     em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0, e.face, e.hold > 0 ? e.holdK : 0]),
     sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : 0, r2(s.ttl), s.id]),
   };
@@ -708,8 +710,9 @@ function renderDesigns() {
   designs().forEach((d, i) => {
     const st = stats(d), b = document.createElement('button');
     b.className = 'card' + (i === selDesign ? ' sel' : '');
-    b.innerHTML = `<div class="nm"><span class="sw" style="background:${d.col}"></span>${esc(d.name)} ${SP_ICON[d.sp]}${d.det ? '📡' : ''}</div>
+    b.innerHTML = `<div class="nm"><canvas width="64" height="64" style="width:32px;height:32px;margin:-6px 0 -6px -4px"></canvas>${esc(d.name)} ${SP_ICON[d.sp]}${d.det ? '📡' : ''}</div>
       <div class="meta">${d.role === 'revive' ? `Revives ${REVIVE.max} towers / ${REVIVE.every}s · RNG ${st.range}` : d.role === 'dj' ? `Buffs nearby towers · RNG ${st.range}` : `DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s`}</div><div class="cost">💰 ${st.cost}</div>`;
+    { const c = b.querySelector('canvas').getContext('2d'); c.scale(2, 2); drawSoldier(c, 16, 17, 26, d, 1); }
     b.onclick = () => { selDesign = i; selTower = null; renderDesigns(); };
     if (i >= PRESETS.length) {
       const x = document.createElement('button'); x.className = 'del'; x.textContent = '×'; x.title = 'Delete design';
@@ -799,14 +802,16 @@ addEventListener('resize', resize);
 
 function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 
-function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1, hits = 0, mc = 0, buffed = 0) {
+function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1, hits = 0, mc = 0, buffed = 0, face = 1) {
   const p = TS*.12;
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = '#0d1117'; rrect(x*TS+p, y*TS+p, TS-2*p, TS-2*p, TS*.18); ctx.fill();
+  // sandbag pit in the tower's colour, with the soldier standing in it
+  ctx.fillStyle = '#5a4a32'; rrect(x*TS+p, y*TS+p, TS-2*p, TS-2*p, TS*.2); ctx.fill();
   ctx.strokeStyle = spec.col; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#8a7650';
+  for (const [bx, by] of [[.22,.8], [.42,.84], [.62,.84], [.8,.8]]) { ctx.beginPath(); ctx.ellipse((x+bx)*TS, (y+by)*TS, TS*.1, TS*.055, 0, 0, 7); ctx.fill(); }
+  drawSoldier(ctx, (x+.5)*TS, (y+.47)*TS, TS*.88, spec, face);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  if (spec.role === 'revive' || spec.role === 'dj') { ctx.font = `${TS*.48}px sans-serif`; ctx.fillText(spec.role === 'dj' ? '🎧' : '💚', (x+.5)*TS, (y+.52)*TS); }
-  else { ctx.fillStyle = spec.col; ctx.beginPath(); ctx.arc((x+.5)*TS, (y+.5)*TS, TS*(.14 + spec.d*.03), 0, 7); ctx.fill(); }
   ctx.fillStyle = '#fff'; ctx.font = `${TS*.28}px sans-serif`;
   if (buffed) { ctx.font = `bold ${TS*.42}px sans-serif`; ctx.fillStyle = '#ff7bd5'; ctx.fillText('♪', (x+.82)*TS, (y+.76)*TS); ctx.fillStyle = '#fff'; ctx.font = `${TS*.28}px sans-serif`; }
   if (spec.sp !== 'none') ctx.fillText(SP_ICON[spec.sp], (x+.78)*TS, (y+.24)*TS);
@@ -829,6 +834,45 @@ function drawTower(x, y, spec, alpha = 1, stunned = 0, lvl = 1, hits = 0, mc = 0
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
+}
+
+// Towers are blocky soldiers; the weapon shows what the tower does. (cx, cy) centre, s height in px.
+function drawSoldier(c, cx, cy, s, spec, face = 1) {
+  c.save(); c.translate(cx, cy); c.scale(face, 1);
+  const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
+  const role = spec.role || 'attack', sniper = spec.det && role === 'attack';
+  const uni = role === 'revive' ? '#d0d7de' : '#4b5d3a', dark = role === 'revive' ? '#8b949e' : '#2f3b27';
+  if (role === 'dj') {   // boombox at his feet
+    R(-.5, .18, .36, .24, '#1b1f23'); c.fillStyle = spec.col;
+    c.beginPath(); c.arc(-.41*s, .3*s, .06*s, 0, 7); c.fill(); c.beginPath(); c.arc(-.23*s, .3*s, .06*s, 0, 7); c.fill();
+  }
+  R(-.16, .12, .13, .32, dark); R(.03, .12, .13, .32, dark);   // legs
+  R(-.21, -.2, .42, .34, uni);                                 // body
+  if (role !== 'revive') { R(-.17, -.16, .08, .08, '#33402a'); R(.06, -.06, .09, .07, '#5c6e48'); }   // camo patches
+  R(-.21, -.04, .42, .06, spec.col);                           // belt in the tower's colour
+  R(-.13, -.46, .26, .25, '#f5cd30');                          // head
+  R(.03, -.38, .06, .05, '#111');                              // eye
+  if (role === 'revive') {          // medic: white helmet with a red cross, medkit
+    R(-.16, -.53, .32, .11, '#fff'); R(-.03, -.53, .06, .11, '#e5534b'); R(-.08, -.5, .16, .05, '#e5534b');
+    R(.16, -.1, .22, .17, '#fff'); R(.24, -.08, .06, .13, '#e5534b'); R(.2, -.04, .14, .05, '#e5534b');
+  } else if (role === 'dj') {       // headphones
+    R(-.16, -.53, .32, .06, '#111'); R(-.19, -.46, .07, .14, spec.col); R(.12, -.46, .07, .14, spec.col);
+  } else {                          // combat helmet with a stripe in the tower's colour
+    R(-.17, -.54, .34, .12, dark); R(-.17, -.45, .34, .03, spec.col);
+  }
+  if (role === 'attack') {
+    if (spec.sp === 'splash') {      // rocket launcher on the shoulder
+      R(-.32, -.36, .8, .13, '#2d333b'); R(.44, -.39, .08, .19, '#ffa657'); R(-.36, -.38, .06, .17, '#1b1f23');
+    } else if (spec.sp === 'slow') { // frost gun with an ice tank on his back
+      R(-.33, -.2, .12, .28, '#79c0ff'); R(.1, -.12, .34, .12, '#a5d6ff'); R(.42, -.1, .06, .08, '#e6f6ff');
+    } else if (sniper) {             // long rifle with a scope
+      R(.05, -.12, .58, .05, '#1b1f23'); R(.2, -.18, .15, .05, '#30363d'); R(.58, -.13, .04, .07, '#1b1f23');
+    } else {                         // assault rifle
+      R(.08, -.11, .38, .07, '#1b1f23'); R(.18, -.05, .05, .09, '#1b1f23');
+    }
+  }
+  R(.04, -.15, .16, .08, uni);       // arm holding the weapon
+  c.restore();
 }
 
 // Blocky, Roblox-style models drawn with rectangles. (x, y) is the centre, s the model height in px,
@@ -953,12 +997,15 @@ function draw(v) {
   }
   if (!v) return;
 
-  for (const [gx, gy, col] of v.gv || []) {   // ghosts of destroyed towers, waiting for a Reviver
-    ctx.globalAlpha = .35; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+  for (const [gx, gy, col, ttl] of v.gv || []) {   // ghosts of destroyed towers, fading over 3s
+    const left = ttl / REVIVE.window;
+    ctx.beginPath(); ctx.moveTo((gx+.5)*TS, (gy+.5)*TS); ctx.arc((gx+.5)*TS, (gy+.5)*TS, TS*.42, -Math.PI/2, -Math.PI/2 + left*Math.PI*2);
+    ctx.fillStyle = 'rgba(63,185,80,.18)'; ctx.fill();
+    ctx.globalAlpha = .15 + .35*left; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
     rrect(gx*TS + TS*.12, gy*TS + TS*.12, TS*.76, TS*.76, TS*.18); ctx.stroke(); ctx.setLineDash([]);
     ctx.font = `${TS*.4}px sans-serif`; ctx.fillText('💀', (gx+.5)*TS, (gy+.5)*TS); ctx.globalAlpha = 1;
   }
-  for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun, t.lvl, t.hits, t.mc, t.bf);
+  for (const t of v.tw) drawTower(t.x, t.y, t.spec, 1, t.stun, t.lvl, t.hits, t.mc, t.bf, t.fc);
   const sel = v.tw.find(t => t.id === selTower);
   if (sel) {
     const pulse = .5 + .5*Math.sin(performance.now()/250);
@@ -1223,14 +1270,6 @@ let noiseBuf = null, distCurve = null;
 let music = null;   // {track, out, amp, timer, src}
 
 // --- instruments (all synthesised; everything plays into the current track's output) ---
-function synth(m, t, midi, dur, type, vol, cutoff, glideTo) {
-  const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
-  o.type = type; o.frequency.setValueAtTime(mtof(midi), t);
-  if (glideTo) o.frequency.linearRampToValueAtTime(mtof(glideTo), t + dur);
-  f.type = 'lowpass'; f.frequency.value = cutoff;
-  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  o.connect(f).connect(g).connect(m.out); o.start(t); o.stop(t + dur + .02);
-}
 // Power chord (root, fifth, octave) of detuned saws through the distortion "amp".
 // Plucked-string tones (Karplus-Strong): a burst of noise fed round a short delay loop, which
 // rings like a real string. Built once per note and reused. Palm-muted notes die away quickly.
@@ -1317,51 +1356,59 @@ function drum(m, kind, t, vol = 1) {
 }
 
 // --- tracks: 32 sixteenth-note steps each, looped ---
-const CHORDS = [[40, [64,67,71]], [36, [60,64,67]], [38, [62,66,69]], [35, [59,63,66]]];   // Em C D B
 const RIFF1 = [40,40,40,0, 40,40,43,0, 40,40,40,0, 45,0,44,0, 40,40,40,0, 40,40,46,0, 45,0,43,0, 41,0,40,0];
 const RIFF4 = [45,45,45,45, 45,45,48,0, 50,0,48,45, 45,45,43,0, 45,45,45,45, 45,45,48,0, 52,0,50,0, 48,0,47,0];
 const HOOK = {16:76, 18:79, 20:81, 22:79, 24:84, 26:81};
 const RIFF2 = [38,38,0,38, 38,0,44,0, 38,38,0,38, 43,42,41,40, 38,38,0,38, 38,0,44,0, 50,0,49,0, 48,0,47,46];
+// Half-time breakdown used by the boss themes every 4th loop: huge open chugs, crashes, slow snare.
+function breakdown(m, i, t, S, root) {
+  if (i % 4 === 0 || i % 8 === 3) { guitar(m, t, root, i % 4 === 0 ? S*2.6 : S*.6, .24, i % 4 === 0); bassNote(m, t, root - 12, S*2, .4); drum(m, 'kick', t); }
+  if (i % 16 === 8) drum(m, 'snare', t, 1.1);
+  if (i % 8 === 0) drum(m, 'crash', t, .9);
+}
+const RIFFB = [40,0,40,40, 0,40,0,40, 43,0,0,43, 0,45,0,0, 40,0,40,40, 0,40,0,40, 38,0,0,38, 0,41,0,40];
 const TRACKS = {
-  // Normal play: a lighter, bouncy adventure loop.
-  battle: {bpm:124, vol:.75, step(m, i, t, S) {
-    const [root, chord] = CHORDS[i >> 3];
-    if (i % 4 === 0) synth(m, t, root, S*2.5, 'triangle', .2, 900);
-    if (i % 4 === 2) synth(m, t, root + 12, S*1.5, 'triangle', .12, 900);
-    if (i % 2 === 0) synth(m, t, chord[(i >> 1) % 3] + 12, S*1.4, 'square', .03, 2600);
-    if (i % 8 === 0) drum(m, 'kick', t, .7);
-    if (i % 8 === 4) drum(m, 'snare', t, .5);
-    if (i % 2 === 1) drum(m, 'hat', t, .8);
+  // Normal play: a heavy mid-tempo metal groove (galloping chugs, kick locked to the guitar).
+  battle: {bpm:140, vol:.42, step(m, i, t, S, loop) {
+    const n = RIFFB[i];
+    if (n) { const open = n !== 40; guitar(m, t, n, open ? S*1.6 : S*.55, open ? .17 : .14, open); bassNote(m, t, n - 12, S*.8, .3); }
+    if (n === 40 || i % 8 === 0) drum(m, 'kick', t, .85);
+    if (i % 8 === 4) drum(m, 'snare', t, .9);
+    if (i % 2 === 0) drum(m, 'hat', t, .9);
+    if (i === 0 && loop % 2 === 0) drum(m, 'crash', t, .7);
   }},
-  // Eradicator: chugging palm-muted metal riff with double kicks.
-  erad: {bpm:168, vol:.45, step(m, i, t, S) {
-    const n = RIFF1[i];
-    if (n) { const open = n !== 40; guitar(m, t, n, open ? S*1.8 : S*.7, open ? .22 : .17, open); bassNote(m, t, n - 12, S*.9, .35); }
-    if (i % 2 === 0 || [14, 15, 30, 31].includes(i)) drum(m, 'kick', t);
-    if (i % 8 === 4) drum(m, 'snare', t);
+  // Eradicator: drop-tuned chugging riff over non-stop double-kick, breakdown every 4th loop.
+  erad: {bpm:190, vol:.45, step(m, i, t, S, loop) {
+    if (loop % 4 === 3) return breakdown(m, i, t, S, 38);
+    const n = RIFF1[i] && RIFF1[i] - 2;
+    if (n) { const open = n !== 38; guitar(m, t, n, open ? S*1.8 : S*.6, open ? .23 : .18, open); bassNote(m, t, n - 12, S*.9, .38); }
+    drum(m, 'kick', t, .75);
+    if (i % 8 === 4) drum(m, 'snare', t, 1.1);
     if (i % 2 === 1) drum(m, 'hat', t);
-    if (i === 0) drum(m, 'crash', t);
+    if (i % 8 === 0) drum(m, 'crash', t, .7);
   }},
-  // MK II: faster, lower and darker, with blast-beat drums and a screaming lead.
-  erad2: {bpm:186, vol:.42, step(m, i, t, S) {
-    const n = RIFF2[i];
-    if (n) { const open = n !== 38; guitar(m, t, n, open ? S*1.6 : S*.6, open ? .22 : .18, open); bassNote(m, t, n - 12, S*.8, .35); }
-    drum(m, 'kick', t, .85);
-    if (i % 4 === 2) drum(m, 'snare', t);
-    if (i % 16 === 0) drum(m, 'crash', t);
-    if (i === 0) lead(m, t, 74, S*7, .09);
-    if (i === 16) lead(m, t, 73, S*7, .09);
+  // MK II: faster blast beats (kick every 16th, snare every other), screaming leads, breakdown.
+  erad2: {bpm:205, vol:.42, step(m, i, t, S, loop) {
+    if (loop % 4 === 3) return breakdown(m, i, t, S, 36);
+    const n = RIFF2[i] && RIFF2[i] - 2;
+    if (n) { const open = n !== 36; guitar(m, t, n, open ? S*1.6 : S*.55, open ? .23 : .19, open); bassNote(m, t, n - 12, S*.8, .38); }
+    drum(m, 'kick', t, .8);
+    if (i % 2 === 1) drum(m, 'snare', t, .7);
+    if (i % 4 === 0) drum(m, 'crash', t, .55);
+    if (i === 0) lead(m, t, 72, S*7, .1);
+    if (i === 16) lead(m, t, 71, S*7, .1);
   }},
-  // The Void: "Full Throttle", an original fast 80s-metal track: motorbike rev intro, racing
-  // palm-muted chugs and a bright guitar hook.
-  void: {bpm:178, vol:.45, introLen:2.6, intro(m, t) { rev(m, t); }, step(m, i, t, S) {
+  // The Void: "Full Throttle", an original fast metal track: motorbike rev intro, racing
+  // palm-muted chugs over double-kick, a bright guitar hook, breakdown every 4th loop.
+  void: {bpm:196, vol:.45, introLen:2.6, intro(m, t) { rev(m, t); }, step(m, i, t, S, loop) {
+    if (loop % 4 === 3) return breakdown(m, i, t, S, 40);
     const n = RIFF4[i];
-    if (n) { const open = n !== 45; guitar(m, t, n, open ? S*1.7 : S*.6, open ? .22 : .17, open); bassNote(m, t, n - 12, S*.9, .35); }
-    if (i % 4 === 0 || i % 8 === 6) drum(m, 'kick', t);
-    if (i % 8 === 4) drum(m, 'snare', t);
+    if (n) { const open = n !== 45; guitar(m, t, n, open ? S*1.7 : S*.6, open ? .23 : .18, open); bassNote(m, t, n - 12, S*.9, .38); }
+    drum(m, 'kick', t, .75);
+    if (i % 8 === 4) drum(m, 'snare', t, 1.1);
     if (i % 2 === 1) drum(m, 'hat', t, 1.2);
-    if (i % 16 === 0) drum(m, 'crash', t, .9);
-    const h = HOOK[i]; if (h) leadNote(m, t, h, S*1.9, .09);
+    if (i % 8 === 0) drum(m, 'crash', t, .7);
+    const h = HOOK[i]; if (h) leadNote(m, t, h, S*1.9, .1);
   }},
 };
 
@@ -1377,7 +1424,7 @@ function startMusic(track) {
     noiseBuf = AC.createBuffer(1, AC.sampleRate*1.2, AC.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
     distCurve = new Float32Array(2048);
-    for (let i = 0; i < 2048; i++) { const x = i*2/2048 - 1; distCurve[i] = Math.tanh(x * 4); }
+    for (let i = 0; i < 2048; i++) { const x = i*2/2048 - 1; distCurve[i] = Math.tanh(x * 5); }
   }
   const T = TRACKS[track], out = AC.createGain();
   out.gain.setValueAtTime(0, AC.currentTime); out.gain.linearRampToValueAtTime(T.vol, AC.currentTime + 1);
@@ -1386,7 +1433,7 @@ function startMusic(track) {
   out.connect(limit).connect(AC.destination);
   // Guitar rig: drive -> saturation -> cabinet tone shaping -> speaker-cabinet impulse.
   const drive = AC.createGain(), shaper = AC.createWaveShaper(), cab = AC.createConvolver();
-  drive.gain.value = 6; shaper.curve = distCurve; shaper.oversample = '4x';
+  drive.gain.value = 10; shaper.curve = distCurve; shaper.oversample = '4x';
   const eq = [['highpass', 90, 0], ['peaking', 650, -5], ['peaking', 2400, 4], ['lowpass', 5200, 0]].map(([type, f, gain]) => {
     const b = AC.createBiquadFilter(); b.type = type; b.frequency.value = f; if (gain) b.gain.value = gain; return b; });
   cab.buffer = impulse(.05, .006);
@@ -1398,7 +1445,7 @@ function startMusic(track) {
     const S = 60/T.bpm/4; let step = 0, next = AC.currentTime + .05;
     if (T.intro) { T.intro(m, next); next += T.introLen; }
     m.timer = setInterval(() => {
-      while (next < AC.currentTime + .2) { T.step(m, step % 32, next, S); next += S; step++; }
+      while (next < AC.currentTime + .2) { T.step(m, step % 32, next, S, Math.floor(step / 32)); next += S; step++; }
     }, 50);
   };
   // A song picked from the phone replaces that boss's theme.
