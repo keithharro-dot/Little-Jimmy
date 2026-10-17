@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Battlefield in AR</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<style>
+/* Single dark theme, matching the games. */
+:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--panel2:#21262d;--line:#30363d;--text:#e6edf3;--muted:#8b949e;--olive:#7d9450;--pink:#ff2bd6;--red:#ff4a3a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom))}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+h1 span{color:var(--pink)}
+header a{color:var(--muted);font-size:14px}
+.sizes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.sizes button{font:600 15px system-ui,sans-serif;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 8px;cursor:pointer}
+.sizes button small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.sizes button[aria-pressed="true"]{border-color:var(--olive);box-shadow:inset 0 0 0 1px var(--olive)}
+model-viewer{flex:1;min-height:300px;width:100%;margin:10px 0;border-radius:14px;background:radial-gradient(circle at 50% 40%,#2a313b,#10141a 75%);--poster-color:transparent}
+#arBtn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);border:0;border-radius:999px;padding:14px 22px;font:600 17px system-ui,sans-serif;
+  background:var(--olive);color:#0d1117;box-shadow:0 6px 20px rgba(0,0,0,.45);white-space:nowrap}
+#arBtn:active{transform:translateX(-50%) scale(.97)}
+.help{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px}
+.help p{margin:0 0 6px}.help p:last-child{margin:0}
+.help ol{margin:4px 0 8px;padding-left:20px}.help li{margin:2px 0}
+.muted{color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <h1>The <span>Battlefield</span></h1>
+  <a href="tower-defence.html">Play Tower Defence →</a>
+</header>
+
+<div class="sizes" role="group" aria-label="Size">
+  <button id="bigBtn" aria-pressed="true">🏟 Life size<small>93 × 65 m, for an oval</small></button>
+  <button id="miniBtn" aria-pressed="false">🛋 Table size<small>2 × 1.3 m, for the lounge</small></button>
+</div>
+
+<model-viewer id="mv" src="models/battlefield.glb" ios-src="models/battlefield.usdz"
+  alt="A Tower Defence battle frozen mid-fight: launchers firing death rays and missiles at the Eradicators, the Void and a zombie horde"
+  ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="fixed"
+  camera-controls touch-action="pan-y" auto-rotate auto-rotate-delay="2000" rotation-per-second="10deg"
+  camera-orbit="-20deg 62deg auto" shadow-intensity="1" exposure="1.15" environment-image="neutral">
+  <button slot="ar-button" id="arBtn">📱 Walk the battlefield</button>
+</model-viewer>
+
+<div class="help">
+  <div id="bigHelp">
+    <p><b>On the oval:</b></p>
+    <ol>
+      <li>Stand in the middle of the oval and tap <b>Walk the battlefield</b>.</li>
+      <li>Point the phone at the grass and sweep it slowly until the battle appears around you, life size. The zombies are about twice your height, and the MK II towers like a three-storey building.</li>
+      <li>Walk! The death rays run towards the castle end; the gravestone where the zombies rise is at the other end.</li>
+    </ol>
+    <p class="muted">Best on a bright day with the grass in view. Walk at a steady pace and keep the phone up so it keeps its place. If the battle drifts or jumps, close it and place it again. And keep an eye out for real goalposts and people while you're looking through the phone.</p>
+  </div>
+  <div id="miniHelp" hidden>
+    <p><b>In the lounge room:</b> tap <b>View in your room</b>, point at the floor and move the phone slowly until the battle appears. Lean right in to see the troops, missiles and explosions up close.</p>
+  </div>
+  <p id="noAR" hidden class="muted">This screen can't do AR. Open this page on an iPhone, iPad or Android phone. You can still spin and zoom the battle here.</p>
+</div>
+
+<script>
+const mv = document.getElementById('mv'), big = document.getElementById('bigBtn'), mini = document.getElementById('miniBtn');
+function pick(life) {
+  big.setAttribute('aria-pressed', life); mini.setAttribute('aria-pressed', !life);
+  mv.src = life ? 'models/battlefield.glb' : 'models/battlefield-mini.glb';
+  mv.iosSrc = life ? 'models/battlefield.usdz' : 'models/battlefield-mini.usdz';
+  mv.arScale = life ? 'fixed' : 'auto';   // life size can't be pinched smaller by accident while you walk
+  document.getElementById('arBtn').textContent = life ? '📱 Walk the battlefield' : '📱 View in your room';
+  document.getElementById('bigHelp').hidden = !life; document.getElementById('miniHelp').hidden = life;
+}
+big.onclick = () => pick(true); mini.onclick = () => pick(false);
+// model-viewer hides the AR button by itself when the device can't do AR; also explain why.
+mv.addEventListener('load', () => { document.getElementById('noAR').hidden = mv.canActivateAR; });
+</script>
+</body>
+</html>
