@@ -73,6 +73,7 @@ body.tv #lobby,body.tv #tv,body.tv #records{zoom:1.35}
 #hud .sc{font:800 22px system-ui;background:#000a;border-radius:12px;padding:4px 12px;display:flex;gap:10px;align-items:center}
 #hud .b{color:#93c5fd}#hud .r{color:#fca5a5}
 #hud .clock{font:700 15px ui-monospace,monospace;background:#000a;border-radius:10px;padding:5px 10px}
+#jbSheet{--jb-bg:#2a1c10;--jb-panel:#3a2716;--jb-text:#f3e6c8;--jb-accent:#d4a537}   /* music picker in steampunk colours */
 .nowplaying{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 12px}.nowplaying img{width:40px;height:40px;border-radius:6px;flex:none;border:2px solid #b87333}.nowplaying span:nth-child(2){flex:1;font-size:13px}#musicState{font-size:12px;opacity:.8}
 #gameMusic{position:absolute;top:calc(6px + env(safe-area-inset-top));left:calc(8px + env(safe-area-inset-left));width:38px;height:38px;padding:0;border-radius:50%;z-index:5;background:var(--brass);border:2px solid #6b4513}
 #quit{position:absolute;top:calc(6px + env(safe-area-inset-top));right:calc(8px + env(safe-area-inset-right));width:38px;height:38px;padding:0;border-radius:50%;background:#000a;z-index:5}
@@ -140,7 +141,7 @@ details summary{color:var(--gold)}
     <button class="big" id="goTV">📺 TV screen</button>
     <div class="card small" id="bigScreenTip" hidden>💻🎮 <b>On a computer or Xbox?</b> Tap <b>Host a match</b> to put the game on this screen — friends scan the QR code with their phones to join. Play with the mouse or an Xbox controller (left stick moves your player, right stick your keeper). Or tap <b>TV screen</b> to just show a match that a phone is hosting.</div>
     <div class="seg chaosSeg"><button data-chaos="1">⚡ Chaos power-ups</button><button data-chaos="0">⚽ Normal soccer</button></div>
-    <button id="musicChip" class="nowplaying"><img src="music/dikshifter-cover.jpg" alt=""><span>🎵 Theme: <b>Dikshifter — The 2nd Take</b></span><span id="musicState">On</span></button>
+    <button id="musicChip" class="nowplaying"><img src="music/covers/dikshifter-the-2nd-take.jpg" alt=""><span>🎵 Music: <b id="songName">Dikshifter — The 2nd Take</b><br><small id="songHint">Tap to pick a song</small></span><span id="musicState">On</span></button>
     <div class="seg gfxSeg"><button data-gfx="3d">🎩 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
   </div>
   <div id="joinBox" class="card stack center" hidden>
@@ -256,6 +257,7 @@ details summary{color:var(--gold)}
 
 <div id="toast" hidden></div>
 
+<script src="music/jukebox.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const toast = msg => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3000); };
@@ -876,14 +878,16 @@ $('#makerUse').onclick = () => { pickImg = null; pickUrl = toonUrl(toon); $('#pi
 let AC = null;
 function unlockAudio() { const first = !AC; if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } } if (AC.state === 'suspended') AC.resume(); if (first) themeForScreen(); }
 addEventListener('pointerdown', unlockAudio); addEventListener('touchend', unlockAudio);
-/* ---------- Theme music: "Dikshifter — The 2nd Take" ---------- */
-// One looping track, routed through Web Audio so it can fade (iPhones ignore audio.volume). It starts on the first tap.
+/* ---------- Theme music: the owner's own songs, picked from the shared jukebox (music/jukebox.js) ---------- */
+// One track at a time, routed through Web Audio so it can fade (iPhones ignore audio.volume). It starts on the first tap.
+// Without the jukebox (the in-app copy can't load it) it stays on "Dikshifter — The 2nd Take".
 const THEME = {url:'music/dikshifter-the-2nd-take.mp3', el:null, gain:null, want:0, failed:false};
 function themeTo(vol) {
   THEME.want = vol;
   if (!AC || THEME.failed) return;
   if (!THEME.el) {
-    const el = THEME.el = new Audio(THEME.url); el.loop = true; el.preload = 'auto';
+    const el = THEME.el = new Audio(THEME.url); el.loop = JB ? JB.loop() : true; el.preload = 'auto';
+    el.addEventListener('ended', () => { if (JB) JB.next(); });   // shuffle moves on to another song
     el.addEventListener('error', () => { THEME.failed = true; });
     try { const src = AC.createMediaElementSource(el); THEME.gain = AC.createGain(); THEME.gain.gain.value = 0; src.connect(THEME.gain).connect(AC.destination); } catch (e) { THEME.gain = null; }
   }
@@ -897,6 +901,19 @@ let musicOn = true; try { musicOn = localStorage.getItem('ps_music') !== '0'; } 
 // Full volume on the menus, quieter under the action during a match.
 function themeForScreen() { themeTo(!musicOn ? 0 : $('#game').hidden ? .55 : .28); $('#musicState').textContent = musicOn ? 'On' : 'Off'; $('#gameMusic').textContent = musicOn ? '🎵' : '🔇'; }
 function toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('ps_music', musicOn ? '1' : '0'); } catch (e) {} themeForScreen(); }
+const JB = window.Jukebox ? Jukebox({change:themeSong, isOn:() => musicOn, setOn:on => { if (on !== musicOn) toggleMusic(); }}) : null;
+function themeSong() {
+  THEME.url = JB.url(); THEME.failed = false; paintChip();
+  if (THEME.el) { THEME.el.loop = JB.loop(); THEME.el.src = THEME.url; }
+  themeTo(THEME.want);
+}
+function paintChip() {
+  if (!JB) { $('#songHint').hidden = true; return; }
+  const img = $('#musicChip img'), c = JB.cover(); img.hidden = !c; if (c) img.src = c;
+  $('#songName').textContent = JB.title();
+}
+if (JB) THEME.url = JB.url();
+paintChip();
 
 function tone(f1, f2, dur, type, vol, delay = 0) {
   if (!AC) return; const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
@@ -1703,7 +1720,7 @@ document.querySelectorAll('.chaosSeg button').forEach(b => b.onclick = () => { C
 showChaos();
 function showGfx() { document.querySelectorAll('.gfxSeg button').forEach(b => b.classList.toggle('sel', b.dataset.gfx === GFX)); }
 document.querySelectorAll('.gfxSeg button').forEach(b => b.onclick = () => { GFX = b.dataset.gfx; try { localStorage.setItem('ps_gfx', GFX); } catch (e) {} showGfx(); if (GFX === '3d') load3D(); });
-$('#musicChip').onclick = toggleMusic; $('#gameMusic').onclick = toggleMusic;
+$('#musicChip').onclick = () => JB ? JB.open() : toggleMusic(); $('#gameMusic').onclick = toggleMusic;
 $('#goPractice').onclick = () => needProfile(() => startLocal('practice'));
 $('#goLocal2').onclick = () => needProfile(() => startLocal('local2'));
 function needProfile(then) { if (!profile.name) openProfile(then); else then(); }

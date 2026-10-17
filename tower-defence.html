@@ -221,7 +221,7 @@ details p,details li{color:var(--muted)}
     <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
     <button id="goLocal">📱 Two players, one phone</button>
     <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
-    <button id="musicChip" class="nowplaying"><img src="music/dikshifter-cover.jpg" alt=""><span>🎵 Theme: <b>Dikshifter — The 2nd Take</b></span><span id="musicState">On</span></button>
+    <button id="musicChip" class="nowplaying"><img src="music/covers/dikshifter-the-2nd-take.jpg" alt=""><span>🎵 Music: <b id="songName">Dikshifter — The 2nd Take</b><br><small id="songHint">Tap to pick a song</small></span><span id="musicState">On</span></button>
     <div class="seg gfxSeg"><button data-gfx="3d">🧊 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
     <div class="small" id="musicRow" style="text-align:center;display:grid;gap:6px"></div>
     <details>
@@ -348,6 +348,7 @@ details p,details li{color:var(--muted)}
   </div>
 </div>
 
+<script src="music/jukebox.js"></script>
 <script>
 // Show any crash on screen so it can be reported, instead of buttons silently doing nothing.
 addEventListener('error', e => {
@@ -2112,14 +2113,16 @@ function unlockAudio() {
   if (AC.state === 'suspended') AC.resume();
   if (first) themeTo(THEME.want);
 }
-/* ---------- Theme music: "Dikshifter — The 2nd Take" ---------- */
-// One looping track, routed through Web Audio so it can fade (iPhones ignore audio.volume). It starts on the first tap.
+/* ---------- Theme music: the owner's own songs, picked from the shared jukebox (music/jukebox.js) ---------- */
+// One track at a time, routed through Web Audio so it can fade (iPhones ignore audio.volume). It starts on the first tap.
+// Without the jukebox (the in-app copy can't load it) it stays on "Dikshifter — The 2nd Take".
 const THEME = {url:'music/dikshifter-the-2nd-take.mp3', el:null, gain:null, want:0, failed:false};
 function themeTo(vol) {
   THEME.want = vol;
   if (!AC || THEME.failed) return;
   if (!THEME.el) {
-    const el = THEME.el = new Audio(THEME.url); el.loop = true; el.preload = 'auto';
+    const el = THEME.el = new Audio(THEME.url); el.loop = JB ? JB.loop() : true; el.preload = 'auto';
+    el.addEventListener('ended', () => { if (JB) JB.next(); });   // shuffle moves on to another song
     el.addEventListener('error', () => { THEME.failed = true; });
     try { const src = AC.createMediaElementSource(el); THEME.gain = AC.createGain(); THEME.gain.gain.value = 0; src.connect(THEME.gain).connect(AC.destination); } catch (e) { THEME.gain = null; }
   }
@@ -2130,6 +2133,19 @@ function themeTo(vol) {
   else setTimeout(() => { if (THEME.want === 0 && THEME.el) THEME.el.pause(); }, 1100);
 }
 const themeVol = v => { if (THEME.want !== v) themeTo(v); };
+const JB = window.Jukebox ? Jukebox({change:themeSong, isOn:() => !muted, setOn:on => setMuted(!on)}) : null;
+function themeSong() {
+  THEME.url = JB.url(); THEME.failed = false; paintChip();
+  if (THEME.el) { THEME.el.loop = JB.loop(); THEME.el.src = THEME.url; }
+  themeTo(THEME.want);
+}
+function paintChip() {
+  if (!JB) { $('#songHint').hidden = true; return; }
+  const img = $('#musicChip img'), c = JB.cover(); img.hidden = !c; if (c) img.src = c;
+  $('#songName').textContent = JB.title();
+}
+if (JB) THEME.url = JB.url();
+paintChip();
 themeVol(muted ? 0 : .5);   // menu music, once the first tap allows sound
 addEventListener('pointerdown', unlockAudio);
 addEventListener('touchend', unlockAudio);
@@ -2198,7 +2214,7 @@ function setMuted(m) {
   if (!game) themeVol(muted ? 0 : .5);
 }
 $('#mute').onclick = () => setMuted(!muted);
-$('#musicChip').onclick = () => setMuted(!muted);
+$('#musicChip').onclick = () => JB ? JB.open() : setMuted(!muted);
 $('#musicState').textContent = muted ? 'Off' : 'On';
 
 /* ---------- Music ---------- */
