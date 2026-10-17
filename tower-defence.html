@@ -55,6 +55,16 @@ details p,details li{color:var(--muted)}
 #hud .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px;white-space:nowrap}
 #hud .role{margin-left:auto;color:var(--muted);font-weight:500}
 #board{position:relative;width:100%;max-width:min(1100px,calc((100dvh - 150px) * 1.6667));min-width:300px;margin:0 auto}
+#bossBar{max-width:min(1100px,calc((100dvh - 150px) * 1.6667));margin:0 auto 6px;background:#1a0d0f;border:1.5px solid #8b2b2b;border-radius:10px;padding:6px 10px 8px}
+#bossBar.rage{border-color:#ff3b30;box-shadow:0 0 12px rgba(255,59,48,.45)}
+.bb-top{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:4px}
+.bb-top b{letter-spacing:.5px;color:#ffd7d3}
+#bossBar.rage .bb-top b{color:#ff6b5e}
+.bb-top span{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bb-track{position:relative;height:10px;background:#3a1010;border-radius:5px;overflow:hidden}
+#bbFill{position:absolute;left:0;bottom:0;height:7px;background:#e5534b;transition:width .15s}
+#bossBar.rage #bbFill{background:#ff3b30}
+#bbShield{position:absolute;left:0;top:0;height:3px;background:#3ee6ff;transition:width .15s}
 #cv{display:block;width:100%;border-radius:10px;touch-action:none;cursor:crosshair}
 #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(13,17,23,.72);border-radius:10px;text-align:center;padding:16px;pointer-events:none}
 #overlay button{pointer-events:auto}
@@ -122,6 +132,12 @@ details p,details li{color:var(--muted)}
     <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
     <button id="goLocal">📱 Two players, one phone</button>
     <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
+    <div class="small" id="musicRow" style="text-align:center">
+      🎵 Boss music: <b id="musicName" style="color:var(--text)">built-in theme</b><br>
+      <label for="bossFile" class="linkbtn" style="display:inline-block;cursor:pointer">Choose a song from this phone</label>
+      <input type="file" id="bossFile" accept="audio/*" style="position:absolute;opacity:0;width:1px;height:1px">
+      <button class="linkbtn" id="musicReset" hidden>Use built-in</button>
+    </div>
     <details>
       <summary>How to play</summary>
       <ul>
@@ -183,6 +199,10 @@ details p,details li{color:var(--muted)}
     <span class="pill">⏱ <span id="hTime">4:00</span></span>
     <span class="role" id="hRole"></span>
     <button id="mute" title="Sound on/off">🔊</button>
+  </div>
+  <div id="bossBar" hidden>
+    <div class="bb-top"><b id="bbName"></b><span id="bbHp"></span></div>
+    <div class="bb-track"><div id="bbShield"></div><div id="bbFill"></div></div>
   </div>
   <div id="board">
     <canvas id="cv"></canvas>
@@ -282,9 +302,9 @@ const ENEMIES = {
   riot:    {name:'Riot Zombie',  hp:80,   shield:110, spd:1.05, cost:35, reward:9, leak:1, r:.3, desc:'Shield soaks hits. ✹ Splash breaks it 2× faster'},
   medic:   {name:'Medic Zombie', hp:95,   spd:1.05, cost:35,  reward:9,  leak:1, r:.3,  heal:10, desc:'Heals zombies around it'},
   brute:   {name:'Brute',        hp:320,  spd:.7,   cost:45,  reward:13, leak:2, r:.38, armor:5, desc:'Armour blocks 5 dmg per hit'},
-  erad:    {name:'Eradicator',   hp:900,  shield:200, spd:.5, cost:1000, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
+  erad:    {name:'Eradicator',   hp:900,  shield:200, spd:.33, cost:1000, reward:35, leak:6, r:.48, armor:5, boss:true, rocket:8,
             desc:'Rocket burst knocks out nearby towers'},
-  erad2:   {name:'Eradicator MK II', hp:1500, shield:350, spd:.45, cost:2000, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
+  erad2:   {name:'Eradicator MK II', hp:1500, shield:350, spd:.29, cost:2000, reward:60, leak:10, r:.54, armor:7, boss:true, rocket:6,
             fury:true, splashRes:.3, desc:'Resists splash 30%. Rages at half HP'},
 };
 const TAGS = E => [E.boss && ['BOSS','#ff4d4d'], E.stealth && ['HIDDEN','#a371f7'], E.fly && ['FLYING','#58a6ff'],
@@ -788,6 +808,18 @@ function hud(v) {
   for (const [k, b] of Object.entries(enemyBtns)) b.disabled = v.st !== 'play' || v.en < ENEMIES[k].cost;
   $('#qInfo').textContent = v.q ? v.q + ' waiting to enter' : '';
 
+  // boss bar for the Eradicator on the map (the first one, if there are two)
+  const bosses = v.em.filter(e => ENEMIES[e[1]].boss);
+  $('#bossBar').hidden = !bosses.length;
+  if (bosses.length) {
+    const [, k, , , hp, m, , sh, shm, fury] = bosses[0];
+    $('#bossBar').classList.toggle('rage', !!fury);
+    $('#bbName').textContent = ENEMIES[k].name.toUpperCase() + (fury ? '  RAGE!' : '') + (bosses.length > 1 ? `  ×${bosses.length}` : '');
+    $('#bbHp').textContent = `${Math.max(0, hp)} HP` + (sh > 0 ? ` + ${sh} shield` : '');
+    $('#bbFill').style.width = Math.max(0, hp)/m*100 + '%';
+    $('#bbShield').style.width = (shm ? sh/shm*100 : 0) + '%';
+  }
+
   const sel = v.tw.find(t => t.id === selTower);
   if (!sel) selTower = null;
   $('#selInfo').hidden = !sel;
@@ -825,6 +857,7 @@ function hud(v) {
 /* ---------- Sound (synthesised, no files) ---------- */
 let AC = null, muted = false;
 try { muted = localStorage.getItem('tc_mute') === '1'; } catch (e) {}
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
 function unlockAudio() {
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
   if (AC.state === 'suspended') AC.resume();
@@ -872,10 +905,102 @@ $('#mute').onclick = () => {
   try { localStorage.setItem('tc_mute', muted ? '1' : '0'); } catch (e) {}
 };
 
+/* ---------- Boss music ---------- */
+// Plays while an Eradicator is on the map: an original synth loop, or a song the player picked
+// from their own phone (kept only on that phone, in IndexedDB).
+let bossMusic = null, customSong = null;   // customSong = {name, data:ArrayBuffer}
+function idb(mode, fn) {
+  return new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open('tower-defence', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('files');
+      r.onerror = () => rej(r.error);
+      r.onsuccess = () => {
+        const tx = r.result.transaction('files', mode), q = fn(tx.objectStore('files'));
+        tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error);
+      };
+    } catch (e) { rej(e); }
+  });
+}
+function showSong() {
+  $('#musicName').textContent = customSong ? customSong.name : 'built-in theme';
+  $('#musicReset').hidden = !customSong;
+}
+idb('readonly', st => st.get('bossSong')).then(v => { if (v && v.data) { customSong = v; showSong(); } }).catch(() => {});
+$('#bossFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    customSong = {name: f.name.replace(/\.[^.]+$/, '').slice(0, 40), data: fr.result};
+    showSong(); toast('Boss music set!');
+    idb('readwrite', st => st.put(customSong, 'bossSong')).catch(() => toast('Song set for now, but this phone could not save it.'));
+  };
+  fr.readAsArrayBuffer(f);
+});
+$('#musicReset').onclick = () => { customSong = null; showSong(); idb('readwrite', st => st.delete('bossSong')).catch(() => {}); };
+
+const mtof = m => 440 * Math.pow(2, (m - 69)/12);
+let noiseBuf = null;
+function startBossMusic() {
+  if (!AC || muted || bossMusic) return;
+  const out = AC.createGain(); out.gain.setValueAtTime(0, AC.currentTime);
+  out.gain.linearRampToValueAtTime(.9, AC.currentTime + 1.2); out.connect(AC.destination);
+  const m = bossMusic = {out, timer:null, src:null};
+  if (customSong) {
+    const play = buf => { if (bossMusic !== m) return; const src = AC.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(out); src.start(); m.src = src; };
+    AC.decodeAudioData(customSong.data.slice(0), play, () => { toast("Couldn't play that song, using the built-in theme."); customSong = null; showSong(); synthLoop(m); });
+  } else synthLoop(m);
+}
+function synthLoop(m) {
+  if (!noiseBuf) {
+    noiseBuf = AC.createBuffer(1, AC.sampleRate*.3, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+  }
+  const STEP = 60/150/4;                                   // 150 BPM, 16th notes
+  const BASS = [38,38,50,38, 38,41,38,43, 38,38,50,38, 36,36,48,37];
+  const LEAD = {0:74, 3:77, 6:76, 8:73, 16:74, 19:77, 22:79, 24:78, 26:77, 28:73};
+  const note = (t, f, dur, type, vol, cutoff) => {
+    const o = AC.createOscillator(), g = AC.createGain(), flt = AC.createBiquadFilter();
+    o.type = type; o.frequency.setValueAtTime(f, t); flt.type = 'lowpass'; flt.frequency.value = cutoff;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(flt).connect(g).connect(m.out); o.start(t); o.stop(t + dur + .02);
+  };
+  const noise = (t, dur, type, freq, vol) => {
+    const n = AC.createBufferSource(), g = AC.createGain(), flt = AC.createBiquadFilter();
+    n.buffer = noiseBuf; flt.type = type; flt.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    n.connect(flt).connect(g).connect(m.out); n.start(t); n.stop(t + dur + .02);
+  };
+  let step = 0, next = AC.currentTime + .05;
+  m.timer = setInterval(() => {
+    while (next < AC.currentTime + .2) {
+      const i = step % 32, t = next;
+      note(t, mtof(BASS[i % 16] + (i >= 16 ? 3 : 0)), STEP*.9, 'sawtooth', .13, 500);
+      if (i % 4 === 0) { const o = AC.createOscillator(), g = AC.createGain();
+        o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(40, t + .15);
+        g.gain.setValueAtTime(.55, t); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
+        o.connect(g).connect(m.out); o.start(t); o.stop(t + .2); }
+      if (i % 8 === 4) noise(t, .14, 'bandpass', 1800, .3);
+      if (i % 2 === 1) noise(t, .03, 'highpass', 7000, .05);
+      if (LEAD[i]) note(t, mtof(LEAD[i]), STEP*2.2, 'square', .045, 2400);
+      next += STEP; step++;
+    }
+  }, 50);
+}
+function stopBossMusic() {
+  const m = bossMusic; if (!m) return; bossMusic = null;
+  clearInterval(m.timer);
+  const t = AC.currentTime; m.out.gain.cancelScheduledValues(t); m.out.gain.setValueAtTime(m.out.gain.value, t); m.out.gain.linearRampToValueAtTime(0, t + .8);
+  if (m.src) m.src.stop(t + .9);
+  setTimeout(() => m.out.disconnect(), 1200);
+}
+
 function frame() {
   view = mode === 'guest' ? guestView() : snap(game);
   draw(view); hud(view);
   if (view) sounds(view);
+  const bossOn = view && view.st === 'play' && !view.p && view.em.some(e => ENEMIES[e[1]].boss);
+  if (bossOn && !muted) startBossMusic(); else if (bossMusic) stopBossMusic();
   requestAnimationFrame(frame);
 }
 
