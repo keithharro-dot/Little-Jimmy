@@ -74,6 +74,10 @@ Finger soccer for 1–16 players, phones first. Each player is a square block wi
   - The ladder: turbo boots, banana peels, human cannon, tennis rackets, ghost curse (10 s, every 40 s), freeze ray, magnet boots, brick wall, homing rocket ball, nuclear ball.
   - All trigger automatically: on touch, or on a timer. `powerTouch` and `powerStep` hold the logic.
   - Balance notes: power shots lose their boost when they hit a player (otherwise rebounds fly back at rocket speed), and the cannon is tuned via `CANNON = [speed, cooldown]`.
+- **Goal movies** (`CUT`, `cutStart`, `drawCut`; menu and lobby switch `.cutSeg`, localStorage `ps_cuts`, sent as `info.cut`): after every goal the host holds the match for `CUT.len()` (7.1 s with chaos, 3.6 s without) and every phone plays an arcade-style cut scene, drawn at 256×192 on `cutLow` and blown up with hard pixels on `#cutcv`.
+  - Scene 1: four cheerleaders in the scorers' colours (`figure` jointed puppets, `cheerPose` star jumps and toe touches, `pompom`) in the floodlit stadium (`stadium`: crowd, boards), with GOAL! and the scorer's face.
+  - Scene 2 (chaos only): the camera pans down the sideline, and a player from the team that let it in (a person if there is one, wearing their face) runs to the esky, chugs a stubby and powers up with the power their team just got.
+  - Text is drawn crisp on top (`mkText`). An announcer says "Goal!" and "Power up!" through the browser's speech. Tap skips it; on the host or a single phone that also ends the pause for everyone.
 - **Boss round** (`startBoss`): in the last 45 s, or at match point in "First to 5", each team's champion (`pickChamp`) becomes a 2.2× giant named with its owner's boss name (profile field, or `BOSS_NAMES`).
 - **Lightsaber duel** (`startDuel`, `duelStep`): a timed match that ends level goes to sudden death.
   - Each blade points the way the player moves, and only cuts when swung.
