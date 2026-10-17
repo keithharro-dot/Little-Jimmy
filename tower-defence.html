@@ -159,7 +159,7 @@ details p,details li{color:var(--muted)}
         <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
         <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. You earn more gold as the zombie sender's eco grows. Tap a built tower to see its range, upgrade it (up to level 4) or sell it.</li>
         <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡150 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers (a tower stunned 3 times is destroyed), and the MK II rages at half health.</li>
-        <li>Zombies win if the base's lives reach 0. Towers win by lasting 4 minutes. Then swap sides!</li>
+        <li>Zombies win if the base's lives reach 0. Towers win by surviving all 50 waves. Waves come automatically, with an Eradicator on wave 20 and an MK II on wave 40. Then swap sides!</li>
       </ul>
       <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
     </details>
@@ -211,7 +211,7 @@ details p,details li{color:var(--muted)}
     <span class="pill">❤️ <span id="hLives">20</span></span>
     <span class="pill" id="pGold">💰 <span id="hGold">0</span> <small id="hGoldInc" style="color:var(--muted)"></small></span>
     <span class="pill" id="pEnergy">⚡ <span id="hEnergy">0</span> <small id="hInc" style="color:var(--muted)"></small></span>
-    <span class="pill">⏱ <span id="hTime">4:00</span></span>
+    <span class="pill">🌊 <span id="hTime">Wave 0/50</span></span>
     <span class="role" id="hRole"></span>
     <button id="mute" title="Sound on/off">🔊</button>
   </div>
@@ -388,12 +388,12 @@ const PRESETS = [
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0, map = MAPD.id) {
   return {map, t:0, status:'countdown', cd:5, lives:20, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], fx:[],
-          queue:[], spawnT:0, id:1, winner:null, dur:240, kills:0, paused:false, epoch};
+          queue:[], spawnT:0, wave:0, waveT:3, wq:[], wspawnT:0, id:1, winner:null, kills:0, paused:false, epoch};
 }
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
 // sending an Eradicator lowers it (never below ECO_MIN). Each zombie type has a build time
 // before it can be sent again, which stops eco from snowballing.
-const ECO = {start:5, min:2, max:150, defGold:0.5};  // defGold: tower gold per second per point of zombie eco
+const ECO = {start:5, min:2, max:150, defGold:1.2};  // defGold: tower gold per second per point of zombie eco
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const FX_LIFE = {pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1};
@@ -479,13 +479,17 @@ function step(g, dt) {
   g.energy = Math.min(2500, g.energy + income(g) * pay * dt);
   for (const k in g.cool) g.cool[k] = Math.max(0, g.cool[k] - dt);
 
+  // Zombies the sender sent, and the automatic filler waves, come out of the gravestone separately.
   g.spawnT -= dt;
-  if (g.queue.length && g.spawnT <= 0) {
-    const k = g.queue.shift(), E = ENEMIES[k];
-    g.enemies.push({id:g.id++, k, d:0, hp:E.hp, m:E.hp, sh:E.shield || 0, shm:E.shield || 0, slow:0, emp:4, fury:false, face:1, hold:0, holdK:0,
-                    x:WAY[0][0], y:WAY[0][1]});
-    g.spawnT = E.count ? .3 : .35;
-    if (E.boss) addFx(g, 'roar', 1, WAY[0][1], 'BOSS!');
+  if (g.queue.length && g.spawnT <= 0) { const k = g.queue.shift(); spawnEnemy(g, k, 1, false); g.spawnT = ENEMIES[k].count ? .3 : .35; }
+  g.wspawnT -= dt;
+  if (g.wq.length && g.wspawnT <= 0) { const [k, mul] = g.wq.shift(); spawnEnemy(g, k, mul, true); g.wspawnT = ENEMIES[k].count ? .3 : .45; }
+
+  // Waves: the next one starts 18s after the last, or 3s after the current one is wiped out.
+  if (g.wave < WAVES) {
+    if (!g.wq.length && g.waveT > 3 && !g.enemies.some(e => e.wave)) g.waveT = 3;
+    g.waveT -= dt;
+    if (g.waveT <= 0) startWave(g);
   }
 
   for (const e of g.enemies) {
@@ -550,14 +554,44 @@ function step(g, dt) {
   });
 
   if (g.lives <= 0) { g.lives = 0; g.status = 'over'; g.winner = 'atk'; }
-  else if (g.t >= g.dur) { g.status = 'over'; g.winner = 'def'; }
+  else if (g.wave >= WAVES && !g.wq.length && !g.enemies.some(e => e.wave)) { g.status = 'over'; g.winner = 'def'; }
+}
+
+/* ---------- Waves ---------- */
+// 50 automatic filler waves on top of whatever the sender sends. They get bigger and tougher,
+// new zombie types join over time, and Eradicators arrive on waves 20 (Eradicator) and 40 (MK II).
+const WAVES = 50, WAVE_GAP = 18;
+const WAVE_BONUS = {base:60, per:12};   // gold the tower builder gets as each wave starts
+const WAVE_UNLOCK = [['zombie', 1], ['speedy', 3], ['riot', 6], ['phantom', 8], ['medic', 10], ['bat', 12], ['brute', 15]];
+const WAVE_BOSS = {20: 'erad', 40: 'erad2'};
+function waveList(n) {
+  const pool = WAVE_UNLOCK.filter(([, from]) => n >= from).map(([k]) => k);
+  const list = [], count = 3 + Math.floor(n * .7);
+  for (let i = 0; i < count; i++) list.push(pool[(i * 7 + n * 3) % pool.length]);
+  if (WAVE_BOSS[n]) list.unshift(WAVE_BOSS[n]);   // the Eradicator leads its wave
+  return list;
+}
+function startWave(g) {
+  g.wave++;
+  const mul = 1 + (g.wave - 1) * .05;   // wave 50 zombies have about 3.5x health
+  const list = waveList(g.wave).flatMap(k => Array(ENEMIES[k].count || 1).fill([k, ENEMIES[k].boss ? 1 : mul]));
+  if (ENEMIES[list[0][0]].boss) g.wq.unshift(...list); else g.wq.push(...list);   // a boss jumps the queue
+  g.waveT = WAVE_GAP;
+  g.gold += WAVE_BONUS.base + WAVE_BONUS.per * g.wave;
+  addFx(g, 'roar', 2, WAY[0][1], 'WAVE ' + g.wave);
+}
+function spawnEnemy(g, k, mul, wave) {
+  const E = ENEMIES[k], hp = Math.round(E.hp * mul);
+  g.enemies.push({id:g.id++, k, d:0, hp, m:hp, sh:E.shield || 0, shm:E.shield || 0, slow:0, emp:4, fury:false, face:1, hold:0, holdK:0,
+                  wave, x:WAY[0][0], y:WAY[0][1]});
+  if (E.boss) addFx(g, 'roar', 1, WAY[0][1], 'BOSS!');
 }
 
 const r2 = v => Math.round(v*100)/100;
 function snap(g) {
   return {
     mp:g.map, t:g.t, st:g.status, cd:g.cd, lv:g.lives, gd:Math.floor(g.gold), en:Math.floor(g.energy), inc:income(g), hm:incomeMult(g) < 1,
-    w:g.winner, dur:g.dur, cl:Object.fromEntries(Object.entries(g.cool).map(([k, v]) => [k, r2(v)])), q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
+    w:g.winner, wv:g.wave, wt:r2(Math.max(0, g.waveT)), wl:g.wq.length, cl:Object.fromEntries(Object.entries(g.cool).map(([k, v]) => [k, r2(v)])), q:g.queue.length, k:g.kills, p:g.paused, ep:g.epoch,
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '']),
     tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:t.st.range, dmg:t.st.dmg, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, hits:t.stuns || 0})),
     em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury ? 1 : 0, e.face, e.hold > 0 ? e.holdK : 0]),
@@ -921,7 +955,7 @@ function hud(v) {
   $('#hInc').textContent = '+' + (v.inc*pay).toFixed(2) + '/s' + (v.hm ? ' ½' : '');
   $('#hGoldInc').textContent = '+' + ((4 + v.inc*ECO.defGold)*pay).toFixed(1) + '/s' + (v.hm ? ' ½' : '');
   $('#hInc').style.color = $('#hGoldInc').style.color = v.hm ? 'var(--atk)' : '';
-  $('#hTime').textContent = fmt(v.dur - v.t);
+  $('#hTime').textContent = `Wave ${v.wv}/${WAVES}` + (v.wv < WAVES && v.st === 'play' ? ` · next ${Math.ceil(v.wt)}s` : '');
   for (const [k, b] of Object.entries(enemyBtns)) {
     const left = (v.cl && v.cl[k]) || 0;
     b.disabled = v.st !== 'play' || v.en < ENEMIES[k].cost || left > 0;
@@ -962,7 +996,7 @@ function hud(v) {
   } else if (v.st === 'over') {
     const who = v.w === 'def' ? '🛡 Towers win!' : '🧟 Zombies win!';
     const me = myRole === 'both' ? '' : (v.w === myRole ? '<div style="color:var(--ok);font-size:22px;font-weight:700">🎉 You win!</div>' : '<div style="color:var(--atk);font-size:18px;font-weight:700">You lose. Swap sides for revenge!</div>');
-    html = `<h2>${who}</h2>${me}<div ${dim}>${v.k} zombies defeated · lasted ${fmt(v.t)}</div>
+    html = `<h2>${who}</h2>${me}<div ${dim}>${v.k} zombies defeated · reached wave ${v.wv} of ${WAVES} · ${fmt(v.t)}</div>
       <div class="row" style="gap:10px;flex-wrap:wrap;justify-content:center">
         ${mode === 'local' ? '' : '<button class="danger" id="btnSwap">🔁 Swap sides</button>'}
         <button class="primary" id="btnAgain">Play again</button><button id="btnMenu">Menu</button></div>`;
