@@ -264,6 +264,8 @@ details p,details li{color:var(--muted)}
     <button id="goTune">🎛 Characters & tuning</button>
     <button id="musicChip" class="nowplaying"><img src="music/covers/dikshifter-the-2nd-take.jpg" alt=""><span>🎵 Music: <b id="songName">Dikshifter — The 2nd Take</b><br><small id="songHint">Tap to pick a song</small></span><span id="musicState">On</span></button>
     <div class="seg gfxSeg"><button data-gfx="3d">🧊 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
+    <div class="small" style="text-align:center;margin-bottom:-4px">Boss fights</div>
+    <div class="seg dropSeg"><button data-drops="1">🎵 Song drops</button><button data-drops="0">🤘 Built-in metal</button></div>
     <div class="small" id="musicRow" style="text-align:center;display:grid;gap:6px"></div>
     <details>
       <summary>How to play</summary>
@@ -2971,6 +2973,27 @@ function themeTo(vol) {
   });
 }
 const themeVol = v => { if (THEME.want !== v) themeTo(v); };
+// Song drops: in boss fights the song keeps playing and cuts to one of its most intense parts when the boss turns up and on
+// every big move (rockets, lasers, BFG, grapple, grenades, mind control, rage and so on), and on the LEO BOMB and boss deaths.
+// "Built-in metal" keeps the old boss themes instead. Either way, a song picked for a boss below wins for that boss.
+let DROPS = true; try { DROPS = localStorage.getItem('td_drops') !== '0'; } catch (e) {}
+const DROP_FX = new Set(['emp', 'laser', 'mind', 'summon', 'fury', 'bfg', 'hook', 'pgren', 'sword', 'tele', 'mrain', 'leo', 'blast']);
+const DROP_ROAR = new Set(['BOSS!', 'MISSILES!', 'SHOTGUN!']);
+let dropAt = -1e9, dropI = 0;
+function musicDrop() {
+  const el = THEME.el, hot = JB ? JB.hot() : [], now = performance.now();
+  if (!DROPS || !el || THEME.failed || !hot.length || THEME.want === 0 || now - dropAt < 8000) return;
+  const cur = el.currentTime, opts = hot.filter(t => !(cur > t - 2 && cur < t + 12) && t < (el.duration || 1e9) - 5);   // not the part already playing
+  if (!opts.length) return;
+  const to = opts[dropI++ % opts.length], g = THEME.gain; dropAt = now;
+  if (!g) { el.currentTime = to; return; }
+  const t = AC.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + .15);
+  setTimeout(() => { try { el.currentTime = to; } catch (e) {} const t2 = AC.currentTime; g.gain.cancelScheduledValues(t2); g.gain.setValueAtTime(0, t2); g.gain.linearRampToValueAtTime(THEME.want, t2 + .25); }, 170);
+}
+function showDrops() {
+  if (!JB) { DROPS = false; document.querySelectorAll('.dropSeg').forEach(e => { e.hidden = true; e.previousElementSibling.hidden = true; }); }   // no song list (the in-app copy): built-in boss music
+  document.querySelectorAll('.dropSeg button').forEach(b => b.classList.toggle('sel', (b.dataset.drops === '1') === DROPS)); renderSongs(); }
+document.querySelectorAll('.dropSeg button').forEach(b => b.onclick = () => { DROPS = b.dataset.drops === '1'; try { localStorage.setItem('td_drops', DROPS ? '1' : '0'); } catch (e) {} showDrops(); });
 const JB = window.Jukebox ? Jukebox({change:themeSong, isOn:() => !muted, setOn:on => setMuted(!on)}) : null;
 function themeSong() {
   THEME.url = JB.url(); THEME.failed = false; paintChip();
@@ -3052,7 +3075,7 @@ let seenId = 0, seenEp = -1, lastShot = 0, lastSt = '';
 function sounds(v) {
   if (v.ep !== seenEp) { seenEp = v.ep; seenId = 0; }
   let maxId = seenId;
-  for (const f of v.fx) if (f[0] > seenId) { SFX[f[1]](); maxId = Math.max(maxId, f[0]); }
+  for (const f of v.fx) if (f[0] > seenId) { SFX[f[1]](); maxId = Math.max(maxId, f[0]); if (DROP_FX.has(f[1]) || (f[1] === 'roar' && DROP_ROAR.has(f[5]))) musicDrop(); }
   const now = performance.now();
   for (const s of v.sh) if (s[7] > seenId) {
     maxId = Math.max(maxId, s[7]);
@@ -3098,10 +3121,10 @@ function renderSongs() {
   const box = $('#musicRow'); box.innerHTML = '';
   for (const [slot, label] of Object.entries(SONG_SLOTS)) {
     const song = customSongs[slot], row = document.createElement('div');
-    row.innerHTML = `🎵 ${label} music: <b style="color:var(--text)">${song ? esc(song.name) : 'built-in metal'}</b><br>
+    row.innerHTML = `🎵 ${label} music: <b style="color:var(--text)">${song ? esc(song.name) : DROPS ? 'song drops' : 'built-in metal'}</b><br>
       <label class="linkbtn" style="display:inline-block;cursor:pointer;padding:4px">Choose a song
         <input type="file" accept="audio/*,video/*" style="position:absolute;opacity:0;width:1px;height:1px"></label>
-      ${song ? '<button class="linkbtn" style="padding:4px;font-size:inherit">Use built-in</button>' : ''}`;
+      ${song ? `<button class="linkbtn" style="padding:4px;font-size:inherit">${DROPS ? 'Use song drops' : 'Use built-in'}</button>` : ''}`;
     row.querySelector('input').addEventListener('change', e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
       const fr = new FileReader();
@@ -3117,7 +3140,7 @@ function renderSongs() {
     box.appendChild(row);
   }
 }
-renderSongs();
+showDrops();
 for (const slot of Object.keys(SONG_SLOTS))
   idb('readonly', st => st.get('song_' + slot)).then(v => { if (v && v.data) { customSongs[slot] = v; renderSongs(); } }).catch(() => {});
 
@@ -3321,6 +3344,7 @@ function stopMusic() {
   setTimeout(() => m.out.disconnect(), 1100);
 }
 
+let hadBoss = false;
 function frame() {
   view = mode === 'guest' ? guestView() : snap(game);
   draw(view); hud(view);
@@ -3329,10 +3353,14 @@ function frame() {
   // If the theme can't load (no internet), the built-in battle track plays instead.
   const playing = view && view.st === 'play' && !view.p;
   const boss = !playing ? null : view.em.some(e => e[1] === 'void') ? 'void' : view.em.some(e => e[1] === 'erad2') ? 'erad2' : view.em.some(e => e[1] === 'erad') ? 'erad' : null;
-  const mk2 = boss === 'erad2' && !BOSSM.failed && !muted;   // MK II plays its phonk theme instead of the synth boss music
-  const want = muted ? null : (mk2 ? null : boss) || (playing && THEME.failed ? 'battle' : null);
+  const drops = DROPS && !!JB && !THEME.failed, anyBoss = playing && view.em.some(e => ENEMIES[e[1]].boss);
+  if (drops && anyBoss && !hadBoss) musicDrop();   // a boss turns up: straight to a big part of the song
+  hadBoss = anyBoss;
+  const mk2 = !drops && boss === 'erad2' && !BOSSM.failed && !muted;   // MK II plays its phonk theme instead of the synth boss music
+  const mine = boss && drops && customSongs[boss] ? boss : null;   // with song drops, only a song picked for this boss replaces the song
+  const want = muted ? null : drops ? mine || (playing && THEME.failed ? 'battle' : null) : (mk2 ? null : boss) || (playing && THEME.failed ? 'battle' : null);
   if ((music && music.track) !== want) { if (music) stopMusic(); if (want && AC) startMusic(want); }
-  themeVol(muted || boss ? 0 : playing ? .7 : .4);
+  themeVol(muted || (drops ? mine : boss) ? 0 : anyBoss ? .85 : playing ? .7 : .4);
   if (BOSSM.want !== (mk2 ? .9 : 0)) { if (mk2 && BOSSM.el) BOSSM.el.currentTime = 0; fadeTo(BOSSM, mk2 ? .9 : 0); }   // each MK II starts the track from the top
   requestAnimationFrame(frame);
 }

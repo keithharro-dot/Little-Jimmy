@@ -1,6 +1,28 @@
 // Shared music picker for both games. To add a song: drop the MP3 in music/, a 160px cover in music/covers/, and add a line below.
 // The choice is remembered per phone and shared by both games (same site). "Play my own song" plays a file from the player's
 // own phone; it never leaves the phone, and it isn't remembered after a reload.
+// Each song's "drops": the starts (in seconds) of its most intense 10-second stretches, found by measuring loudness and
+// brightness through the track (music/find_drops.py; re-run it when you add a song). Tower Defence jumps to
+// one of these when a boss makes a big move. A song with no entry just doesn't jump.
+window.SONG_DROPS = {
+  'blues-hammer':[154.8, 190.8, 218.2, 238.0],
+  'broken':[152.8, 173.8, 223.2, 248.5],
+  'cool-rocks':[54.2, 78.0, 97.2, 119.5],
+  'demise':[23.0, 61.8, 89.2, 134.0],
+  'dikshifter-the-2nd-take':[11.8, 54.2, 88.5, 107.2],
+  'dream':[25.0, 49.5, 70.0, 95.2],
+  'eradicator-mk2-phonk':[19.8, 58.5, 114.5, 134.2],
+  'inner-demons':[43.5, 66.0, 98.2, 122.5],
+  'listen':[70.8, 94.2, 121.2, 148.0],
+  'lock-down-blues':[35.8, 57.5, 74.0, 100.8],
+  'over-the-edge':[16.8, 111.5, 169.5, 192.5],
+  'psycholists':[71.8, 142.8, 181.8, 206.2],
+  'softard-blues':[24.5, 47.2, 69.2, 111.8],
+  'the-legend-part-5':[44.5, 66.2, 88.8, 110.5],
+  'the-legend-v2':[44.8, 73.0, 91.5, 134.8],
+  'what-we-do-v2':[68.2, 131.8, 148.0, 187.0],
+  'what-we-do':[63.8, 84.2, 108.0, 144.8]
+};
 window.SONGS = [
   ['dikshifter-the-2nd-take', 'Dikshifter — The 2nd Take'],
   ['eradicator-mk2-phonk', 'Eradicator MK2 (Phonk)'],
@@ -19,19 +41,20 @@ window.SONGS = [
   ['lock-down-blues', 'Lock Down Blues'],
   ['listen', 'Listen'],
   ['blues-hammer', 'Blues Hammer'],
-].map(([id, title]) => ({id, title, url:'music/' + id + '.mp3', cover:'music/covers/' + id + '.jpg'}));
+].map(([id, title]) => ({id, title, url:'music/' + id + '.mp3', cover:'music/covers/' + id + '.jpg', hot:(window.SONG_DROPS || {})[id] || []}));
 
 // Jukebox(hooks): hooks.change() is called when the song changes; hooks.isOn()/hooks.setOn(on) read and switch the game's music.
 window.Jukebox = function (hooks) {
   const SONGS = window.SONGS, J = {own:null, shuffle:false, song:SONGS[0]};
   let saved = null; try { saved = localStorage.getItem('jb_song'); } catch (e) {}
-  if (saved === 'shuffle') { J.shuffle = true; J.song = SONGS[Math.floor(Math.random()*SONGS.length)]; }
+  if (saved === 'shuffle' || !saved) { J.shuffle = true; J.song = SONGS[Math.floor(Math.random()*SONGS.length)]; }   // shuffle until the player picks a song
   else J.song = SONGS.find(s => s.id === saved) || SONGS[0];
   const save = v => { try { localStorage.setItem('jb_song', v); } catch (e) {} };
   J.url = () => J.own ? J.own.url : J.song.url;
   J.title = () => J.own ? J.own.title : J.shuffle ? 'Shuffle: ' + J.song.title : J.song.title;
   J.cover = () => J.own ? '' : J.song.cover;
   J.loop = () => !J.shuffle || !!J.own;
+  J.hot = () => J.own ? [] : J.song.hot;
   J.next = () => {   // shuffle: any song but the one that just finished
     const rest = SONGS.filter(s => s !== J.song); J.song = rest[Math.floor(Math.random()*rest.length)]; hooks.change();
   };
