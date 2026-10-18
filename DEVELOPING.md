@@ -205,3 +205,7 @@ Both of you work in this one repo as collaborators. Don't fork: a fork drifts ap
 ## Battles in AR (`battlefield-ar.html`, `models/`)
 
 Three frozen moments from the games, each life size for walking around a sports oval or table size for the lounge room: The Battlefield and Boss Assault (Tower Defence), and the Soccer Boss Round. Each was staged in the real game, exported, and dressed up in Blender with explosions, smoke, missile trails, glowing beams and mushroom clouds. The shared Blender toolkit is `models/arlib.py`. See `models/battle/README.md` for how to stage and rebuild a scene.
+
+## Saturn V in AR (`saturn-v-ar.html`, `models/build_saturnv.py`)
+
+The Saturn V moon rocket at full size (110.6 m) for walking around on an oval, plus 1:100 copies for the lounge. Three scenes: lying down on cradles with its stages pulled apart (like the display at Kennedy Space Center), standing on its engines, and both side by side. `models/build_saturnv.py` builds it from published dimensions with `arlib.py` (`python models/build_saturnv.py`, add `--render <dir>` for preview stills) and writes `models/saturn-v-<scene>[-mini].glb/.usdz`. The models are centred on the spot where you stand when you place them. Change the script and re-run it rather than editing the exported files.
