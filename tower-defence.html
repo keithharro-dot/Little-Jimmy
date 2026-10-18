@@ -496,7 +496,7 @@ function cleanSpec(s) {
     d: c(s.d), r: c(s.r), s: c(s.s),
     sp: ['none','slow','splash'].includes(s.sp) ? s.sp : 'none',
     det: !!s.det,
-    role: ['revive', 'dj', 'launcher'].includes(s.role) ? s.role : 'attack',
+    role: ['revive', 'dj', 'launcher', 'spawner'].includes(s.role) ? s.role : 'attack',
   };
 }
 // Support towers don't attack: the Reviver brings destroyed towers back, the DJ buffs towers near it.
@@ -515,6 +515,12 @@ const LAUNCHER = [null,
   {w:'anni',    name:'ANNIHILATOR', dmg:12, rate:8,  range:4.6, blast:0,   air:true,  det:true,  up:1000, swarm:{every:2.5, n:6, dmg:30, blast:1.2}},
 ];
 const LAUNCHER_COST = 180;
+// Spawner: summons CALAMITY, a red-and-black giant who walks up the road toward the zombies, blocks them, and stomps
+// (damage plus a slow) on everything around him. Every 12s he releases 5 ENTITIES (200 health each) that charge the
+// zombies and blow up on the first one they touch, doing damage equal to their health. If Calamity falls, the
+// tower summons a new one 15s later. Calamity's health by level: 1200 … 5000 at max (level 5).
+const SPAWNER = {cost:450, up:[0, 0, 350, 550, 800, 1200], hp:[0, 1200, 2000, 3000, 4000, 5000], stomp:[0, 40, 60, 90, 120, 160],
+                 stompEvery:4, stompR:1.6, slow:2.5, entN:5, entHP:200, entEvery:12, entMax:10, calSpd:.45, entSpd:1.3, respawn:15, touch:.55, hitR:.45};
 // Tuning (the 🎛 Characters screen): multipliers on top of the numbers in this file, saved on this phone. They act on
 // games this phone runs (hosting, or two players on one phone), and take effect straight away, even mid-game.
 //   e:<kind>:hp / spd / ab   a zombie's health (and shield), speed, and for bosses how often they use their powers
@@ -528,10 +534,11 @@ const spdOf = e => ENEMIES[e.k].spd*tune('e:' + e.k + ':spd');
 // full damage within 1.2 tiles, fading to 30% at the edge, straight through shields and armour, flyers included.
 const LEO = {first:180, again:300, flight:1.3, radius:3.2, core:1.2, dmg:9000};
 const FLIGHT = {shell:.8, msl:.5};   // seconds in the air
-const maxLvl = spec => spec.role === 'launcher' ? LAUNCHER.length - 1 : MAX_LVL;
+const maxLvl = spec => spec.role === 'launcher' || spec.role === 'spawner' ? 5 : MAX_LVL;
 const fires = spec => spec.role === 'attack' || spec.role === 'launcher';
 function stats(s) {
   if (s.role === 'launcher') { const L = LAUNCHER[1]; return {dmg:L.dmg, range:L.range, rate:L.rate, dps:L.dmg*L.rate, cost:LAUNCHER_COST}; }
+  if (s.role === 'spawner') return {dmg:0, range:1, rate:0, dps:0, cost:SPAWNER.cost};
   if (s.role !== 'attack' && SUPPORT_COST[s.role]) return {dmg:0, range:RNG[s.r], rate:0, dps:0, cost:SUPPORT_COST[s.role]};
   // Towers deal half their listed damage; the price is still worked out from the full damage.
   const dmg = Math.round(DMG[s.d] * DMG_MULT), range = RNG[s.r], rate = RATE[s.s], dps = dmg * rate, priceDps = DMG[s.d] * rate;
@@ -543,12 +550,13 @@ function stats(s) {
 const MAX_LVL = 4;
 function towerStats(spec, lvl) {
   if (spec.role === 'launcher') { const L = LAUNCHER[lvl]; return {dmg:L.dmg, range:L.range, rate:L.rate, dps:0, cost:LAUNCHER_COST}; }
+  if (spec.role === 'spawner') return {dmg:0, range:1, rate:0, dps:0, cost:SPAWNER.cost};
   const b = stats(spec), l = lvl - 1;
   return {...b, dmg: Math.round(b.dmg * Math.pow(1.35, l)), range: Math.round((b.range + .3*l)*10)/10,
           rate: Math.round(b.rate * Math.pow(1.15, l)*100)/100, dps: 0};
 }
 const withDps = st => (st.dps = st.dmg * st.rate, st);
-const upgradeCost = (spec, lvl) => lvl >= maxLvl(spec) ? 0 : spec.role === 'launcher' ? LAUNCHER[lvl + 1].up : Math.round(stats(spec).cost * .6 * lvl / 5) * 5;
+const upgradeCost = (spec, lvl) => lvl >= maxLvl(spec) ? 0 : spec.role === 'launcher' ? LAUNCHER[lvl + 1].up : spec.role === 'spawner' ? SPAWNER.up[lvl + 1] : Math.round(stats(spec).cost * .6 * lvl / 5) * 5;
 const PRESETS = [
   {name:'Trooper', col:'#58a6ff', d:2, r:2, s:2, sp:'none'},
   {name:'Frost',  col:'#79c0ff', d:1, r:3, s:2, sp:'slow'},
@@ -557,12 +565,13 @@ const PRESETS = [
   {name:'Reviver', col:'#3fb950', d:1, r:3, s:1, sp:'none', role:'revive'},
   {name:'DJ',      col:'#ff7bd5', d:1, r:3, s:1, sp:'none', role:'dj'},
   {name:'Launcher', col:'#9be564', d:1, r:1, s:1, sp:'none', role:'launcher'},
+  {name:'Spawner', col:'#e11d2e', d:1, r:1, s:1, sp:'none', role:'spawner'},
 ];
 
 /* ---------- Simulation (runs on host / local only) ---------- */
 function newGame(epoch = 0, map = MAPD.id) {
   return {map, t:0, status:'countdown', cd:5, lives:BASE_HP, gold:100, energy:30, eco:ECO.start, cool:{}, towers:[], enemies:[], shots:[], proj:[], fx:[], leo:0, leoNeed:LEO.first,
-          queue:[], graves:[], spawnT:0, wave:0, waveT:3, wq:[], wspawnT:0, id:1, winner:null, kills:0, paused:false, epoch};
+          queue:[], graves:[], allies:[], spawnT:0, wave:0, waveT:3, wq:[], wspawnT:0, id:1, winner:null, kills:0, paused:false, epoch};
 }
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
 // sending an Eradicator lowers it (never below ECO_MIN). Each zombie type has a build time
@@ -571,7 +580,7 @@ const ECO = {start:5, min:2, max:150, defGold:2};  // defGold: tower gold per se
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const BASE_HP = 150;   // the tower builder's base; each zombie that gets through damages it
-const FX_LIFE = {leoK:LEO.flight, leo:2.6, shell:FLIGHT.shell, msl:FLIGHT.msl, boom:.45, tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4, bfg:1.3, sgun:.35, hook:1.7, rip:.9, crunch:1.1, pgren:1.1, pblast:.8, sword:.5, shieldup:1.2};
+const FX_LIFE = {leoK:LEO.flight, leo:2.6, shell:FLIGHT.shell, msl:FLIGHT.msl, boom:.45, tele:1, revive:1, mind:1.2, summon:1, pop:.6, leak:.9, build:.5, roar:1, shieldbreak:.5, fury:1.2, emp:.8, wreck:1, laser:.7, mrain:.9, blast:1.4, bfg:1.3, sgun:.35, hook:1.7, rip:.9, crunch:1.1, pgren:1.1, pblast:.8, sword:.5, shieldup:1.2, cstomp:.7, csummon:1, entboom:.45};
 // Every Eradicator stun cracks a tower; the third one destroys it (no refund).
 const STUNS_TO_BREAK = 3;
 // crack = false: knocked out for a moment but not damaged (lasers, missile rain, meltdowns).
@@ -620,6 +629,7 @@ function applyCmd(g, role, c) {
     const i = g.towers.findIndex(t => t.id === c.id);
     if (i < 0) return;
     g.gold += Math.floor(g.towers[i].spent * .7);
+    if (g.allies) g.allies = g.allies.filter(a => a.tw !== g.towers[i].id);
     g.towers.splice(i, 1);
   } else if (atk && c.type === 'send' && g.status === 'play') {
     const E = ENEMIES[c.kind];
@@ -731,6 +741,7 @@ function step(g, dt) {
     e.slow = Math.max(0, e.slow - dt);
     // Bosses stand still while using an ability (holdK 1 = rocket burst, 2 = going into rage).
     if (e.hold > 0) e.hold = Math.max(0, e.hold - dt);
+    else if (e.blk) e.blk = false;   // held up by Calamity
     else e.d += spdOf(e) * (e.slow > 0 ? .5 : 1) * (e.fury ? 1.6 : e.zerk ? 1.7 : 1) * dt;
     const [nx, ny] = E.fly ? flyAt(e.d) : posAt(e.d);
     if (Math.abs(nx - e.x) > 1e-4) e.face = nx > e.x ? 1 : -1;
@@ -792,6 +803,7 @@ function step(g, dt) {
     }
   }
   g.enemies.push(...summons);
+  alliesStep(g, dt);
   g.graves = g.graves.filter(gr => (gr.ttl -= dt) > 0);
   for (const t of g.towers) if (t.dead) g.graves.push({id:t.id, x:t.x, y:t.y, spec:t.spec, lvl:t.lvl, spent:t.spent, ttl:REVIVE.window});
   g.towers = g.towers.filter(t => !t.dead);
@@ -1003,6 +1015,62 @@ function doomAbilities(g, e, dt) {
     if (near.length) { e.hold = .6; e.holdK = 10; addFx(g, 'roar', e.x, e.y, 'SHOTGUN!'); }
   }
 }
+// The Spawner's units walk the road backwards, from beside their tower toward the gravestone.
+const nearestD = (x, y) => { let best = 0, bd = 1e9; for (let d = 0; d <= PATHLEN; d += .25) { const [px, py] = posAt(d); const q = Math.hypot(px - x, py - y); if (q < bd) { bd = q; best = d; } } return best; };
+function alliesStep(g, dt) {
+  if (!g.allies) g.allies = [];
+  const ground = e => e.hp > 0 && !ENEMIES[e.k].fly;
+  for (const t of g.towers) {
+    if (t.spec.role !== 'spawner') continue;
+    if (t.pd === undefined) { t.pd = nearestD(t.x + .5, t.y + .5); t.sum = 1; }
+    const cal = g.allies.find(a => a.tw === t.id && a.k === 'calamity');
+    const hp = Math.round(SPAWNER.hp[t.lvl]*tune('sp:hp'));
+    if (cal && cal.m !== hp) { cal.hp = Math.max(1, cal.hp*hp/cal.m); cal.m = hp; }   // upgraded: he grows stronger
+    if (cal || t.stun > 0) continue;
+    if ((t.sum -= dt) > 0) continue;
+    const [x, y] = posAt(t.pd);
+    g.allies.push({id:g.id++, tw:t.id, k:'calamity', d:t.pd, x, y, hp, m:hp, face:-1, st:0, stT:1.5, enT:1});
+    addFx(g, 'csummon', x, y, 'CALAMITY!');
+  }
+  const born = [];
+  for (const a of g.allies) {
+    const t = g.towers.find(t => t.id === a.tw);
+    if (!t) { a.hp = 0; continue; }
+    if (a.k === 'calamity') {
+      const near = g.enemies.filter(e => ground(e) && Math.hypot(e.x - a.x, e.y - a.y) < SPAWNER.touch);
+      for (const e of near) { e.blk = true; a.hp -= Math.max(8, ENEMIES[e.k].leak*2)*dt; }   // zombies he's holding back hit him
+      if (!near.length && a.d > .3) { a.d = Math.max(.3, a.d - SPAWNER.calSpd*dt); }
+      a.st = Math.max(0, a.st - dt);
+      if ((a.stT -= dt) <= 0) {   // stomp: damage and a slow on everything round him
+        const hits = g.enemies.filter(e => ground(e) && Math.hypot(e.x - a.x, e.y - a.y) < SPAWNER.stompR);
+        if (hits.length) { const dmg = SPAWNER.stomp[t.lvl]*tune('sp:stomp');
+          for (const e of hits) { damage(g, e, dmg, true); e.slow = Math.max(e.slow, SPAWNER.slow); }
+          a.st = .5; a.stT = SPAWNER.stompEvery; addFx(g, 'cstomp', a.x, a.y, 'STOMP!'); }
+        else a.stT = .5;
+      }
+      if ((a.enT -= dt) <= 0) {   // release 5 Entities, lined up behind him
+        a.enT = SPAWNER.entEvery;
+        const have = g.allies.filter(o => o.tw === a.tw && o.k === 'entity').length;
+        const n = Math.min(SPAWNER.entN, SPAWNER.entMax - have), ehp = Math.round(SPAWNER.entHP*tune('sp:ent'));
+        for (let i = 0; i < n; i++) born.push({id:g.id++, tw:a.tw, k:'entity', d:Math.min(PATHLEN, a.d + .35*(i + 1)), x:a.x, y:a.y, hp:ehp, m:ehp, face:-1, delay:i*.25});
+        if (n) addFx(g, 'csummon', a.x, a.y, n + ' ENTITIES!');
+      }
+    } else {   // an Entity charges down the road and explodes on the first zombie it touches
+      if (a.delay > 0) { a.delay -= dt; continue; }
+      a.d -= SPAWNER.entSpd*dt;
+      const e = g.enemies.find(e => ground(e) && Math.hypot(e.x - a.x, e.y - a.y) < SPAWNER.hitR);
+      if (e) { damage(g, e, a.hp, false); addFx(g, 'entboom', a.x, a.y); a.hp = 0; }
+      else if (a.d <= 0) a.hp = 0;
+    }
+    const [x, y] = posAt(Math.max(0, a.d)); a.x = x; a.y = y;
+  }
+  g.allies.push(...born);
+  g.allies = g.allies.filter(a => {
+    if (a.hp > 0) return true;
+    if (a.k === 'calamity') { const t = g.towers.find(t => t.id === a.tw); if (t) t.sum = SPAWNER.respawn; addFx(g, 'blast', a.x, a.y, 'CALAMITY FALLS!'); }
+    return false;
+  });
+}
 function waveList(n) {
   const pool = WAVE_UNLOCK.filter(([, from]) => n >= from).map(([k]) => k);
   const list = [], count = 3 + Math.floor(n * WAVE_SCALE.count);
@@ -1035,6 +1103,7 @@ function snap(g) {
     fx:g.fx.map(f => [f.id, f.k, r2(f.x), r2(f.y), r2(f.ttl), f.txt || '', f.x2 === undefined ? null : r2(f.x2), f.y2 === undefined ? null : r2(f.y2)]),
     gv:g.graves.map(gr => [gr.x, gr.y, gr.spec.col, r2(gr.ttl)]),
     lb:r2(Math.min(1, g.leo/g.leoNeed)), tw:g.towers.map(t => ({id:t.id, x:t.x, y:t.y, spec:t.spec, range:r2((t.eff || t.st).range), dmg:Math.round((t.eff || t.st).dmg), bf:t.buff || 0, cdl:t.spec.role === 'revive' ? r2(Math.max(0, t.cd)) : 0, lvl:t.lvl, up:upgradeCost(t.spec, t.lvl), sell:Math.floor(t.spent*.7), stun:t.stun > 0 ? 1 : 0, mc:t.mc > 0 ? 1 : 0, fc:t.face || 1, hits:t.stuns || 0, hk:t.hk ? [r2(t.hk.q), r2(t.hk.mx), r2(t.hk.my)] : 0})),
+    al:(g.allies || []).map(a => [a.id, a.k, r2(a.x), r2(a.y), Math.ceil(a.hp), a.m, a.st > 0 ? 1 : 0]),
     em:g.enemies.map(e => [e.id, e.k, r2(e.x), r2(e.y), Math.ceil(e.hp), e.m, e.slow > 0 ? 1 : 0, Math.ceil(e.sh), e.shm, e.fury || e.zerk ? 1 : 0, e.face, e.hold > 0 ? e.holdK : 0]),
     sh:g.shots.map(s => [r2(s.x1), r2(s.y1), r2(s.x2), r2(s.y2), s.c, s.sp === 'splash' ? 1 : s.sp === 'laser' ? 2 : s.sp === 'ray' ? 3 : 0, r2(s.ttl), s.id]),
   };
@@ -1093,7 +1162,7 @@ function renderDesigns() {
     const st = stats(d), b = document.createElement('button');
     b.className = 'card' + (i === selDesign ? ' sel' : '');
     b.innerHTML = `<div class="nm"><canvas class="tc" width="64" height="64"></canvas><span>${esc(d.name)} ${SP_ICON[d.sp]}${d.det ? '📡' : ''}</span></div>
-      <div class="meta">${d.role === 'launcher' ? 'Mortar → missiles → laser → ANNIHILATOR' : d.role === 'revive' ? `Revives ${REVIVE.max} towers / ${REVIVE.every}s · RNG ${st.range}` : d.role === 'dj' ? `Buffs nearby towers · RNG ${st.range}` : `DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s`}</div><div class="cost">💰 ${st.cost}</div>`;
+      <div class="meta">${d.role === 'launcher' ? 'Mortar → missiles → laser → ANNIHILATOR' : d.role === 'spawner' ? 'Summons CALAMITY + 5 Entities' : d.role === 'revive' ? `Revives ${REVIVE.max} towers / ${REVIVE.every}s · RNG ${st.range}` : d.role === 'dj' ? `Buffs nearby towers · RNG ${st.range}` : `DMG ${st.dmg} · RNG ${st.range} · ${st.rate}/s`}</div><div class="cost">💰 ${st.cost}</div>`;
     { const c = b.querySelector('canvas').getContext('2d'); c.scale(2, 2); drawSoldier(c, 16, 17, 26, d, 1); }
     b.onclick = () => { selDesign = i; selTower = null; renderDesigns(); };
     if (i >= PRESETS.length) {
@@ -1107,6 +1176,9 @@ function renderDesigns() {
   add.className = 'card add'; add.textContent = '+ New tower';
   add.onclick = openBuilder;
   box.appendChild(add);
+}
+function spawnerInfo(tw) {
+  return `Calamity ${Math.round(SPAWNER.hp[tw.lvl]*tune('sp:hp'))} HP · stomp ${Math.round(SPAWNER.stomp[tw.lvl]*tune('sp:stomp'))} + slow · ${SPAWNER.entN} Entities (${Math.round(SPAWNER.entHP*tune('sp:ent'))}) every ${SPAWNER.entEvery}s`;
 }
 function launcherInfo(tw) {
   const L = LAUNCHER[tw.lvl];
@@ -1205,10 +1277,14 @@ function renderTune() {
       list.appendChild(tuneCard(unit(k), E.name, stats, E.desc, sl));
     }
   } else if (tuneTab === 'towers') {
-    const tw = PRESETS.filter(p => p.role !== 'launcher' && p.role !== 'revive' && p.role !== 'dj');
+    const tw = PRESETS.filter(p => p.role !== 'launcher' && p.role !== 'revive' && p.role !== 'dj' && p.role !== 'spawner');
     list.appendChild(tuneCard(c => tw.forEach((p, i) => drawSoldier(c, 26 + (i % 2)*76, 42 + Math.floor(i/2)*58, 50, cleanSpec(p))), 'All your towers',
       'Every tower you build or design (Trooper, Frost, Boomer, Sniper and your own)', 'Splash, slow and sensor powers stay as they are; these scale their basic numbers.',
       [['💥 Damage', 'tw:dmg'], ['🎯 Range', 'tw:range'], ['⏱ Fire rate', 'tw:rate']]));
+    list.appendChild(tuneCard(c => { drawSpawner(c, 30, 80, 70, 5); drawAlly(c, 'calamity', 86, 72, 60, 0, -1); }, 'Spawner: Calamity',
+      `Calamity ❤️ ${SPAWNER.hp.slice(1).join(' / ')} by level · stomp ${SPAWNER.stomp.slice(1).join(' / ')} · ${SPAWNER.entN} Entities × ${SPAWNER.entHP}`,
+      'Summons Calamity, who blocks the road and stomps (damage + slow). Every 12s he releases 5 Entities that explode on the first zombie they touch, for damage equal to their health.',
+      [['❤️ Calamity health', 'sp:hp'], ['🦶 Stomp damage', 'sp:stomp'], ['👁 Entity health / blast', 'sp:ent']]));
     for (const p of PRESETS.filter(p => p.role === 'revive' || p.role === 'dj'))
       list.appendChild(tuneCard(c => drawSoldier(c, 64, 70, 90, cleanSpec(p)), p.name, p.role === 'revive' ? 'Brings back destroyed towers' : 'Boosts the towers around it', 'Support tower: no sliders.', []));
   } else if (tuneTab === 'launcher') {
@@ -1382,7 +1458,45 @@ function drawLauncher(c, cx, cy, s, lvl, face = 1) {
   }
   c.restore(); c.restore();
 }
+// Spawner tower: a black obelisk with glowing red runes on a dark plinth (taller and brighter with each level).
+function drawSpawner(c, cx, cy, s, lvl) {
+  c.save(); c.translate(cx, cy);
+  const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
+  const h = .5 + lvl*.05;
+  R(-.32, .2, .64, .14, '#2a0d10'); R(-.24, .12, .48, .1, '#3a1216');
+  c.fillStyle = '#111'; c.beginPath(); c.moveTo(-.16*s, .14*s); c.lineTo(.16*s, .14*s); c.lineTo(.09*s, (.14 - h)*s); c.lineTo(0, (.06 - h)*s); c.lineTo(-.09*s, (.14 - h)*s); c.closePath(); c.fill();
+  c.shadowColor = '#ff2a2a'; c.shadowBlur = s*.25; c.fillStyle = '#ff2a2a';
+  for (let i = 0; i < 2 + Math.ceil(lvl/2); i++) R(-.03, .06 - i*.11, .06, .05, i % 2 ? '#ff5a3a' : '#ff1a1a');
+  c.beginPath(); c.arc(0, (.06 - h)*s + s*.07, s*.04, 0, 7); c.fill(); c.shadowBlur = 0;
+  c.restore();
+}
+// Calamity: a tall red-and-black figure, horned, with a ragged cape and burning eyes. Entities: shadow orbs with a red eye.
+function drawAlly(c, k, x, y, s, ph, face, stomping) {
+  c.save(); c.translate(x, y); c.scale(face, 1);
+  const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
+  const glow = (col, blur, f) => { c.shadowColor = col; c.shadowBlur = s*blur; f(); c.shadowBlur = 0; };
+  if (k === 'calamity') {
+    const sw = Math.sin(ph)*.06, lift = stomping ? -.06 : 0;
+    c.fillStyle = 'rgba(255,30,30,.18)'; c.beginPath(); c.arc(0, 0, s*.62, 0, 7); c.fill();
+    c.fillStyle = '#2a0508'; c.beginPath(); c.moveTo(-.2*s, -.42*s); c.lineTo(.2*s, -.42*s); c.lineTo(.3*s, .38*s); c.lineTo(.1*s, .3*s); c.lineTo(0, .4*s); c.lineTo(-.12*s, .3*s); c.lineTo(-.3*s, .38*s); c.closePath(); c.fill();   // cape
+    R(-.17, .02 + sw + lift, .13, .4, '#0d0d0f'); R(.04, .02 - sw, .13, .4, '#0d0d0f');   // legs
+    R(-.2, .38 + sw + lift, .17, .07, '#7a0d12'); R(.03, .38 - sw, .17, .07, '#7a0d12');
+    R(-.22, -.42, .44, .46, '#141416');   // body
+    glow('#ff2a2a', .2, () => { R(-.02, -.38, .04, .36, '#ff2a2a'); R(-.16, -.3, .32, .03, '#d40f1f'); R(-.12, -.18, .24, .03, '#d40f1f'); });
+    for (const d of [-1, 1]) { R(d > 0 ? .2 : -.34, -.42, .14, .12, '#7a0d12'); R(d > 0 ? .22 : -.32, -.32, .1, .34, '#141416'); R(d > 0 ? .21 : -.33, .0, .12, .07, '#ff2a2a'); }   // shoulders, arms, red fists
+    R(-.12, -.66, .24, .24, '#141416');   // head
+    c.fillStyle = '#7a0d12'; for (const d of [-1, 1]) { c.beginPath(); c.moveTo(d*.08*s, -.64*s); c.lineTo(d*.2*s, -.86*s); c.lineTo(d*.13*s, -.6*s); c.closePath(); c.fill(); }   // horns
+    glow('#ff1a1a', .3, () => { R(-.09, -.56, .07, .04, '#ff3b30'); R(.02, -.56, .07, .04, '#ff3b30'); });
+  } else {
+    const b = Math.sin(ph*2)*.04;
+    glow('#ff2a2a', .35, () => { c.fillStyle = '#0b0b0d'; c.beginPath(); c.ellipse(0, b*s, .2*s, .24*s, 0, 0, 7); c.fill(); });
+    c.fillStyle = '#ff2a2a'; c.beginPath(); c.arc(.06*s, (b - .04)*s, .05*s, 0, 7); c.fill();
+    c.fillStyle = 'rgba(20,0,0,.6)'; for (let i = 0; i < 3; i++) R(-.2 - i*.08, b + .05*i - .05, .08, .05, '#3a0508');
+  }
+  c.restore();
+}
 function drawSoldier(c, cx, cy, s, spec, face = 1, lvl = 1) {
+  if (spec.role === 'spawner') return drawSpawner(c, cx, cy, s, Math.max(1, Math.min(5, lvl)));
   if (spec.role === 'launcher') return drawLauncher(c, cx, cy, s, Math.max(1, Math.min(5, lvl)), face);
   c.save(); c.translate(cx, cy); c.scale(face, 1);
   const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
@@ -1821,6 +1935,7 @@ function towerGeo(spec, lvl) {
   const role = spec.role || 'attack', sniper = spec.det && role === 'attack', key = [role, spec.sp, sniper, spec.col, lvl].join('|');
   if (G3.towerGeo[key]) return G3.towerGeo[key];
   if (role === 'launcher') return (G3.towerGeo[key] = launcherGeo(lvl));
+  if (role === 'spawner') return (G3.towerGeo[key] = spawnerGeo(lvl));
   const [lu, ld, lp] = LEVEL_UNIFORM[Math.min(MAX_LVL, Math.max(1, lvl))];
   const uni = role === 'revive' && lvl === 1 ? '#d0d7de' : lu, dark = role === 'revive' && lvl === 1 ? '#8b949e' : ld, c = spec.col, k = .8;
   const B = [];
@@ -1846,6 +1961,14 @@ function towerGeo(spec, lvl) {
   return (G3.towerGeo[key] = {soldier:mergeBoxes(B), pit:mergeBoxes(pit)});
 }
 // Launcher in 3D: a tracked hull on a concrete pad (fixed) and a turret that turns to aim (the "soldier" mesh).
+function spawnerGeo(lvl) {
+  const P = [], B = [], p = (...a) => P.push(a), b = (...a) => B.push(a), h = .5 + lvl*.08;
+  p(.86, .06, .86, 0, .03, 0, '#2a0d10'); p(.6, .12, .6, 0, .12, 0, '#3a1216');
+  b(.26, h, .26, 0, .18 + h/2, 0, '#111214'); b(.16, .16, .16, 0, .18 + h + .08, 0, '#141416');
+  for (let i = 0; i < 2 + Math.ceil(lvl/2); i++) { b(.27, .05, .05, 0, .3 + i*.13, 0, '#ff1a1a'); b(.05, .05, .27, 0, .3 + i*.13, 0, '#ff1a1a'); }
+  b(.06, .06, .06, .1, .18 + h + .08, 0, '#ff3b30');
+  return {soldier:mergeBoxes(B), pit:mergeBoxes(P)};
+}
 function launcherGeo(lvl) {
   const hull = ['#4b5d3a', '#4b5d3a', '#8a7a4a', '#5c616b', '#1b1d22'][lvl - 1], P = [], B = [];
   const p = (...a) => P.push(a), b = (...a) => B.push(a);
@@ -2088,6 +2211,31 @@ function doomTpl() {
   const rage = new T.Sprite(new T.SpriteMaterial({map:G3.dot, color:0xff3b30, transparent:true, blending:T.AdditiveBlending, depthWrite:false})); rage.scale.set(2.4, 2.4, 1); rage.position.y = .6; rage.visible = false; g.add(rage);
   g.userData = {legs, arms, core, rage, head, coreCol:0x8dff4a, big:true}; return g;
 }
+// Calamity (a horned red-and-black giant with a cape) and the Entities (shadow orbs with one red eye), in 3D.
+function allyTpl(k) {
+  G3.allyTpl = G3.allyTpl || {};
+  if (G3.allyTpl[k]) return G3.allyTpl[k];
+  const T = THREE, g = new T.Group(), L = c => new T.MeshLambertMaterial({color:c}), red = new T.MeshBasicMaterial({color:0xff2a2a});
+  const box = (w, h, d, m, x, y, z, parent = g) => { const b = new T.Mesh(new T.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; parent.add(b); return b; };
+  if (k === 'calamity') {
+    const blk = L('#141416'), dk = L('#7a0d12');
+    const legs = [-.12, .12].map(z => { const p = new T.Group(); p.position.set(0, .46, z); g.add(p); box(.15, .44, .15, blk, 0, -.22, 0, p); box(.22, .07, .17, dk, .03, -.43, 0, p); return p; });
+    box(.3, .48, .5, blk, 0, .74, 0); box(.02, .4, .05, red, .16, .76, 0); box(.02, .04, .34, red, .16, .86, 0); box(.02, .04, .26, red, .16, .7, 0);
+    box(.04, .7, .56, L('#2a0508'), -.18, .62, 0);   // cape
+    for (const z of [-.33, .33]) { box(.2, .14, .16, dk, 0, .96, z); box(.12, .4, .12, blk, 0, .72, z); box(.13, .1, .13, red, .02, .5, z); }
+    const head = new T.Group(); head.position.set(0, 1.12, 0); g.add(head);
+    box(.26, .26, .26, blk, 0, 0, 0, head); box(.02, .04, .07, red, .135, .02, -.06, head); box(.02, .04, .07, red, .135, .02, .06, head);
+    for (const z of [-.1, .1]) { const h = new T.Mesh(new T.ConeGeometry(.04, .24, 6), dk); h.position.set(-.02, .2, z); h.rotation.x = z > 0 ? -.4 : .4; head.add(h); }
+    const aura = new T.Sprite(new T.SpriteMaterial({map:G3.dot, color:0xff1a1a, transparent:true, opacity:.3, blending:T.AdditiveBlending, depthWrite:false})); aura.scale.set(1.2, 1.2, 1); aura.position.y = .6; g.add(aura);
+    g.userData = {legs};
+  } else {
+    const orb = new T.Mesh(new T.SphereGeometry(.22, 14, 10), L('#0b0b0d')); orb.position.y = .35; orb.castShadow = true; g.add(orb);
+    const eye = new T.Mesh(new T.SphereGeometry(.06, 8, 6), red); eye.position.set(.2, .38, 0); g.add(eye);
+    const glow = new T.Sprite(new T.SpriteMaterial({map:G3.dot, color:0xff2a2a, transparent:true, opacity:.55, blending:T.AdditiveBlending, depthWrite:false})); glow.scale.set(.9, .9, 1); glow.position.y = .35; g.add(glow);
+    g.userData = {};
+  }
+  return (G3.allyTpl[k] = g);
+}
 function enemyTpl(k) {
   if (G3.enemyTpl[k]) return G3.enemyTpl[k];
   const T = THREE, G = '#7bab5a';
@@ -2141,7 +2289,7 @@ function ring3(x, y, r, color, alpha, fill) {
   if (!m) { m = new THREE.Mesh(new THREE.RingGeometry(.9, 1, 40), new THREE.MeshBasicMaterial({transparent:true, depthWrite:false, side:THREE.DoubleSide})); m.rotation.x = -Math.PI/2; G3.world.add(m); G3.rings.push(m); }
   m.userData.used = true; m.visible = true; m.position.set(...W3(x, y, .05)); m.scale.set(r, r, 1); m.material.color.set(color); m.material.opacity = alpha;
 }
-const FX_COL = {pblast:'#3ee6ff', sword:'#93c5fd', shieldup:'#ffd23f', bfg:'#8dff4a', leo:'#ffd23f', boom:'#ffa657', pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
+const FX_COL = {cstomp:'#ff2a2a', csummon:'#ff2a2a', entboom:'#ff4d4d', pblast:'#3ee6ff', sword:'#93c5fd', shieldup:'#ffd23f', bfg:'#8dff4a', leo:'#ffd23f', boom:'#ffa657', pop:'#ffffff', build:'#3fb950', leak:'#ff7b72', roar:'#d2a8ff', shieldbreak:'#3ee6ff', fury:'#ff3b30', emp:'#79c0ff', revive:'#3fb950', tele:'#3ee6ff', mind:'#a371f7', summon:'#a371f7', wreck:'#ffa657'};
 
 // Camera: a tilted view from the front of the board, sized so the board, gravestone and castle all fit.
 function fit3D() {
@@ -2233,6 +2381,21 @@ function render3D(v) {
     c.userData.claw.position.copy(b);
   }
   for (let i = ci; i < (G3.cables || []).length; i++) G3.cables[i].visible = false;
+  // the Spawner's Calamity and Entities: they walk toward the gravestone, so they face back down the road
+  G3.allies = G3.allies || new Map(); const seenA = new Set();
+  for (const [id, k, x, y, hp, m, st] of v.al || []) {
+    seenA.add(id);
+    let g = G3.allies.get(id);
+    if (!g) { const tpl = allyTpl(k); g = tpl.clone(true); const a = [], b = []; tpl.traverse(o => a.push(o)); g.traverse(o => b.push(o));
+      g.userData = {legs:tpl.userData.legs && tpl.userData.legs.map(o => b[a.indexOf(o)]), px:x, py:y, yaw:Math.PI}; G3.world.add(g); G3.allies.set(id, g); }
+    const U = g.userData, dx = x - U.px, dy = y - U.py; U.px = x; U.py = y;
+    if (Math.hypot(dx, dy) > 1e-4) U.yaw = -Math.atan2(dy, dx);
+    let dyaw = U.yaw - g.rotation.y; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw)); g.rotation.y += dyaw*Math.min(1, dt*10);
+    const big = k === 'calamity' ? 1.5 : .8, moving = Math.hypot(dx, dy) > 1e-4;
+    g.scale.setScalar(big); g.position.set(...W3(x, y, k === 'entity' ? Math.sin(t*6 + id)*.05 : st ? .12 : 0));
+    if (U.legs) { const sw = moving ? Math.sin(t*6 + id)*.45 : 0; U.legs[0].rotation.z = sw; U.legs[1].rotation.z = -sw; }
+  }
+  for (const [id, g] of G3.allies) if (!seenA.has(id)) { G3.world.remove(g); G3.allies.delete(id); }
   // enemies
   const seenE = new Set();
   for (const [id, k, x, y, hp, m, slow, sh, shm, fury, face, hold] of v.em) {
@@ -2284,6 +2447,7 @@ function render3D(v) {
   for (const [id, k, x, y, ttl] of v.fx) {
     const p = 1 - ttl/FX_LIFE[k], col = FX_COL[k] || '#f2cc60', a = Math.max(0, 1 - p);
     const R = {bfg:p < .25 ? 0 : DOOM.radius*Math.min(1, (p - .25)*3.3), leo:LEO.radius*Math.min(1, p*2), boom:.2 + p*.9, pop:.2 + p*.5, build:.3 + p*.6, leak:.3 + p*1.2, roar:.3 + p*1.2, shieldbreak:.3 + p*.6, fury:.4 + p*1.5, emp:2.2*p, revive:.3 + p*.8, tele:.3 + p*1.3, mind:.4 + p*3, summon:.4 + p*1.2, wreck:.3 + p*.9}[k];
+    if (k === 'cstomp') ring3(x, y, .3 + p*SPAWNER.stompR, '#ff2a2a', a); else if (k === 'csummon') ring3(x, y, .3 + p*1.2, '#ff2a2a', a);
     if (k === 'pblast') ring3(x, y, .2 + p*SPARTAN.grenR, '#3ee6ff', a); else if (k === 'shieldup') ring3(x, y, .4 + p*.8, '#ffd23f', a);
     if (R) ring3(x, y, R, col, a);
     const key = v.ep + ':' + id; if (G3.seen.has(key)) continue; G3.seen.add(key);
@@ -2306,6 +2470,9 @@ function render3D(v) {
     if (k === 'rip') spawnBurst(x, y, .1, 26, 3, .9, .3, ['#6e5a3c', '#8a7650', '#4a3a28', '#c9a227'], 5);
     if (k === 'pgren') { const f = v.fx.find(f => f[0] === id); if (f[6] !== null) launchMissile(f[6], f[7], 1.4, x, y, FX_LIFE.pgren*.32, .9, 'pgren'); }
     if (k === 'pblast') { spawnBurst(x, y, .4, 30, 4, .7, .35, ['#3ee6ff', '#bff6ff', '#ffffff', '#1d4ed8'], 3); G3.shake = Math.max(G3.shake || 0, .3); }
+    if (k === 'cstomp') { spawnBurst(x, y, .05, 24, 3, .6, .35, ['#3a0000', '#ff2a2a', '#1a1a1a', '#7a1010'], 6); G3.shake = Math.max(G3.shake || 0, .35); }
+    if (k === 'csummon') for (let i = 0; i < 18; i++) spawn3(x + (Math.random() - .5)*.8, y + (Math.random() - .5)*.8, .1, [0, 1.5 + Math.random()*2, 0], .9, .25, .06, i % 2 ? '#ff2a2a' : '#1a0000');
+    if (k === 'entboom') spawnBurst(x, y, .3, 16, 3, .45, .2, ['#ff2a2a', '#ff7b72', '#1a0000'], 3);
     if (k === 'sword') spawnBurst(x, y, .5, 22, 4, .5, .2, ['#bfe3ff', '#3ee6ff', '#ffffff']);
     if (k === 'crunch') { for (let i = 0; i < 30; i++) spawn3(x + (Math.random() - .5)*.3, y + (Math.random() - .5)*.3, HOOK_MOUTH, [(Math.random() - .5)*3, 1 + Math.random()*2, (Math.random() - .5)*3], .9, .14, .06, ['#8b949e', '#5a4a32', '#c9d1d9', '#ffd23f', '#ff7a1a'][i % 5], 5); G3.shake = Math.max(G3.shake || 0, .4); }
     if (k === 'sgun') { const f = v.fx.find(f => f[0] === id); if (f[6] !== null) for (let i = 0; i < 8; i++) { const q = Math.random(); spawn3(f[6] + (x - f[6])*q, f[7] + (y - f[7])*q, .6, [(Math.random() - .5), .4, (Math.random() - .5)], .25, .1, .03, '#ffd23f'); } spawnBurst(x, y, .4, 8, 2, .4, .15, ['#ffd23f', '#ffffff']); }
@@ -2428,7 +2595,7 @@ function closeupCam(v, dt) {
       $('#ccName').textContent = E.name + (fury ? (E.doomBoss ? ' · BERSERK' : ' · RAGING') : ''); $('#ccInfo').textContent = `${Math.max(0, hp)} / ${m} HP${shm ? ` · shield ${sh}/${shm}` : ''} · ${TAGS(E).map(t => t[0]).join(' · ') || 'zombie'}\n${E.desc}`;
       $('#ccBar').hidden = false; $('#ccHp').style.width = Math.max(0, hp/m*100) + '%'; }
     else if (tw) { $('#ccName').textContent = `${tw.spec.name} · Lv${tw.lvl}`; $('#ccHp').style.width = '100%'; $('#ccBar').hidden = true;
-      $('#ccInfo').textContent = (tw.spec.role === 'launcher' ? launcherInfo(tw) : tw.spec.role === 'attack' ? `${tw.dmg} damage · range ${tw.range}${tw.spec.sp !== 'none' ? ' · ' + {slow:'freezes', splash:'splash'}[tw.spec.sp] : ''}${tw.spec.det ? ' · sees hidden' : ''}` : tw.spec.role === 'dj' ? 'DJ: boosts towers near it' : 'Reviver: brings destroyed towers back') + (tw.stun ? ' · ⚡ knocked out' : tw.mc ? ' · 🌀 mind-controlled' : ''); }
+      $('#ccInfo').textContent = (tw.spec.role === 'launcher' ? launcherInfo(tw) : tw.spec.role === 'spawner' ? spawnerInfo(tw) : tw.spec.role === 'attack' ? `${tw.dmg} damage · range ${tw.range}${tw.spec.sp !== 'none' ? ' · ' + {slow:'freezes', splash:'splash'}[tw.spec.sp] : ''}${tw.spec.det ? ' · sees hidden' : ''}` : tw.spec.role === 'dj' ? 'DJ: boosts towers near it' : 'Reviver: brings destroyed towers back') + (tw.stun ? ' · ⚡ knocked out' : tw.mc ? ' · 🌀 mind-controlled' : ''); }
     else $('#ccInfo').textContent = 'Gone!';
   }
   if (!CU.anchor) return null;
@@ -2464,6 +2631,11 @@ function overlay3D(v) {
     if (tw.hits) { ctx.strokeStyle = '#ff3b30'; ctx.lineWidth = Math.max(2, TS*.06); ctx.lineCap = 'round'; ctx.beginPath();
       ctx.moveTo(sx - u, sy + u*1.4); ctx.lineTo(sx - u*.3, sy + u*2); ctx.lineTo(sx - u*.6, sy + u*2.6);
       if (tw.hits > 1) { ctx.moveTo(sx + u, sy + u*1.4); ctx.lineTo(sx + u*.3, sy + u*2); ctx.lineTo(sx + u*.6, sy + u*2.6); } ctx.stroke(); }
+  }
+  for (const [id, k, x, y, hp, m] of v.al || []) {
+    if (k !== 'calamity') continue;
+    const [sx, sy] = project3(x, y, 2.4), bw = TS*.9;
+    ctx.fillStyle = '#000a'; ctx.fillRect(sx - bw/2, sy, bw, 4); ctx.fillStyle = '#ff2a2a'; ctx.fillRect(sx - bw/2, sy, bw*hp/m, 4);
   }
   for (const [id, k, x, y, hp, m, slow, sh, shm] of v.em) {
     if (!(hp < m || shm)) continue;
@@ -2518,6 +2690,11 @@ function draw2D(v) {
 
   const now = performance.now();
   const ems = v.em.slice().sort((a, b) => (ENEMIES[a[1]].fly ? 1 : 0) - (ENEMIES[b[1]].fly ? 1 : 0));
+  for (const [id, k, x, y, hp, m, st] of v.al || []) {   // the Spawner's Calamity and Entities
+    const s = (k === 'calamity' ? 1.25 : .5)*TS, ph = now/1000*(k === 'calamity' ? 3 : 6) + id;
+    drawAlly(ctx, k, x*TS, y*TS, s, ph, -1, st);
+    if (k === 'calamity') { const bw = TS*.9, x0 = x*TS - bw/2, y0 = (y - 1.05)*TS; ctx.fillStyle = '#000a'; ctx.fillRect(x0, y0, bw, 5); ctx.fillStyle = '#ff2a2a'; ctx.fillRect(x0, y0, bw*hp/m, 5); }
+  }
   for (const [id, k, x, y, hp, m, slow, sh, shm, fury, face, hold] of ems) {
     const E = ENEMIES[k], s = E.r*2.3*TS, px = x*TS, py = y*TS;
     if (E.heal) ring(x, y, 1.6, 'rgba(63,185,80,.25)');
@@ -2619,13 +2796,16 @@ function draw2D(v) {
     if (k === 'sword' && x2 !== null) { ctx.strokeStyle = '#bfe3ff'; ctx.shadowColor = '#3ee6ff'; ctx.shadowBlur = TS*.4; ctx.lineWidth = TS*.12*(1 - p); ctx.lineCap = 'round';
       ctx.beginPath(); ctx.arc(x*TS, y*TS, TS*.6, -2.4 + p*2, -.6 + p*2); ctx.stroke(); ctx.shadowBlur = 0; }
     if (k === 'shieldup') ring(x, y, .4 + p*.8, '#ffd23f', 'rgba(255,210,63,.12)');
+    if (k === 'cstomp') { ring(x, y, .3 + p*SPAWNER.stompR, '#ff2a2a', 'rgba(200,0,0,.2)'); ring(x, y, .2 + p*.9, '#1a0000'); }
+    if (k === 'csummon') ring(x, y, .3 + p*1.2, '#ff2a2a', 'rgba(255,40,40,.15)');
+    if (k === 'entboom') ring(x, y, .1 + p*.6, '#ff4d4d', 'rgba(255,60,60,.35)');
     if (k === 'crunch') { ctx.fillStyle = '#8b949e'; for (let i = 0; i < 9; i++) { const a = i*.7 + 1, d = .3 + p*1.1; ctx.fillRect((x + Math.cos(a)*d)*TS - 3, (y - .62 - Math.sin(a)*d*.6 + p*p*1.2)*TS - 3, 6, 6); } }
     if (k === 'sgun' && x2 !== null) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.beginPath();
       for (let i = -2; i <= 2; i++) { ctx.moveTo(x2*TS, y2*TS); ctx.lineTo((x + i*.08)*TS, (y - i*.06)*TS); } ctx.stroke(); }
     if (txt) {
       ctx.font = `bold ${TS*.4}px system-ui,sans-serif`;
       if (k === 'leo') ctx.font = `900 ${TS*.8}px system-ui,sans-serif`;
-      ctx.fillStyle = {leo:'#ffd23f', leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72', mind:'#d2a8ff', summon:'#d2a8ff', revive:'#3fb950', tele:'#3ee6ff', laser:'#ff3b30', blast:'#ffd23f', bfg:'#8dff4a', hook:'#c9d1d9', rip:'#ffa657', crunch:'#ff7b72', pgren:'#3ee6ff', sword:'#93c5fd', shieldup:'#ffd23f'}[k] || '#f2cc60';
+      ctx.fillStyle = {leo:'#ffd23f', leak:'#ff7b72', fury:'#ff3b30', roar:'#ff3b30', emp:'#79c0ff', wreck:'#ff7b72', mind:'#d2a8ff', summon:'#d2a8ff', revive:'#3fb950', tele:'#3ee6ff', laser:'#ff3b30', blast:'#ffd23f', bfg:'#8dff4a', hook:'#c9d1d9', rip:'#ffa657', crunch:'#ff7b72', cstomp:'#ff4d4d', csummon:'#ff4d4d', pgren:'#3ee6ff', sword:'#93c5fd', shieldup:'#ffd23f'}[k] || '#f2cc60';
       ctx.fillText(txt, x*TS, (y - .3 - p*.7)*TS);
     }
     ctx.globalAlpha = 1;
@@ -2693,9 +2873,9 @@ function hud(v) {
   $('#selInfo').hidden = !sel;
   $('#btnSell').hidden = !isDef(); $('#btnUp').hidden = !isDef();
   if (sel) {
-    $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]}${sel.spec.det ? '📡' : ''} · Lv${sel.lvl}${sel.lvl >= maxLvl(sel.spec) ? ' (max)' : ''} · ` + (sel.spec.role === 'launcher' ? launcherInfo(sel) : sel.spec.role === 'dj' ? `buffs range +${Math.round(DJ_BUFF[sel.lvl].range*100)}%, dmg +${Math.round(DJ_BUFF[sel.lvl].dmg*100)}%, speed +${Math.round(DJ_BUFF[sel.lvl].rate*100)}% · range ${sel.range}` : sel.spec.role === 'revive' ? `revives up to ${REVIVE.max} towers` + (sel.cdl > 0 ? ` (ready in ${Math.ceil(sel.cdl)}s)` : '') + ` · range ${sel.range}` : `${sel.dmg} dmg · range ${sel.range}` + (sel.bf ? ' · ♪ DJ buff' : '')) + (sel.hits ? ` · ⚡ stunned ${sel.hits}/${STUNS_TO_BREAK}` : '') + (sel.mc ? ' · 🌀 mind-controlled' : '');
+    $('#selText').textContent = `${sel.spec.name} ${SP_ICON[sel.spec.sp]}${sel.spec.det ? '📡' : ''} · Lv${sel.lvl}${sel.lvl >= maxLvl(sel.spec) ? ' (max)' : ''} · ` + (sel.spec.role === 'launcher' ? launcherInfo(sel) : sel.spec.role === 'spawner' ? spawnerInfo(sel) : sel.spec.role === 'dj' ? `buffs range +${Math.round(DJ_BUFF[sel.lvl].range*100)}%, dmg +${Math.round(DJ_BUFF[sel.lvl].dmg*100)}%, speed +${Math.round(DJ_BUFF[sel.lvl].rate*100)}% · range ${sel.range}` : sel.spec.role === 'revive' ? `revives up to ${REVIVE.max} towers` + (sel.cdl > 0 ? ` (ready in ${Math.ceil(sel.cdl)}s)` : '') + ` · range ${sel.range}` : `${sel.dmg} dmg · range ${sel.range}` + (sel.bf ? ' · ♪ DJ buff' : '')) + (sel.hits ? ` · ⚡ stunned ${sel.hits}/${STUNS_TO_BREAK}` : '') + (sel.mc ? ' · 🌀 mind-controlled' : '');
     $('#btnSell').textContent = `Sell 💰${sel.sell}`;
-    $('#btnUp').textContent = sel.up ? `⬆ ${sel.spec.role === 'launcher' ? LAUNCHER[sel.lvl + 1].name : 'Lv' + (sel.lvl + 1)} 💰${sel.up}` : 'Max level';
+    $('#btnUp').textContent = sel.up ? `⬆ ${sel.spec.role === 'launcher' ? LAUNCHER[sel.lvl + 1].name : sel.spec.role === 'spawner' ? 'Calamity ' + SPAWNER.hp[sel.lvl + 1] + ' HP' : 'Lv' + (sel.lvl + 1)} 💰${sel.up}` : 'Max level';
     $('#btnUp').disabled = !sel.up || v.gd < sel.up || v.st === 'over';
   }
 
@@ -2833,6 +3013,9 @@ const SFX = {
   sgun:   every(100, () => { tone(170, 40, .22, 'sawtooth', .12); tone(2400, 300, .08, 'square', .05); }),
   hook:   () => { tone(260, 1300, .5, 'sawtooth', .05); tone(2200, 1900, .06, 'square', .06, .58); },
   rip:    () => { tone(95, 28, .55, 'sawtooth', .14); tone(420, 70, .35, 'square', .06, .05); },
+  cstomp: every(120, () => { tone(70, 30, .4, 'sawtooth', .16); tone(140, 50, .3, 'square', .07); }),
+  csummon: () => { tone(60, 220, .6, 'sawtooth', .1); tone(110, 440, .6, 'square', .05, .1); },
+  entboom: every(60, () => tone(400, 60, .2, 'sawtooth', .09)),
   pgren:  () => { tone(600, 1400, .25, 'sine', .06); tone(2200, 2000, .05, 'square', .04, .3); },
   pblast: every(90, () => { tone(900, 120, .4, 'sawtooth', .08); tone(140, 50, .35, 'square', .08); }),
   sword:  () => { tone(1800, 600, .25, 'sawtooth', .08); tone(400, 1200, .2, 'sine', .06, .05); },
