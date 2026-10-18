@@ -568,6 +568,7 @@ function resetKickoff(g, concededBy) {
   g.ball = {x:50, y:80, vx:0, vy:0}; g.fx = []; g.pu = null; g.bananas = [];
   if (concededBy !== null) g.ball.y = concededBy === 0 ? 92 : 68;   // team that conceded gets the ball nudged their way
   g.status = 'kickoff'; g.cd = 2.2; g.targets = {}; g.lastTouch = null;
+  g.kickTeam = concededBy === null ? 0 : concededBy;   // who takes the kick-off: the home team to start, then whoever conceded
 }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ownGoalY = team => team ? 0 : 160, oppGoalY = team => team ? 160 : 0;
@@ -621,15 +622,19 @@ function step(g, dt) {
   if (g.status !== 'play') {
     if (g.fx.length) g.fx = g.fx.filter(f => (f.a += dt) < 1.2);   // explosions finish during the pause
     g.cd -= dt;
-    if (g.cd <= 0) { if (g.status === 'goal') resetKickoff(g, g.lastConceded); else g.status = g.status === 'duelintro' ? 'duel' : 'play'; }
+    if (g.cd <= 0) { if (g.status === 'goal') resetKickoff(g, g.lastConceded); else { if (g.status === 'kickoff') g.kickT = g.t; g.status = g.status === 'duelintro' ? 'duel' : 'play'; } }
     if (g.status !== 'play') return;
   }
   g.t += dt;
   if (g.lv && !g.boss && (g.len ? g.len - g.t <= 45 : Math.max(...g.score) >= 4)) { startBoss(g); return; }
   const b = g.ball;
+  // Kick-off: until the ball is kicked (or 3s pass), the other team's computer players hold their positions, so the
+  // kicking team gets a fair start instead of the computer stealing the ball before a person has moved.
+  const sinceKick = g.t - (g.kickT || 0), kicked = g.lastTouch !== null || sinceKick > 3;
   // computer players: per team, the field player nearest the ball chases it
   const chasers = [0, 1].map(team => {
     let best = null, bd = 1e9;
+    if (!kicked && (team !== g.kickTeam || sinceKick < 1)) return null;   // the kicking computer also pauses a second, so people see the kick coming
     for (const w of g.widgets) if (w.team === team && w.ctl === null && w.role !== 'GK') { const d = Math.hypot(w.x - b.x, w.y - b.y); if (d < bd) { bd = d; best = w; } }
     return best;
   });
@@ -2195,9 +2200,11 @@ cv.addEventListener('pointerdown', ev => {
   if (!view) return;
   const [x, y] = toWorld(ev.clientX, ev.clientY);
   let best = null, bd = 1e9;
-  for (const wi of controllable()) {   // the nearest of your players, wherever you touch
+  const [gx, gy] = toWorld(ev.clientX + 60, ev.clientY), gkReach = Math.hypot(gx - x, gy - y);   // about 1 cm
+  for (const wi of controllable()) {   // the nearest of your outfield players, wherever you touch; the keeper only if you touch near him
     if (isHeld(wi.id)) continue;
     const [wx, wy] = view.w[wi.id], d = Math.hypot(wx - x, wy - y);
+    if (wi.role === 'GK' && d > gkReach) continue;
     if (d < bd) { bd = d; best = wi; }
   }
   if (!best) return;
@@ -2273,6 +2280,21 @@ function askPin(title, sub = '') {
     document.addEventListener('keydown', kb);
     box.querySelector('.ok').textContent = 'OK'; box.querySelector('.ok').onclick = () => end(v || null); box.querySelector('.no').onclick = () => end(null);
     show(); box.hidden = false;
+  });
+}
+// askText(title, sub, initial, maxLen): an on-screen text box in the same panel, instead of the browser's prompt().
+function askText(title, sub = '', initial = '', maxLen = 40) {
+  return new Promise(done => {
+    const box = document.getElementById('pinPad'), dots = box.querySelector('.pd');
+    box.querySelector('.pt').textContent = title; box.querySelector('.ps').textContent = sub;
+    box.querySelector('.pk').hidden = true; dots.hidden = false; dots.innerHTML = '';
+    const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = maxLen; inp.value = initial; inp.autocomplete = 'off'; inp.autocapitalize = maxLen <= 4 ? 'characters' : 'words';
+    inp.style.cssText = 'width:100%;font:600 20px system-ui,sans-serif;letter-spacing:normal;padding:10px;border-radius:10px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;text-align:center';
+    dots.appendChild(inp);
+    const end = r => { box.hidden = true; dots.innerHTML = ''; done(r); };
+    inp.onkeydown = e => { if (e.key === 'Enter') end(inp.value); else if (e.key === 'Escape') end(null); };
+    box.querySelector('.ok').textContent = 'OK'; box.querySelector('.ok').onclick = () => end(inp.value); box.querySelector('.no').onclick = () => end(null);
+    box.hidden = false; setTimeout(() => { inp.focus(); inp.select(); }, 50);
   });
 }
 function askYes(text) {
@@ -2394,7 +2416,7 @@ function shareInvite() {
   const url = joinUrl(), text = `⚽ ${profile.name || 'Your friend'} invited you to a Pocket Soccer match! Tap the link, then Join game:`;
   let copied = false;
   try { navigator.clipboard.writeText(text + ' ' + url).then(() => { copied = true; }, () => {}); } catch (e) {}
-  const fallback = () => setTimeout(() => copied ? toast('📋 Link copied — paste it into WhatsApp or Messages') : prompt('Copy this link and send it to your friend:', url), 150);
+  const fallback = () => setTimeout(() => copied ? toast('📋 Link copied — paste it into WhatsApp or Messages') : askText('Copy this link', 'Press and hold it, copy, and send it to your friend', url, 300), 150);
   if (navigator.share) navigator.share({title:'Pocket Soccer', text, url}).catch(e => { if (e && e.name !== 'AbortError') fallback(); else if (copied) toast('📋 Link copied too'); });
   else fallback();
 }
@@ -2484,7 +2506,7 @@ function renderLobby(list) {
     row.innerHTML = `<img class="face" src="${faceUrl(p.face)}" alt=""><span class="nm">${esc(p.name)}${p.pid === myPid ? ' (you)' : ''}</span><button class="tag t${p.team}">${TEAMS[p.team].name}</button>`;
     if (host) row.querySelector('.nm').onclick = () => {
       const lp = lobby.players.find(x => x.pid === p.pid); if (!lp) return;
-      const nn = prompt('Nickname for ' + lp.name + ':', lp.name); if (nn && nn.trim()) { lp.name = nn.trim().slice(0, 16); syncLobby(); }
+      askText('Nickname for ' + lp.name, '', lp.name, 16).then(nn => { if (nn && nn.trim()) { lp.name = nn.trim().slice(0, 16); syncLobby(); } });
     };
     row.querySelector('button').onclick = () => {
       if (host) { const lp = lobby.players.find(x => x.pid === p.pid); lp.team = 1 - lp.team; syncLobby(); }
@@ -2517,8 +2539,8 @@ $('#lobbyLeave').onclick = leaveGame;
 
 /* ---------- TV screen: a big screen in the room that shows the match (it never plays) ---------- */
 // Host side: connect to the TV whose code is on its screen, then it gets everything guests get.
-$('#addTV').onclick = () => {
-  const code = (prompt('Type the 4-letter code shown on the TV:') || '').toUpperCase().replace(/[^A-Z]/g, '');
+$('#addTV').onclick = async () => {
+  const code = ((await askText('📺 TV code', 'The 4-letter code shown on the TV', '', 4)) || '').toUpperCase().replace(/[^A-Z]/g, '');
   if (code.length !== 4) { if (code) toast('The TV code has 4 letters'); return; }
   const pid = 'tv-' + code, c = peer.connect(PFX + pid, {reliable:true, serialization:'json'});
   const t = setTimeout(() => { if (!c.open) toast("Couldn't reach that TV. Check the code, and that it's on the same Wi-Fi."); }, 9000);

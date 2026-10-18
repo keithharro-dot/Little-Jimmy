@@ -26,6 +26,7 @@ const page = async (url, name) => { const p = await ctx.newPage(); p.on('pageerr
 console.log('Pocket Soccer');
 const h = await page(BASE + '/soccer.html', 'Host');
 await h.tap('#goHost'); await h.waitForFunction(() => !!inviteToken);
+await h.waitForTimeout(500); if (await h.isVisible('#pinPad')) await h.tap('#pinPad .no');   // headless has no share sheet or clipboard, so the link box opens: close it
 const link = (await h.evaluate(() => joinUrl())).replace(/^https:\/\/[^#]+/, BASE + '/soccer.html');
 const g = await page(link, 'Guest'); await g.waitForTimeout(400);
 check(await g.isVisible('#joinGo') && (await g.textContent('#joinTitle')).includes('Host invited you'), 'the link opens a Join game screen');
