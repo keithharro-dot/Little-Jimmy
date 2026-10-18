@@ -594,7 +594,8 @@ function newGame(epoch = 0, map = MAPD.id) {
 // Eco: the zombie sender earns g.eco energy per second. Sending zombies raises it for good,
 // sending an Eradicator lowers it (never below ECO_MIN). Each zombie type has a build time
 // before it can be sent again, which stops eco from snowballing.
-const ECO = {start:5, min:2, max:150, defGold:2};  // defGold: tower gold per second per point of zombie eco
+const ECO = {start:5, min:2, max:150, defGold:2};
+const ENERGY_CAP = 50000;   // the most energy the zombie sender can bank  // defGold: tower gold per second per point of zombie eco
 const income = g => g.eco;
 const incomeMult = g => g.enemies.some(e => e.fury) ? .5 : 1;
 const BASE_HP = 150;   // the tower builder's base; each zombie that gets through damages it
@@ -737,7 +738,7 @@ function step(g, dt) {
   // While a raging MK II is on the map, both players earn half as much per second.
   const pay = incomeMult(g);
   g.gold += (4 + g.eco*ECO.defGold) * pay * tune('gold') * dt;
-  g.energy = Math.min(2500, g.energy + income(g) * pay * tune('energy') * dt);
+  g.energy = Math.min(ENERGY_CAP, g.energy + income(g) * pay * tune('energy') * dt);
   for (const k in g.cool) g.cool[k] = Math.max(0, g.cool[k] - dt);
   if (g.cpu) cpuSend(g, dt);
 
