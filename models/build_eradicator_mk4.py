@@ -4,7 +4,7 @@
 # Writes models/eradicator-mk4.glb (Android / web) and models/eradicator-mk4.usdz (iPhone / iPad AR Quick Look).
 # The design matches mk4Tpl in tower-defence.html, with extra close-up detail. It is our own next model in the game's
 # Eradicator line, in the spirit of TDX-style mechs, not a copy of TDX's MK IV: a tall humanoid war-suit with a shoulder
-# artillery cannon, angular shoulder guards, two ordinary armoured arms with hands, and armoured boots.
+# artillery cannon, shoulder rocket pods, angular shoulder guards, a neck, two ordinary armoured arms with hands, and armoured boots.
 import bpy, math, os, sys
 
 OUT = os.path.dirname(os.path.abspath(__file__))
@@ -113,19 +113,23 @@ box(.02, .1, .14, GUND, .152, .64, .12, bevel=.004); text('04', .06, .163, .64, 
 for s in (-1, 1): box(.12, .1, .06, OLIVED, .04, .64, s*.27)
 
 T0 = .72   # torso base height
-# ---------- chest: upright gunmetal block, olive belly plate, white crest light over the head ----------
-box(.34, .4, .42, GUN, 0, T0 + .22, 0, rz=.05)
-box(.03, .18, .2, OLIVE, .21, T0 + .14, 0)
-xpanel(.236, T0 + .14, 0, .14, .12)
-for y in (.3, .34): box(.012, .012, .3, GUND, .2, T0 + y, 0, bevel=0)
+# ---------- chest: a slimmer upright gunmetal block, olive belly plate; shoulder guards with a rocket pod on each ----------
+box(.28, .34, .36, GUN, 0, T0 + .2, 0, rz=.05)
+box(.03, .16, .18, OLIVE, .15, T0 + .12, 0)
+xpanel(.176, T0 + .12, 0, .12, .1)
+for y in (.26, .3): box(.012, .012, .26, GUND, .15, T0 + y, 0, bevel=0)
 for s in (-1, 1):
-    box(.3, .2, .12, OLIVE, .02, T0 + .1, s*.28)                  # olive flanks
-    box(.012, .18, .04, OLIVEL if s > 0 else OLIVED, .17, T0 + .1, s*.28, bevel=.003)
+    box(.26, .18, .1, OLIVE, .02, T0 + .1, s*.23)                 # olive flanks
+    box(.012, .16, .04, OLIVEL if s > 0 else OLIVED, .15, T0 + .1, s*.23, bevel=.003)
     # trim angular shoulder guards, each with an X panel
-    box(.26, .2, .18, GUN, -.03, T0 + .48, s*.3)
-    box(.22, .05, .2, GUNL, -.03, T0 + .6, s*.3)
-    xpanel(.1, T0 + .48, s*.3, .12, .1)                # on the front face
-    xpanel(.0, T0 + .48, s*.39, .16, .12, ry=s*math.pi/2)   # on the outer face
+    box(.26, .2, .18, GUN, -.03, T0 + .44, s*.3)
+    box(.22, .05, .2, GUNL, -.03, T0 + .56, s*.3)
+    xpanel(.1, T0 + .44, s*.3, .12, .1)                # on the front face
+    xpanel(.0, T0 + .44, s*.39, .16, .12, ry=s*math.pi/2)   # on the outer face
+    # shoulder rocket pod: four tubes in a small box on top of the guard
+    box(.12, .07, .12, GUND, .06, T0 + .62, s*.28)
+    for py in (-.015, .015):
+        for pz in (-.025, .025): discx(.014, HOLE, .121, T0 + .62 + py, s*.28 + pz, seg=8)
 
 # ---------- back: reactor housing with two exhausts, a rack of shells for the cannon ----------
 box(.18, .3, .36, GUNL, -.2, T0 + .4, 0)
@@ -135,21 +139,22 @@ for i, z in enumerate((-.12, -.04, .04, .12)):
     cyly(.025, .16, STEEL, -.2, T0 + .62, z, seg=10); cyly(.027, .03, ORANGE, -.2, T0 + .71, z, seg=10)   # shells, orange caps up
 cyly(.006, .32, GUND, -.26, T0 + .9, -.16, seg=6); cyly(.012, .02, RED, -.26, T0 + 1.06, -.16, seg=8)   # antenna
 
-# ---------- head: wide visor slot with twin red eyes, white crest light, armoured brow ----------
-box(.2, .16, .2, GUN, .14, T0 + .4, 0)
-box(.22, .05, .22, GUNL, .14, T0 + .5, 0)                        # brow
-box(.14, .024, .16, WHITE, .12, T0 + .535, 0, bevel=0)           # crest light
-box(.03, .05, .18, GUND, .245, T0 + .42, 0, bevel=.003)          # visor slot
+# ---------- neck, then the head held high: wide visor slot with twin red eyes, white crest light, armoured brow ----------
+cyly(.06, .14, GUND, .06, T0 + .42, 0, seg=10); cyly(.08, .03, STEEL, .06, T0 + .37, 0, seg=10)
+box(.2, .16, .2, GUN, .1, T0 + .58, 0)
+box(.22, .05, .22, GUNL, .1, T0 + .68, 0)                        # brow
+box(.14, .024, .16, WHITE, .08, T0 + .715, 0, bevel=0)           # crest light
+box(.03, .05, .18, GUND, .205, T0 + .6, 0, bevel=.003)           # visor slot
 for s in (-1, 1):
-    cylx(.028, .02, GUND, .255, T0 + .42, s*.055, seg=12)
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=.026, segments=14, ring_count=8, location=G(.262, T0 + .42, s*.055))
+    cylx(.028, .02, GUND, .215, T0 + .6, s*.055, seg=12)
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=.026, segments=14, ring_count=8, location=G(.222, T0 + .6, s*.055))
     finish(bpy.context.object, RED, 0)
-box(.08, .06, .12, GUNL, .2, T0 + .32, 0)
-for vz in (-.03, 0, .03): box(.01, .04, .008, GUND, .242, T0 + .32, vz, bevel=0)   # jaw vents
+box(.08, .06, .12, GUNL, .16, T0 + .5, 0)
+for vz in (-.03, 0, .03): box(.01, .04, .008, GUND, .202, T0 + .5, vz, bevel=0)   # jaw vents
 
 # ---------- right shoulder: the artillery cannon, angled up over the shoulder ----------
 TILT = .5   # radians nose-up
-CX, CY, CZ = -.08, T0 + .64, .36
+CX, CY, CZ = -.1, T0 + .62, .38
 cyly(.07, .1, GUND, CX, CY - .05, CZ, seg=12)                    # mount
 box(.22, .18, .2, GUN, CX, CY + .02, CZ)                         # breech block
 xpanel(.11, CY + .02, CZ, .12, .1)
