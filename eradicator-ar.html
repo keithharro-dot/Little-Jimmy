@@ -57,7 +57,7 @@ model-viewer{flex:1;min-height:320px;width:100%;margin:10px 0;border-radius:14px
 // model-viewer hides the AR button by itself when the device can't do AR; also explain why.
 const mv = document.getElementById('mv');
 const MODELS = {mk2:{name:'MK II', alt:'Eradicator MK II, an olive-green walking mech with four rocket pods'},
-                mk4:{name:'MK IV', alt:'Eradicator MK IV, a hunched gunmetal siege mech on tracks with a shoulder artillery cannon'}};
+                mk4:{name:'MK IV', alt:'Eradicator MK IV, a tall gunmetal war-suit with a shoulder artillery cannon'}};
 let model = 'mk2'; try { if (MODELS[localStorage.getItem('erad_model')]) model = localStorage.getItem('erad_model'); } catch (e) {}
 if (MODELS[new URLSearchParams(location.search).get('m')]) model = new URLSearchParams(location.search).get('m');
 function showModel() {
