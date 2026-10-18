@@ -24,14 +24,21 @@ model-viewer{flex:1;min-height:320px;width:100%;margin:10px 0;border-radius:14px
 .help p{margin:0 0 6px}.help p:last-child{margin:0}
 .muted{color:var(--muted)}
 #noAR{display:none}
+.seg{display:flex;gap:8px;margin-top:10px}.seg button{flex:1;font:600 15px system-ui,sans-serif;color:var(--text);background:#21262d;border:1px solid var(--line);border-radius:12px;padding:10px 8px;cursor:pointer}
+.seg button small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.seg button[aria-pressed="true"]{border-color:var(--olive);box-shadow:inset 0 0 0 1px var(--olive)}
 </style>
 </head>
 <body>
 <header>
-  <h1>Eradicator <span>MK II</span></h1>
+  <h1>Eradicator <span id="mk">MK II</span></h1>
   <a href="battlefield-ar.html">Walk the whole battlefield →</a>
 </header>
 
+<div class="seg" role="group" aria-label="Model">
+  <button data-m="mk2" aria-pressed="true">Eradicator MK II<small>Four rocket pods</small></button>
+  <button data-m="mk4" aria-pressed="false">Eradicator MK IV<small>Shoulder artillery cannon</small></button>
+</div>
 <model-viewer id="mv" src="models/eradicator-mk2.glb" ios-src="models/eradicator-mk2.usdz" alt="Eradicator MK II, an olive-green walking mech with four rocket pods"
   ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="auto"
   camera-controls touch-action="pan-y" auto-rotate auto-rotate-delay="1500" rotation-per-second="18deg"
@@ -49,6 +56,18 @@ model-viewer{flex:1;min-height:320px;width:100%;margin:10px 0;border-radius:14px
 <script>
 // model-viewer hides the AR button by itself when the device can't do AR; also explain why.
 const mv = document.getElementById('mv');
+const MODELS = {mk2:{name:'MK II', alt:'Eradicator MK II, an olive-green walking mech with four rocket pods'},
+                mk4:{name:'MK IV', alt:'Eradicator MK IV, a hunched gunmetal siege mech on tracks with a shoulder artillery cannon'}};
+let model = 'mk2'; try { if (MODELS[localStorage.getItem('erad_model')]) model = localStorage.getItem('erad_model'); } catch (e) {}
+if (MODELS[new URLSearchParams(location.search).get('m')]) model = new URLSearchParams(location.search).get('m');
+function showModel() {
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === model));
+  document.getElementById('mk').textContent = MODELS[model].name; mv.alt = MODELS[model].alt;
+  mv.src = 'models/eradicator-' + model + '.glb'; mv.iosSrc = 'models/eradicator-' + model + '.usdz';
+  try { localStorage.setItem('erad_model', model); } catch (e) {}
+}
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { model = b.dataset.m; showModel(); });
+showModel();
 mv.addEventListener('load', () => { if (!mv.canActivateAR) document.getElementById('noAR').style.display = 'block'; });
 </script>
 </body>
