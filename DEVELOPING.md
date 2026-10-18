@@ -156,6 +156,7 @@ Two players: one sends zombies, one builds towers. Board: 15 × 9 tiles (`COLS`,
 ## Ideas parked for later
 
 - "MEGA" powers after the nuke, so the chaos ladder keeps escalating.
+- **On-screen joystick** (`STICK`, `sticks`, `stickTeams`, `pollSticks`, `drawSticks`; touch devices only): bottom left (top right, inverted, for player 2 in 2-players-one-phone). It drives your outfield player nearest the ball through the controller code (`drivePad('T' + team, …)`), so dragging players still works alongside it. A double tap (two taps within 350 ms) calls `useTrap(team)` → `applyUse(g, team, wid)` on the host (guests send `{t:'use'}`): drops a banana behind the driven (else nearest-to-ball) player if the team has the banana power, with a 1.5 s cooldown and at most 4 out. Teams with a person no longer drop bananas automatically; computer-only teams still do.
 - **Kick-off** (`g.kickTeam`, `g.kickT`, `kicked` in `step`): the home team (team 0) kicks off to start, then whoever conceded. Until the ball is touched (or 3 s pass), the other team's computer players hold their positions and the kicking computer waits 1 s, so the computer can't steal the ball before a person has moved.
 - A clone-army power (extra players mid-match). It needs match info re-sent to guests, since the widget list is currently fixed at kick-off.
 - Records shared between phones (merge tables when players join).

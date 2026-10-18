@@ -164,7 +164,7 @@ details summary{color:var(--gold)}
   </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
-    <p class="small">Touch anywhere on the pitch and drag: the nearest of your players (the ones with a glow) follows your finger. Best is to put your finger a little below the player, so you can see it; if you land right on it, it slides out from under your finger as you move. A dashed line shows which player you're holding. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
+    <p class="small">The joystick at the bottom left steers your player nearest the ball; tap it twice to drop a banana once you have that power. Or touch anywhere on the pitch and drag: the nearest of your players (the ones with a glow) follows your finger. Best is to put your finger a little below the player, so you can see it; if you land right on it, it slides out from under your finger as you move. A dashed line shows which player you're holding. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
     <p class="small">Playing together: tap <b>Invite friends to play</b> and send the link (WhatsApp, Messages, anything). Friends next to you can just scan the QR code on your screen with their camera instead. Either way they tap <b>Join game</b> and they're in. The link works until the host leaves the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets.</p>
   </details>
 </div>
@@ -412,7 +412,7 @@ function powerStep(g, dt) {
     if (has(g.lv, T, 'ghost') && !(g.cool[T].ghost > 0)) {   // curse the other team: ghosts for 10 seconds
       g.ghost[1 - T] = 10; g.cool[T].ghost = 40; addFx(g, {k:'ghost', x:50, y:80, team:1 - T});
     }
-    if (has(g.lv, T, 'banana') && !(g.cool[T].banana > 0)) {   // drop a banana behind one of your players
+    if (has(g.lv, T, 'banana') && !(g.cool[T].banana > 0) && !g.players.some(p => p.team === T)) {   // computer teams drop bananas by themselves; people double-tap the joystick
       const mine = g.widgets.filter(w => w.team === T && w.role !== 'GK');
       if (g.bananas.filter(n => n.team === T).length < 4 && mine.length) {
         const w = mine[Math.floor(Math.random()*mine.length)], back = T ? -12 : 12;
@@ -770,6 +770,20 @@ function snap(g) {
 // Static match info sent once at kick-off: who controls which player, and which face it wears.
 const matchInfo = g => ({size:g.size, len:g.len, cut:!!g.cut, adult:AGE === 'adult', players:g.players.map(p => ({pid:p.pid, name:p.name, team:p.team, boss:p.boss})),
                          widgets:g.widgets.map(w => ({id:w.id, team:w.team, role:w.role, ctl:w.ctl, grab:w.grab, face:w.face, num:w.num}))});
+// A person's double tap on the joystick: drop a banana behind their player (needs the banana power; 4 out at most).
+// Returns a message for the player when nothing happened, else null.
+function applyUse(g, T, wid) {
+  if (g.status !== 'play' || !g.lv) return null;
+  if (!has(g.lv, T, 'banana')) return 'No traps yet: you get powers when you let a goal in';
+  if (g.cool[T].banana > 0) return null;
+  if (g.bananas.filter(n => n.team === T).length >= 4) return 'Four bananas out already';
+  const b = g.ball, mine = g.widgets.filter(w => w.team === T && w.role !== 'GK');
+  const w = wid !== undefined && g.widgets[wid] && g.widgets[wid].team === T ? g.widgets[wid] : mine.sort((a, c) => Math.hypot(a.x - b.x, a.y - b.y) - Math.hypot(c.x - b.x, c.y - b.y))[0];
+  if (!w) return null;
+  g.bananas.push({x:r1(clamp(w.x, 10, 90)), y:r1(clamp(w.y + (T ? -12 : 12), F.boxD + 6, 160 - F.boxD - 6)), team:T});
+  g.cool[T].banana = 1.5;
+  return null;
+}
 // Move a player for pid: their own players, or their team's keeper (whoever grabbed it last has it).
 function applyInput(g, pid, wid, x, y, local) {
   const w = g.widgets[wid]; if (!w) return;
@@ -2104,10 +2118,44 @@ function drivePad(key, list, ax, ay) {
   setTarget(padHeld[key], tx, ty);
 }
 
+/* ---------- On-screen joystick: bottom left (top right for the second person on one phone). Drives your player nearest the
+   ball like a controller stick; a double tap on it drops a banana (once you have that power). Dragging players still works. ---------- */
+const STICK = {r:50, knob:22};
+const sticks = {};   // team -> {cx, cy, pid, ax, ay, lastTap}
+function stickTeams() { if (!info || !view || mode === 'tv' || view.dl) return []; return mode === 'local2' ? [0, 1] : [myTeam()]; }
+function stickState(team) {
+  const st = sticks[team] || (sticks[team] = {pid:null, ax:0, ay:0, lastTap:0});
+  if (mode === 'local2' && team === 1) { st.cx = innerWidth - STICK.r - 26; st.cy = STICK.r + 70; } else { st.cx = STICK.r + 26; st.cy = innerHeight - STICK.r - 34; }
+  return st;
+}
+function pollSticks() {
+  for (const team of stickTeams()) {
+    const st = stickState(team), flipped = mode === 'local2' && team === 1;   // the top person pushes "away" to attack: that's down the screen
+    const mine = controllable().filter(w => w.team === team && w.role !== 'GK');
+    drivePad('T' + team, mine, flipped ? -st.ax : st.ax, flipped ? -st.ay : st.ay);
+  }
+}
+function useTrap(team) {
+  if (mode === 'guest') { if (conn && conn.open) conn.send({t:'use'}); return; }
+  if (game) { const msg = applyUse(game, team, padHeld['T' + team]); if (msg) toast(msg); }
+}
+function drawSticks() {
+  for (const team of stickTeams()) {
+    const st = stickState(team), r = STICK.r;
+    ctx.save();
+    ctx.fillStyle = st.pid !== null ? 'rgba(0,0,0,.4)' : 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.arc(st.cx, st.cy, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.3)'; for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) { ctx.beginPath(); ctx.arc(st.cx + dx*r*.78, st.cy + dy*r*.78, 3, 0, 7); ctx.fill(); }
+    ctx.fillStyle = st.pid !== null ? 'rgba(255,255,255,.8)' : 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(st.cx + st.ax*r*.7, st.cy + st.ay*r*.7, STICK.knob, 0, 7); ctx.fill();
+    if (view.lv && has(view.lv, team, 'banana')) { ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillText('🍌 tap tap', st.cx, st.cy - r - 8); }
+    ctx.restore();
+  }
+}
+
 function frame() {
   if ($('#game').hidden) return;
   view = currentView();
-  pollPads();
+  pollPads(); pollSticks();
   const quake = view && (view.fx || []).find(f => f.k === 'nuke' && f.a < .8);
   if (!G3.on && want3D()) { G3.on = true; $('#cv3').hidden = false; resize(); }   // 3D finished loading mid-match
   ctx.save();
@@ -2122,7 +2170,7 @@ function frame() {
       if (view.dl) drawDuel(view); else drawBall(view.b[0], view.b[1]);
       drawFx(view);
     }
-    drawTethers(view); drawCurl(view);
+    drawTethers(view); drawCurl(view); if (isTouch) drawSticks();
     for (const f of view.fx || []) if (!seenFx.has(view.ep + ':' + f.id)) { seenFx.add(view.ep + ':' + f.id); (SFX[f.k] || (() => {}))(); }
     const icons = t => view.lv ? POWERS.slice(0, view.lv[t]).map(p => p.icon).join('') : '';
     $('#pwb').textContent = icons(0); $('#pwr').textContent = icons(1);
@@ -2198,6 +2246,13 @@ function setTarget(wid, x, y) {
 }
 cv.addEventListener('pointerdown', ev => {
   if (!view) return;
+  if (isTouch) for (const team of stickTeams()) {   // a touch on the joystick drives it; two quick taps drop a trap
+    const st = stickState(team); if (st.pid !== null || Math.hypot(ev.clientX - st.cx, ev.clientY - st.cy) > STICK.r*1.5) continue;
+    st.pid = ev.pointerId; st.ax = st.ay = 0;
+    const now = performance.now(); if (now - st.lastTap < 350) { useTrap(team); st.lastTap = 0; } else st.lastTap = now;
+    try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+    return;
+  }
   const [x, y] = toWorld(ev.clientX, ev.clientY);
   let best = null, bd = 1e9;
   const [gx, gy] = toWorld(ev.clientX + 60, ev.clientY), gkReach = Math.hypot(gx - x, gy - y);   // about 1 cm
@@ -2219,6 +2274,7 @@ cv.addEventListener('pointerdown', ev => {
   setTarget(best.id, wx, wy);
 });
 cv.addEventListener('pointermove', ev => {
+  for (const st of Object.values(sticks)) if (st.pid === ev.pointerId) { const dx = ev.clientX - st.cx, dy = ev.clientY - st.cy, d = Math.hypot(dx, dy) || 1, m = Math.min(1, d/STICK.r); st.ax = dx/d*m; st.ay = dy/d*m; return; }
   const h = holds[ev.pointerId]; if (!h) return;
   const [x, y] = toWorld(ev.clientX, ev.clientY); h.sx = ev.clientX; h.sy = ev.clientY;
   if (h.lift) {   // ease from where the player was to the lifted gap over the first ~1 cm of movement
@@ -2227,7 +2283,9 @@ cv.addEventListener('pointermove', ev => {
   }
   setTarget(h.id, clamp(x + h.ox, 0, 100), clamp(y + h.oy, 0, 160));
 });
-const release = ev => { const h = holds[ev.pointerId]; if (!h) return; delete holds[ev.pointerId]; setTarget(h.id, null, null); };
+const release = ev => {
+  for (const st of Object.values(sticks)) if (st.pid === ev.pointerId) { st.pid = null; st.ax = st.ay = 0; return; }
+  const h = holds[ev.pointerId]; if (!h) return; delete holds[ev.pointerId]; setTarget(h.id, null, null); };
 function drawTethers(v) {
   for (const h of Object.values(holds)) {
     const p = v.w[h.id]; if (!p) continue;
@@ -2470,6 +2528,8 @@ function hostOnData(pid, m) {
     const p = lobby.players.find(p => p.pid === pid); if (p) { p.team = 1 - p.team; syncLobby(); }
   } else if (m.t === 'in' && game) {
     applyInput(game, pid, m.w, m.x, m.y, false);
+  } else if (m.t === 'use' && game) {
+    const p = game.players.find(p => p.pid === pid); if (p) applyUse(game, p.team);
   }
 }
 function hostLost(pid) {
