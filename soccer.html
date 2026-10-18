@@ -164,7 +164,7 @@ details summary{color:var(--gold)}
   </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
-    <p class="small">The joystick at the bottom left steers your player nearest the ball. Your powers sit in a row above it: tap one to fire it (bananas, the freeze ray and the ghost curse go off at once; the cannon, rocket and nuke arm, then go off when you next touch the ball). Two quick taps on the stick fire the last power you picked. Or touch anywhere on the pitch and drag: the nearest of your players (the ones with a glow) follows your finger. Best is to put your finger a little below the player, so you can see it; if you land right on it, it slides out from under your finger as you move. A dashed line shows which player you're holding. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
+    <p class="small">The joystick at the bottom left steers your player nearest the ball. Your powers sit in a row above it: tap one to fire it (bananas, the freeze ray and the ghost curse go off at once; the cannon, rocket and nuke arm, then go off when you next touch the ball). Two quick taps on the stick fire the last power you picked. On a controller: A fires it, B picks the next one. Or touch anywhere on the pitch and drag: the nearest of your players (the ones with a glow) follows your finger. Best is to put your finger a little below the player, so you can see it; if you land right on it, it slides out from under your finger as you move. A dashed line shows which player you're holding. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
     <p class="small">Playing together: tap <b>Invite friends to play</b> and send the link (WhatsApp, Messages, anything). Friends next to you can just scan the QR code on your screen with their camera instead. Either way they tap <b>Join game</b> and they're in. The link works until the host leaves the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets.</p>
   </details>
 </div>
@@ -348,6 +348,8 @@ const PW = Object.fromEntries(POWERS.map((p, i) => [p.id, i]));
 // and nuke are ARMED for 4 s and go off on your team's next touch of the ball. Computer-only teams fire them by themselves.
 const ACTIVE = {banana:'drop a banana', freeze:'freeze ray', ghost:'ghost curse', cannon:'cannon: arm, then touch the ball', rocket:'rocket: arm, then shoot', nuke:'nuke: arm, then touch the ball'};
 const TOUCH_POWERS = {cannon:1, rocket:1, nuke:1}, ARM_SECS = 4, COOL = {banana:1.5, freeze:4, ghost:40, cannon:CANNON[1], rocket:2.5, nuke:8};
+const HUMAN_COOL = {banana:1.5, freeze:2.5, ghost:25, cannon:3, rocket:1.5, nuke:5};   // people fire by hand, so they recharge faster than the computer's automatic powers
+const coolFor = (g, T, id) => humanTeam(g, T) ? HUMAN_COOL[id] : COOL[id];
 const humanTeam = (g, T) => g.players.some(p => p.team === T);
 const armed = (g, T, id) => !humanTeam(g, T) || !!(g.arm && g.arm[T] && g.arm[T].id === id && g.arm[T].t > 0);
 const has = (lv, team, id) => !!lv && lv[team] > PW[id];
@@ -374,19 +376,19 @@ function powerTouch(g, w) {
   if (b.home && b.home !== T + 1) b.home = 0;   // the other team knocks a rocket off course
   const fired = () => { if (g.arm && g.arm[T]) g.arm[T] = null; };
   if (has(g.lv, T, 'cannon') && armed(g, T, 'cannon') && !(cool.cannon > 0) && w.role !== 'GK' && (!humanTeam(g, T) ? Math.abs(b.y - oppGoalY(T)) < 80 : true)) {   // slurp! the ball goes inside the player
-    b.held = {w:w.id, t:.6}; b.vx = b.vy = 0; cool.cannon = CANNON[1]; addFx(g, {k:'suck', x:r1(w.x), y:r1(w.y)}); fired();
+    b.held = {w:w.id, t:.6}; b.vx = b.vy = 0; cool.cannon = coolFor(g, T, 'cannon'); addFx(g, {k:'suck', x:r1(w.x), y:r1(w.y)}); fired();
   }
-  if (has(g.lv, T, 'rocket') && armed(g, T, 'rocket') && w.role !== 'GK' && !(cool.rocket > 0)) { b.home = T + 1; b.homeT = 1.5; b.homeX = aimX(g, T); cool.rocket = 2.5; fired(); }
-  if (has(g.lv, T, 'nuke') && armed(g, T, 'nuke') && !b.nuke && !(cool.nuke > 0)) { b.nuke = {team:T, t:1.2}; cool.nuke = 8; fired(); }
+  if (has(g.lv, T, 'rocket') && armed(g, T, 'rocket') && w.role !== 'GK' && !(cool.rocket > 0)) { b.home = T + 1; b.homeT = 1.5; b.homeX = aimX(g, T); cool.rocket = coolFor(g, T, 'rocket'); fired(); }
+  if (has(g.lv, T, 'nuke') && armed(g, T, 'nuke') && !b.nuke && !(cool.nuke > 0)) { b.nuke = {team:T, t:1.2}; cool.nuke = coolFor(g, T, 'nuke'); fired(); }
 }
 // Freeze ray: zap the opponent nearest the ball. Ghost curse: the other team can't touch the ball for 10 s.
 function doFreeze(g, T) {
   const b = g.ball, near = (list, x, y) => list.sort((a, c) => Math.hypot(a.x - x, a.y - y) - Math.hypot(c.x - x, c.y - y))[0];
   const tgt = near(g.widgets.filter(w => w.team !== T && !(w.frz > 0) && !w.boss), b.x, b.y);
   if (tgt) { const src = near(g.widgets.filter(w => w.team === T), tgt.x, tgt.y); tgt.frz = 1.6; addFx(g, {k:'zap', x:r1(src.x), y:r1(src.y), x2:r1(tgt.x), y2:r1(tgt.y)}); }
-  g.cool[T].freeze = COOL.freeze;
+  g.cool[T].freeze = coolFor(g, T, 'freeze');
 }
-function doGhost(g, T) { g.ghost[1 - T] = 10; g.cool[T].ghost = COOL.ghost; addFx(g, {k:'ghost', x:50, y:80, team:1 - T}); }
+function doGhost(g, T) { g.ghost[1 - T] = 10; g.cool[T].ghost = coolFor(g, T, 'ghost'); addFx(g, {k:'ghost', x:50, y:80, team:1 - T}); }
 // Powers that run by themselves every frame.
 function powerStep(g, dt) {
   const b = g.ball;
@@ -795,7 +797,7 @@ function applyUse(g, T, wid, id) {
   const w = wid !== undefined && g.widgets[wid] && g.widgets[wid].team === T ? g.widgets[wid] : mine.sort((a, c) => Math.hypot(a.x - b.x, a.y - b.y) - Math.hypot(c.x - b.x, c.y - b.y))[0];
   if (!w) return null;
   g.bananas.push({x:r1(clamp(w.x, 10, 90)), y:r1(clamp(w.y + (T ? -12 : 12), F.boxD + 6, 160 - F.boxD - 6)), team:T});
-  g.cool[T].banana = COOL.banana;
+  g.cool[T].banana = coolFor(g, T, 'banana');
   return null;
 }
 // Move a player for pid: their own players, or their team's keeper (whoever grabbed it last has it).
@@ -1032,6 +1034,7 @@ const SFX = {
   goal: () => { noise(2.4, 900, .35); [523, 659, 784].forEach((f, i) => tone(f, f, .5, 'square', .05, i*.12)); },
   boom: () => { noise(.5, 300, .5); tone(120, 40, .4, 'sawtooth', .25); },
   zap: () => { tone(1800, 300, .35, 'sawtooth', .08); tone(2400, 600, .3, 'square', .04, .05); },
+  use: () => { tone(500, 900, .1, 'square', .06); tone(900, 1300, .08, 'square', .05, .08); },
   nuke: () => { noise(2.5, 120, .8); noise(1.2, 600, .4); tone(90, 25, 2, 'sawtooth', .35); },
   leo: () => { noise(3.2, 90, .95); noise(1.6, 500, .5); tone(70, 18, 3, 'sawtooth', .4); tone(2400, 120, .6, 'sine', .08); },
   suck: () => { tone(200, 1400, .45, 'sawtooth', .1); noise(.45, 1800, .15); },
@@ -2109,7 +2112,7 @@ function overlay3D(v) {
 }
 
 /* ---------- Game controllers (Xbox / PC): left stick = your player nearest the ball, right stick = your keeper ---------- */
-const padHeld = {};
+const padHeld = {}, padBtn = {}; let padSeen = false;
 try { if ('gamepadInputEmulation' in navigator) navigator.gamepadInputEmulation = 'gamepad'; } catch (e) {}   // Xbox: stop the stick acting as a mouse
 function pollPads() {
   if (!navigator.getGamepads || !info || !view || mode === 'tv' || $('#game').hidden) return;
@@ -2119,6 +2122,10 @@ function pollPads() {
     const team = mode === 'local2' ? i : myTeam(), mine = controllable().filter(w => w.team === team && (!view.dl || view.dl.ids.includes(w.id)));
     drivePad('L' + i, mine.filter(w => w.role !== 'GK'), pad.axes[0] || 0, pad.axes[1] || 0);
     drivePad('R' + i, mine.filter(w => w.role === 'GK'), pad.axes[2] || 0, pad.axes[3] || 0);
+    padSeen = true;   // A fires the selected power, B picks the next one (the hotbar shows them)
+    const btn = k => !!(pad.buttons && pad.buttons[k] && pad.buttons[k].pressed), was = padBtn[i] || (padBtn[i] = {}), st = stickState(team);
+    if (btn(0) && !was.a) useTrap(team, st.sel); was.a = btn(0);
+    if (btn(1) && !was.b) { const ids = ownedActive(view.lv || [0, 0], team); if (ids.length) st.sel = ids[(ids.indexOf(st.sel) + 1) % ids.length]; } was.b = btn(1);
     i++;
   }
 }
@@ -2151,7 +2158,11 @@ function pollSticks() {
 }
 function useTrap(team, id) {
   if (mode === 'guest') { if (conn && conn.open) conn.send({t:'use', p:id}); return; }
-  if (game) { const msg = applyUse(game, team, padHeld['T' + team], id); if (msg) toast(msg); }
+  if (game) { const msg = applyUse(game, team, padHeld['T' + team], id); if (msg) toast(msg); else firedToast(id || (view && view.lv ? ownedActive(view.lv, team)[0] : null)); }
+}
+function firedToast(id) {   // what you just fired (the host's own toast; guests see the effect on the pitch)
+  const p = id && POWERS[PW[id]]; if (!p) return;
+  toast(TOUCH_POWERS[id] ? p.icon + ' ' + p.name + ' armed: touch the ball!' : p.icon + ' ' + p.name + '!'); SFX.use();
 }
 // Hotbar: the powers you can fire, in a row above the stick (to its left for the top person). Tap one to fire it (and make
 // it the one a double tap on the stick fires). A dark arc shows recharging; a glow shows one that's armed.
@@ -2167,7 +2178,7 @@ function drawHotbar(team) {
     const cool = view.pc && view.pc[team] ? view.pc[team][h.id] || 0 : 0, isArmed = view.ar && view.ar[team] === h.id, sel = st.sel === h.id;
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(h.x, h.y, HOT.r, 0, 7); ctx.fill();
-    if (cool > 0) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.arc(h.x, h.y, HOT.r, -Math.PI/2, -Math.PI/2 + Math.min(1, cool/(COOL[h.id] || 5))*Math.PI*2); ctx.closePath(); ctx.fill(); }
+    if (cool > 0) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.arc(h.x, h.y, HOT.r, -Math.PI/2, -Math.PI/2 + Math.min(1, cool/(HUMAN_COOL[h.id] || 5))*Math.PI*2); ctx.closePath(); ctx.fill(); }
     ctx.lineWidth = sel || isArmed ? 3 : 1.5; ctx.strokeStyle = isArmed ? '#ffd23f' : sel ? '#fff' : 'rgba(255,255,255,.5)';
     if (isArmed) { ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 14; }
     ctx.beginPath(); ctx.arc(h.x, h.y, HOT.r, 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
@@ -2202,11 +2213,13 @@ function frame() {
     if (G3.on) { render3D(view); overlay3D(view); }
     else {
       if (!view.dl) { drawWalls(view); drawBananas(view); }
-      view.w.forEach(([x, y], i) => { const wi = info.widgets[i]; if (view.dl && !view.dl.ids.includes(i)) return; drawWidget(wi, x, y, isMine(wi), isHeld(i)); });
+      view.w.forEach(([x, y], i) => { const wi = info.widgets[i]; if (view.dl && !view.dl.ids.includes(i)) return; drawWidget(wi, x, y, isMine(wi), isHeld(i));
+        if (view.ar && view.ar[wi.team] && wi.role !== 'GK' && !view.dl) { const [sx, sy] = toScreen(x, y); ctx.save(); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3; ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 12;   // a power is armed: the next touch sets it off
+          ctx.beginPath(); ctx.arc(sx, sy, F.r*sc*1.7 + Math.sin(performance.now()/120)*2, 0, 7); ctx.stroke(); ctx.restore(); } });
       if (view.dl) drawDuel(view); else drawBall(view.b[0], view.b[1]);
       drawFx(view);
     }
-    drawTethers(view); drawCurl(view); if (isTouch) drawSticks();
+    drawTethers(view); drawCurl(view); if (isTouch) drawSticks(); else if (padSeen) for (const team of stickTeams()) drawHotbar(team);
     for (const f of view.fx || []) if (!seenFx.has(view.ep + ':' + f.id)) { seenFx.add(view.ep + ':' + f.id); (SFX[f.k] || (() => {}))(); }
     const icons = t => view.lv ? POWERS.slice(0, view.lv[t]).map(p => p.icon).join('') : '';
     $('#pwb').textContent = icons(0); $('#pwr').textContent = icons(1);
