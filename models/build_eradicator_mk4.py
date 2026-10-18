@@ -121,12 +121,11 @@ for y in (.3, .34): box(.012, .012, .3, GUND, .2, T0 + y, 0, bevel=0)
 for s in (-1, 1):
     box(.3, .2, .12, OLIVE, .02, T0 + .1, s*.28)                  # olive flanks
     box(.012, .18, .04, OLIVEL if s > 0 else OLIVED, .17, T0 + .1, s*.28, bevel=.003)
-    # big angular shoulder guards, stepped, each with an X panel
-    box(.36, .3, .26, GUN, -.04, T0 + .44, s*.34)
-    box(.3, .08, .28, GUNL, -.04, T0 + .62, s*.34)
-    box(.2, .06, .3, GUND, -.02, T0 + .68, s*.34, rz=s*.2)
-    xpanel(.145, T0 + .44, s*.34, .18, .16)             # on the front face
-    xpanel(.0, T0 + .44, s*.47, .22, .18, ry=s*math.pi/2)   # on the outer face
+    # trim angular shoulder guards, each with an X panel
+    box(.26, .2, .18, GUN, -.03, T0 + .48, s*.3)
+    box(.22, .05, .2, GUNL, -.03, T0 + .6, s*.3)
+    xpanel(.1, T0 + .48, s*.3, .12, .1)                # on the front face
+    xpanel(.0, T0 + .48, s*.39, .16, .12, ry=s*math.pi/2)   # on the outer face
 
 # ---------- back: reactor housing with two exhausts, a rack of shells for the cannon ----------
 box(.18, .3, .36, GUNL, -.2, T0 + .4, 0)
@@ -150,7 +149,7 @@ for vz in (-.03, 0, .03): box(.01, .04, .008, GUND, .242, T0 + .32, vz, bevel=0)
 
 # ---------- right shoulder: the artillery cannon, angled up over the shoulder ----------
 TILT = .5   # radians nose-up
-CX, CY, CZ = -.1, T0 + .66, .4
+CX, CY, CZ = -.08, T0 + .64, .36
 cyly(.07, .1, GUND, CX, CY - .05, CZ, seg=12)                    # mount
 box(.22, .18, .2, GUN, CX, CY + .02, CZ)                         # breech block
 xpanel(.11, CY + .02, CZ, .12, .1)
@@ -171,7 +170,7 @@ cylx(.06, .02, ORANGE, *along(.97), seg=14, tilt=-TILT)          # orange muzzle
 
 # ---------- arms: ordinary armoured arms with hands, hanging at the sides, the right one slightly raised to brace the cannon ----------
 def arm(sd, bend):
-    z = sd*.46
+    z = sd*.42
     cyly(.05, .06, STEEL, 0, T0 + .5, z)                         # shoulder joint
     box(.13, .3, .13, GUND, 0, T0 + .32, z)                      # upper arm
     box(.03, .18, .11, OLIVE, .07, T0 + .32, z); xpanel(.086, T0 + .32, z, .08, .1)

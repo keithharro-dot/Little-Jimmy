@@ -1696,10 +1696,10 @@ function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
     // hunched body: gunmetal chest, olive belly plate, olive flanks, big stepped shoulder guards
     R(-.22, -.4, .44, .42, GN); R(-.1, -.2, .2, .18, OL); xp(-.07, -.17, .14, .12);
     for (const d of [-1, 1]) { const x0 = d < 0 ? -.4 : .22; R(x0, -.16, .18, .22, OL); R(x0 + (d < 0 ? .13 : .02), -.14, .04, .18, d < 0 ? OD : OLL); }
-    for (const d of [-1, 1]) { const x0 = d < 0 ? -.52 : .22; R(x0, -.6, .3, .36, GN); R(x0 - .02, -.64, .34, .08, GL); R(x0, -.68, .24, .06, GD); xp(x0 + .06, -.54, .18, .16); }
+    for (const d of [-1, 1]) { const x0 = d < 0 ? -.46 : .24; R(x0, -.58, .22, .26, GN); R(x0 - .01, -.61, .24, .05, GL); xp(x0 + .05, -.52, .12, .1); }
     if (fury) glow('#ff3b1f', .1, () => { c.strokeStyle = '#ff5a2a'; c.lineWidth = s*.02; c.beginPath(); c.moveTo(-.14*s, -.34*s); c.lineTo(-.05*s, -.22*s); c.lineTo(-.12*s, -.08*s); c.moveTo(.14*s, -.3*s); c.lineTo(.06*s, -.16*s); c.stroke(); });
     // arms: upper arm, forearm with a wrist guard, and a hand with fingers
-    for (const d of [-1, 1]) { const x0 = d < 0 ? -.66 : .52; R(x0, -.3, .13, .3, GD); R(x0 + .04, -.26, .05, .18, OL); R(x0 - .01, -.02, .15, .24, GD); R(x0 - .02, .18, .17, .1, OD); R(x0, .28, .12, .1, GN);
+    for (const d of [-1, 1]) { const x0 = d < 0 ? -.6 : .46; R(x0, -.3, .13, .3, GD); R(x0 + .04, -.26, .05, .18, OL); R(x0 - .01, -.02, .15, .24, GD); R(x0 - .02, .18, .17, .1, OD); R(x0, .28, .12, .1, GN);
       for (const f of [0, .03, .06, .09]) R(x0 + f, .37, .025, .05, GD); }
     // head: armoured brow, white crest light, twin red eyes in a visor slot
     R(-.12, -.52, .24, .18, GN); R(-.14, -.56, .28, .05, GL);
@@ -2258,8 +2258,8 @@ function mk4Tpl() {
   // upright chest with an olive belly plate; olive flanks; big stepped shoulder guards with X panels
   box(.34, .4, .42, gun, 0, .22, 0, torso, 0, 0, .05); box(.03, .18, .2, olive, .18, .14, 0, torso); xpanel(.206, .14, 0, .14, .12, torso);
   for (const sd of [-1, 1]) { box(.3, .2, .12, olive, .02, .1, sd*.28, torso); box(.012, .18, .04, sd > 0 ? oliveL : oliveD, .17, .1, sd*.28, torso);
-    box(.36, .3, .26, gun, -.04, .44, sd*.34, torso); box(.3, .08, .28, gunL, -.04, .62, sd*.34, torso); box(.2, .06, .3, gunD, -.02, .68, sd*.34, torso, 0, 0, sd*.2);
-    xpanel(.145, .44, sd*.34, .18, .16, torso); xpanel(0, .44, sd*.47, .22, .18, torso, sd*Math.PI/2); }
+    box(.26, .2, .18, gun, -.03, .48, sd*.3, torso); box(.22, .05, .2, gunL, -.03, .6, sd*.3, torso);
+    xpanel(.1, .48, sd*.3, .12, .1, torso); xpanel(0, .48, sd*.39, .16, .12, torso, sd*Math.PI/2); }
   // back: reactor housing with two exhausts and a rack of shells
   box(.18, .3, .36, gunL, -.2, .4, 0, torso);
   const reactor = new T.Group(); reactor.name = 'reactor'; torso.add(reactor);
@@ -2272,7 +2272,7 @@ function mk4Tpl() {
   for (const sd of [-1, 1]) { const e = new T.Mesh(new T.SphereGeometry(.026, 12, 8), red); e.position.set(.262, .42, sd*.055); torso.add(e); }
   box(.08, .06, .12, gunL, .2, .32, 0, torso);
   // right shoulder: the artillery cannon, nose up
-  const cannon = new T.Group(); cannon.position.set(-.1, .66, .4); cannon.name = 'cannon'; torso.add(cannon);
+  const cannon = new T.Group(); cannon.position.set(-.08, .64, .36); cannon.name = 'cannon'; torso.add(cannon);
   cyl(.07, .1, gunD, 0, -.05, 0, cannon, 12, 0); box(.22, .18, .2, gun, 0, .02, 0, cannon); box(.1, .14, .1, gunD, -.16, .06, 0, cannon, 0, 0, .2);
   box(.08, .12, .16, olive, -.1, -.1, 0, cannon);
   const tilt = .5, barrel = new T.Group(); barrel.rotation.z = tilt; cannon.add(barrel);
@@ -2281,7 +2281,7 @@ function mk4Tpl() {
   cyl(.06, .02, orange, .97, 0, 0, barrel, 14); face(new T.CircleGeometry(.05, 14), hole, .981, 0, 0, barrel);
   // arms: ordinary armoured arms with hands; the forearm hinges at the elbow, the right one raised a little to brace the cannon
   const arm = (sd, bend) => {
-    const z = sd*.46;
+    const z = sd*.42;
     cyl(.05, .06, steel, 0, .5, z, torso, 12, 0); box(.13, .3, .13, gunD, 0, .32, z, torso); box(.03, .18, .11, olive, .07, .32, z, torso); xpanel(.086, .32, z, .08, .1, torso);
     const el = new T.Mesh(new T.CylinderGeometry(.05, .05, .14, 10), gun); el.position.set(.02, .16, z); el.rotation.x = Math.PI/2; torso.add(el);
     const fa = new T.Group(); fa.position.set(.02, .16, z); fa.rotation.z = bend*.9; torso.add(fa);
