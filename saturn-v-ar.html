@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d1117">
-<title>Saturn V in AR</title>
+<title>Saturn V &amp; Starship in AR</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 <style>
 /* Single dark theme, matching the games. */
@@ -36,7 +36,7 @@ model-viewer{flex:1;min-height:300px;width:100%;margin:10px 0;border-radius:14px
 </head>
 <body>
 <header>
-  <h1>Saturn <span>V</span></h1>
+  <h1>Saturn V <span>&amp; Starship</span></h1>
   <a href="battlefield-ar.html">Battles in AR →</a>
 </header>
 
@@ -44,6 +44,8 @@ model-viewer{flex:1;min-height:300px;width:100%;margin:10px 0;border-radius:14px
   <button data-scene="both" aria-pressed="true">🚀 Both<small>Lying + standing</small></button>
   <button data-scene="lying" aria-pressed="false">🏛 Lying down<small>Like at KSC</small></button>
   <button data-scene="standing" aria-pressed="false">⬆️ Standing<small>On its engines</small></button>
+  <button data-scene="starship" aria-pressed="false">🛸 Starship<small>Fuelled, on its pad</small></button>
+  <button data-scene="compare" aria-pressed="false">⚖️ Side by side<small>Starship + Saturn V</small></button>
 </div>
 <div class="sizes" role="group" aria-label="Size">
   <button id="bigBtn" aria-pressed="true">🏟 Life size<small id="bigSize"></small></button>
@@ -59,9 +61,7 @@ model-viewer{flex:1;min-height:300px;width:100%;margin:10px 0;border-radius:14px
   <button slot="ar-button" id="arBtn">📱 Walk around it life size</button>
 </model-viewer>
 
-<div class="dims">
-  <div><b>110.6 m</b>tall (363 ft)</div><div><b>10.1 m</b>wide</div><div><b>~19 m</b>across the fins</div>
-</div>
+<div class="dims" id="dims"></div>
 
 <div class="help">
   <div id="bigHelp">
@@ -69,29 +69,34 @@ model-viewer{flex:1;min-height:300px;width:100%;margin:10px 0;border-radius:14px
     <ol>
       <li>Stand in the <b>centre</b> of the oval, facing along its length, and tap <b>Walk around it life size</b>.</li>
       <li>Point the phone at the grass and sweep it slowly until the rocket appears. It's 110 m long, so most of it is behind and beyond you: turn around.</li>
-      <li>Walk to the engines first: five of them, each as wide as a car is long. Then walk the length to the nose, and look up at the standing one.</li>
+      <li>Saturn V: walk to the engines first, five of them, each as wide as a car is long. Then walk the length to the nose, and look up at the standing one.</li>
+      <li>Starship: walk in between the legs of the launch mount, stand right under the middle and look straight up at its 33 engines. The tower beside it is about 146 m tall.</li>
     </ol>
     <p class="muted">An AFL oval is about 135–185 m long, so it fits. Plain grass gives the phone little to lock onto: a bright day, goalposts or fences in view, a steady walk and the phone held up all help. If it drifts or jumps, close it and place it again. Watch for real people and posts while you look through the screen.</p>
   </div>
   <div id="miniHelp" hidden>
-    <p><b>In the lounge room:</b> tap <b>View in your room</b> and point at the floor. At 1:100 the rocket is 1.1 m tall and a 1.8 m person would be 18 mm. A good way to check the phone works before going to the oval.</p>
+    <p><b>In the lounge room:</b> tap <b>View in your room</b> and point at the floor. At 1:100 the Saturn V is 1.1 m tall, Starship on its pad 1.45 m and a 1.8 m person would be 18 mm. A good way to check the phone works before going to the oval.</p>
   </div>
-  <p id="noAR" hidden class="muted">This screen can't do AR. Open this page on an iPhone, iPad or Android phone. You can still spin and zoom the rocket here.</p>
+  <p id="noAR" hidden class="muted">This screen can't do AR. Open this page on an iPhone, iPad or Android phone. You can still spin and zoom the rockets here.</p>
 </div>
 
 <script>
+const SV = '<div><b>110.6 m</b>tall (363 ft)</div><div><b>10.1 m</b>wide</div><div><b>~19 m</b>across the fins</div>';
+const SS = '<div><b>124.4 m</b>tall (408 ft)</div><div><b>9 m</b>wide</div><div><b>~145 m</b>to the nose, on its pad</div>';
 const SCENES = {
-  both: {big:'122 m long, 40 m wide', blurb:'The Saturn V lying on cradles with its stages pulled apart, as it hangs in the Apollo/Saturn V Center at Kennedy Space Center, and a second one standing on its engines beside it: 110.6 m, a 36-storey building.'},
-  lying: {big:'122 m long, 14 m wide', blurb:'Lying on cradles with its three stages and the Apollo spacecraft pulled apart, about 2.5 m clear underneath, so you can walk under it the way visitors do at Kennedy Space Center.'},
-  standing: {big:'110.6 m tall', blurb:'Standing on its five F-1 engines, as it did on the launch pad (without the launch tower). Stand under the fins and look up.'},
+  both: {file:'saturn-v-both', dims:SV, big:'122 m long, 40 m wide', blurb:'The Saturn V lying on cradles with its stages pulled apart, as it hangs in the Apollo/Saturn V Center at Kennedy Space Center, and a second one standing on its engines beside it: 110.6 m, a 36-storey building.'},
+  lying: {file:'saturn-v-lying', dims:SV, big:'122 m long, 14 m wide', blurb:'Lying on cradles with its three stages and the Apollo spacecraft pulled apart, about 2.5 m clear underneath, so you can walk under it the way visitors do at Kennedy Space Center.'},
+  standing: {file:'saturn-v-standing', dims:SV, big:'110.6 m tall', blurb:'Standing on its five F-1 engines, as it did on the launch pad (without the launch tower). Stand under the fins and look up.'},
+  starship: {file:'starship', dims:SS, big:'72 m across, 146 m tall', blurb:'SpaceX Starship V3, fully fuelled and frosted over, venting, ready to launch: the Super Heavy booster and the ship on top, sitting on a launch ring 20 m up on six legs, beside the launch tower with its "chopsticks" open. Walk under it and look up at the 33 engines.'},
+  compare: {file:'starship-saturn-v', dims:SS, big:'95 × 72 m, 146 m tall', blurb:'Starship on its pad with a Saturn V standing 52 m away on the grass. On its mount, Starship\'s nose is about 145 m up; the Saturn V\'s is at 110.6 m.'},
 };
 const mv = document.getElementById('mv'), big = document.getElementById('bigBtn'), mini = document.getElementById('miniBtn');
 let scene = 'both', life = true;
 function show() {
-  const S = SCENES[scene], file = 'models/saturn-v-' + scene + (life ? '' : '-mini');
+  const S = SCENES[scene], file = 'models/' + S.file + (life ? '' : '-mini');
   document.querySelectorAll('.scenes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.scene === scene));
   big.setAttribute('aria-pressed', life); mini.setAttribute('aria-pressed', !life);
-  document.getElementById('bigSize').textContent = S.big; document.getElementById('blurb').textContent = S.blurb;
+  document.getElementById('bigSize').textContent = S.big; document.getElementById('dims').innerHTML = S.dims; document.getElementById('blurb').textContent = S.blurb;
   mv.src = file + '.glb'; mv.iosSrc = file + '.usdz'; mv.alt = S.blurb;
   mv.arScale = life ? 'fixed' : 'auto';   // life size can't be pinched smaller by accident while you walk
   document.getElementById('arBtn').textContent = life ? '📱 Walk around it life size' : '📱 View in your room';
