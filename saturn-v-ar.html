@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Saturn V in AR</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<style>
+/* Single dark theme, matching the games. */
+:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--panel2:#21262d;--line:#30363d;--text:#e6edf3;--muted:#8b949e;--olive:#7d9450;--pink:#ffb23a;--red:#ff4a3a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom))}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:22px;letter-spacing:.04em;text-transform:uppercase}
+h1 span{color:var(--pink)}
+header a{color:var(--muted);font-size:14px}
+.sizes,.scenes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.scenes{grid-template-columns:1fr 1fr 1fr}
+.blurb{margin:8px 2px 0;font-size:14px}
+.sizes button,.scenes button{font:600 15px system-ui,sans-serif;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 8px;cursor:pointer}
+.sizes button small,.scenes button small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.sizes button[aria-pressed="true"],.scenes button[aria-pressed="true"]{border-color:var(--olive);box-shadow:inset 0 0 0 1px var(--olive)}
+model-viewer{flex:1;min-height:300px;width:100%;margin:10px 0;border-radius:14px;background:radial-gradient(circle at 50% 40%,#2a313b,#10141a 75%);--poster-color:transparent}
+#arBtn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);border:0;border-radius:999px;padding:14px 22px;font:600 17px system-ui,sans-serif;
+  background:var(--olive);color:#0d1117;box-shadow:0 6px 20px rgba(0,0,0,.45);white-space:nowrap}
+#arBtn:active{transform:translateX(-50%) scale(.97)}
+.help{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px}
+.help p{margin:0 0 6px}.help p:last-child{margin:0}
+.help ol{margin:4px 0 8px;padding-left:20px}.help li{margin:2px 0}
+.muted{color:var(--muted)}
+[hidden]{display:none!important}
+.dims{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;font-size:12px;color:var(--muted);text-align:center}
+.dims b{display:block;color:var(--text);font-size:16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Saturn <span>V</span></h1>
+  <a href="battlefield-ar.html">Battles in AR →</a>
+</header>
+
+<div class="scenes" role="group" aria-label="Scene">
+  <button data-scene="both" aria-pressed="true">🚀 Both<small>Lying + standing</small></button>
+  <button data-scene="lying" aria-pressed="false">🏛 Lying down<small>Like at KSC</small></button>
+  <button data-scene="standing" aria-pressed="false">⬆️ Standing<small>On its engines</small></button>
+</div>
+<div class="sizes" role="group" aria-label="Size">
+  <button id="bigBtn" aria-pressed="true">🏟 Life size<small id="bigSize"></small></button>
+  <button id="miniBtn" aria-pressed="false">🛋 Table size<small>1:100, to practise at home</small></button>
+</div>
+<p id="blurb" class="muted blurb"></p>
+
+<model-viewer id="mv" src="models/saturn-v-both.glb" ios-src="models/saturn-v-both.usdz"
+  alt="A full-size Saturn V moon rocket lying on museum cradles with its stages pulled apart, and a second one standing upright beside it"
+  ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="fixed"
+  camera-controls touch-action="pan-y" auto-rotate auto-rotate-delay="2000" rotation-per-second="10deg"
+  camera-orbit="-35deg 70deg auto" shadow-intensity="1" exposure="1.1" environment-image="neutral">
+  <button slot="ar-button" id="arBtn">📱 Walk around it life size</button>
+</model-viewer>
+
+<div class="dims">
+  <div><b>110.6 m</b>tall (363 ft)</div><div><b>10.1 m</b>wide</div><div><b>~19 m</b>across the fins</div>
+</div>
+
+<div class="help">
+  <div id="bigHelp">
+    <p><b>On the oval:</b></p>
+    <ol>
+      <li>Stand in the <b>centre</b> of the oval, facing along its length, and tap <b>Walk around it life size</b>.</li>
+      <li>Point the phone at the grass and sweep it slowly until the rocket appears. It's 110 m long, so most of it is behind and beyond you: turn around.</li>
+      <li>Walk to the engines first: five of them, each as wide as a car is long. Then walk the length to the nose, and look up at the standing one.</li>
+    </ol>
+    <p class="muted">An AFL oval is about 135–185 m long, so it fits. Plain grass gives the phone little to lock onto: a bright day, goalposts or fences in view, a steady walk and the phone held up all help. If it drifts or jumps, close it and place it again. Watch for real people and posts while you look through the screen.</p>
+  </div>
+  <div id="miniHelp" hidden>
+    <p><b>In the lounge room:</b> tap <b>View in your room</b> and point at the floor. At 1:100 the rocket is 1.1 m tall and a 1.8 m person would be 18 mm. A good way to check the phone works before going to the oval.</p>
+  </div>
+  <p id="noAR" hidden class="muted">This screen can't do AR. Open this page on an iPhone, iPad or Android phone. You can still spin and zoom the rocket here.</p>
+</div>
+
+<script>
+const SCENES = {
+  both: {big:'122 m long, 40 m wide', blurb:'The Saturn V lying on cradles with its stages pulled apart, as it hangs in the Apollo/Saturn V Center at Kennedy Space Center, and a second one standing on its engines beside it: 110.6 m, a 36-storey building.'},
+  lying: {big:'122 m long, 14 m wide', blurb:'Lying on cradles with its three stages and the Apollo spacecraft pulled apart, about 2.5 m clear underneath, so you can walk under it the way visitors do at Kennedy Space Center.'},
+  standing: {big:'110.6 m tall', blurb:'Standing on its five F-1 engines, as it did on the launch pad (without the launch tower). Stand under the fins and look up.'},
+};
+const mv = document.getElementById('mv'), big = document.getElementById('bigBtn'), mini = document.getElementById('miniBtn');
+let scene = 'both', life = true;
+function show() {
+  const S = SCENES[scene], file = 'models/saturn-v-' + scene + (life ? '' : '-mini');
+  document.querySelectorAll('.scenes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.scene === scene));
+  big.setAttribute('aria-pressed', life); mini.setAttribute('aria-pressed', !life);
+  document.getElementById('bigSize').textContent = S.big; document.getElementById('blurb').textContent = S.blurb;
+  mv.src = file + '.glb'; mv.iosSrc = file + '.usdz'; mv.alt = S.blurb;
+  mv.arScale = life ? 'fixed' : 'auto';   // life size can't be pinched smaller by accident while you walk
+  document.getElementById('arBtn').textContent = life ? '📱 Walk around it life size' : '📱 View in your room';
+  document.getElementById('bigHelp').hidden = !life; document.getElementById('miniHelp').hidden = life;
+  try { localStorage.setItem('sv_scene', scene); } catch (e) {}
+}
+document.querySelectorAll('.scenes button').forEach(b => b.onclick = () => { scene = b.dataset.scene; show(); });
+big.onclick = () => { life = true; show(); }; mini.onclick = () => { life = false; show(); };
+try { const s0 = new URLSearchParams(location.search).get('scene') || localStorage.getItem('sv_scene'); if (SCENES[s0]) scene = s0; } catch (e) {}
+show();
+// model-viewer hides the AR button by itself when the device can't do AR; also explain why.
+mv.addEventListener('load', () => { document.getElementById('noAR').hidden = mv.canActivateAR; });
+</script>
+</body>
+</html>
