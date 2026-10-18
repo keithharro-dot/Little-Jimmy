@@ -3,8 +3,8 @@
 #   python models/build_eradicator_mk4.py [--render <dir>]
 # Writes models/eradicator-mk4.glb (Android / web) and models/eradicator-mk4.usdz (iPhone / iPad AR Quick Look).
 # The design matches mk4Tpl in tower-defence.html, with extra close-up detail. It is our own next model in the game's
-# Eradicator line, in the spirit of TDX-style siege mechs, not a copy of TDX's MK IV: a hunched, heavier siege walker
-# with a shoulder artillery cannon, a twin autocannon on the left arm, angular shoulder guards and tracked feet.
+# Eradicator line, in the spirit of TDX-style mechs, not a copy of TDX's MK IV: a tall humanoid war-suit with a shoulder
+# artillery cannon, angular shoulder guards, two ordinary armoured arms with hands, and armoured boots.
 import bpy, math, os, sys
 
 OUT = os.path.dirname(os.path.abspath(__file__))
@@ -92,30 +92,29 @@ def xpanel(x, y, z, w, h, ry=0):
     for a in (math.atan2(h, w), -math.atan2(h, w)):
         box(.008, .014, L, GUNL, x + .008, y, z, ry=ry, rx=a, bevel=0)
 
-# ---------- tracked feet: a rubber track loop round a steel frame, with toe claws ----------
+# ---------- legs: thigh, knee guard, shin armour, armoured boots with toe plates ----------
 for s in (-1, 1):
-    z = s*.2
-    box(.42, .13, .22, BLACK, .02, .07, z, bevel=.03)              # track loop
-    box(.36, .09, .24, GUND, .02, .07, z, bevel=.01)               # frame showing through
-    for wx in (-.12, 0, .12): cylz(.045, .25, STEEL, wx + .02, .06, z, seg=10)   # road wheels
-    for tx in range(-7, 8): box(.012, .14, .23, GUNL, .02 + tx*.027, .07, z, bevel=0)   # track plates
-    for tz in (-.07, 0, .07): box(.07, .04, .04, GUNL, .26, .035, z + tz)        # toe claws
-    # stubby legs: steel shin inside olive armour, knee guard with the X brace
-    box(.2, .2, .18, GUN, 0, .25, z)
-    box(.24, .14, .22, OLIVE, .01, .3, z)
-    box(.1, .1, .2, OLIVED, .14, .36, z, rz=-.3)
-    xpanel(.165, .3, z, .14, .1)
-    box(.22, .18, .2, GUN, -.02, .45, z)                          # thigh
-    cyly(.02, .22, STEEL, -.14, .34, z + s*.06); cyly(.03, .08, GUND, -.14, .42, z + s*.06)   # rear piston
+    z = s*.17
+    box(.22, .22, .2, GUN, 0, .5, z)                             # thigh
+    box(.03, .16, .16, OLIVE, .12, .5, z); xpanel(.136, .5, z, .1, .1)
+    box(.1, .1, .2, OLIVED, .13, .36, z, rz=-.3)                 # knee guard
+    box(.2, .22, .18, GUN, 0, .25, z)                            # shin
+    box(.24, .16, .22, OLIVE, .01, .22, z)
+    box(.012, .14, .04, OLIVEL, .13, .22, z + s*.06, bevel=.003)
+    cyly(.018, .2, STEEL, -.12, .3, z - s*.05); cyly(.028, .08, GUND, -.12, .38, z - s*.05)   # rear piston
+    box(.36, .1, .24, GUND, .05, .05, z, bevel=.015)             # boot
+    box(.12, .06, .22, GUNL, .22, .07, z)                        # toe plate
+    for tz in (-.07, 0, .07): box(.06, .03, .04, GUNL, .27, .02, z + tz)
+    box(.08, .07, .2, GUN, -.13, .04, z)                         # heel
 
-# ---------- hips: wide and low ----------
-box(.34, .18, .58, GUN, 0, .56, 0)
-box(.02, .11, .15, GUND, .172, .56, .14, bevel=.004); text('04', .065, .183, .56, .14)
-for s in (-1, 1): box(.14, .12, .06, OLIVED, .04, .56, s*.31)
+# ---------- hips ----------
+box(.3, .16, .5, GUN, 0, .64, 0)
+box(.02, .1, .14, GUND, .152, .64, .12, bevel=.004); text('04', .06, .163, .64, .12)
+for s in (-1, 1): box(.12, .1, .06, OLIVED, .04, .64, s*.27)
 
-T0 = .64   # torso base height
-# ---------- chest: hunched gunmetal block leaning forward, olive belly plate, white crest light over the head ----------
-box(.4, .36, .44, GUN, .02, T0 + .2, 0, rz=.12)
+T0 = .72   # torso base height
+# ---------- chest: upright gunmetal block, olive belly plate, white crest light over the head ----------
+box(.34, .4, .42, GUN, 0, T0 + .22, 0, rz=.05)
 box(.03, .18, .2, OLIVE, .21, T0 + .14, 0)
 xpanel(.236, T0 + .14, 0, .14, .12)
 for y in (.3, .34): box(.012, .012, .3, GUND, .2, T0 + y, 0, bevel=0)
@@ -151,7 +150,7 @@ for vz in (-.03, 0, .03): box(.01, .04, .008, GUND, .242, T0 + .32, vz, bevel=0)
 
 # ---------- right shoulder: the artillery cannon, angled up over the shoulder ----------
 TILT = .5   # radians nose-up
-CX, CY, CZ = -.1, T0 + .64, .4
+CX, CY, CZ = -.1, T0 + .66, .4
 cyly(.07, .1, GUND, CX, CY - .05, CZ, seg=12)                    # mount
 box(.22, .18, .2, GUN, CX, CY + .02, CZ)                         # breech block
 xpanel(.11, CY + .02, CZ, .12, .1)
@@ -170,18 +169,23 @@ for i in range(4):   # brake vents round the muzzle
 discx(.05, HOLE, *along(.975), seg=14, tilt=-TILT)
 cylx(.06, .02, ORANGE, *along(.97), seg=14, tilt=-TILT)          # orange muzzle ring
 
-# ---------- left forearm: twin autocannon; right arm: a heavy gripping arm bracing the cannon ----------
-box(.12, .34, .12, GUND, .04, T0 + .28, -.46)                   # left upper arm
-cyly(.045, .06, STEEL, .04, T0 + .46, -.46)
-box(.3, .14, .16, GUN, .14, T0 + .08, -.48)                      # forearm housing
-xpanel(.0, T0 + .08, -.565, .12, .09, ry=-math.pi/2)
-for z in (-.52, -.44):
-    cylx(.028, .34, GUND, .3, T0 + .08, z, seg=10); discx(.02, HOLE, .47, T0 + .08, z, seg=10)
-box(.1, .06, .2, OLIVED, .18, T0 + .17, -.48)                   # ammo feed on top
-box(.12, .3, .12, GUND, .02, T0 + .3, .5)                        # right upper arm
-cyly(.045, .06, STEEL, .02, T0 + .46, .5)
-box(.14, .1, .14, GUN, .06, T0 + .14, .52)                       # fist bracing under the cannon
-for tz in (-.04, 0, .04): box(.08, .03, .03, GUNL, .14, T0 + .12, .52 + tz)
+# ---------- arms: ordinary armoured arms with hands, hanging at the sides, the right one slightly raised to brace the cannon ----------
+def arm(sd, bend):
+    z = sd*.46
+    cyly(.05, .06, STEEL, 0, T0 + .5, z)                         # shoulder joint
+    box(.13, .3, .13, GUND, 0, T0 + .32, z)                      # upper arm
+    box(.03, .18, .11, OLIVE, .07, T0 + .32, z); xpanel(.086, T0 + .32, z, .08, .1)
+    cylz(.05, .14, GUN, .02, T0 + .16, z, seg=10)                # elbow
+    fx, fy = .04 + bend*.14, T0 + .02 - bend*.04                 # forearm angles forward when bent
+    box(.12, .26, .12, GUND, fx, fy, z, rz=bend*.9)
+    box(.14, .1, .14, OLIVED, fx + bend*.1, fy - .12 + bend*.03, z, rz=bend*.9)   # wrist guard
+    hx, hy = fx + bend*.14, fy - .2 + bend*.05
+    box(.1, .1, .11, GUN, hx, hy, z)                             # palm
+    for i, fz in enumerate((-.04, -.013, .013, .04)):           # four fingers, curled
+        box(.05, .035, .022, GUND, hx + .06, hy - .02, z + fz); box(.03, .035, .022, GUND, hx + .09, hy - .045, z + fz)
+    box(.03, .03, .045, GUND, hx + .04, hy + .01, z - sd*.07)   # thumb
+arm(-1, .15)
+arm(1, .55)
 
 # ---------- scale to metres and tidy up ----------
 for o in list(scene.objects):
@@ -212,7 +216,7 @@ if RENDER:   # preview stills
     scene.render.resolution_x = scene.render.resolution_y = 900
     scene.view_settings.view_transform = 'AgX'
     bpy.ops.object.camera_add(); cam = bpy.context.object; scene.camera = cam; cam.data.lens = 50
-    for name, loc, look in (('front', (1.8, -4.6, 1.7), (0, 0, 1.1)), ('side', (-4.6, -1.4, 1.9), (0, 0, 1.1)), ('back', (-2.8, 3.8, 2.5), (0, 0, 1.1)), ('cannon', (-1.0, -2.0, 2.2), (-.5, -.2, 1.6))):
+    for name, loc, look in (('front', (1.8, -4.6, 1.7), (0, 0, 1.1)), ('side', (-4.6, -1.4, 1.9), (0, 0, 1.1)), ('back', (-2.8, 3.8, 2.5), (0, 0, 1.1)), ('hand', (2.0, -1.6, 1.0), (.3, -.3, .9))):
         cam.location = loc
         d = [l - c for l, c in zip(look, loc)]
         cam.rotation_euler = (math.atan2(math.hypot(d[0], d[1]), -d[2]), 0, math.atan2(d[1], d[0]) - math.pi/2)
