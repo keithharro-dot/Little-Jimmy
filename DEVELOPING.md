@@ -52,7 +52,7 @@ This guide is for whoever (and whichever Claude) picks them up next. Give your C
 
 - **LEO BOMB** (`LEO`, `leoBlast`): at the start of the boss round the ball is dropped on the centre spot as the LEO BOMB (`ball.leo`). The first team to touch it arms it (`powerTouch`); a touch by anyone on the other team sets it off. Their whole team within 75 units is blasted away and frozen for 3.5 s (bosses less), and the ball rockets at their goal. One per match. The snapshot sends `bl`: 0 none, 1 unarmed, 2 armed by blue, 3 armed by red.
 
-Finger soccer for 1–16 players, phones first. Each player is a square block with your face (photo or cartoon) on top. You drag your players with your finger. Touch control (`holds`, `isHeld`, `drawTethers`): a touch within about 1 cm (`GRAB_PX`) grabs the nearest of your players, and the player keeps its offset from the finger so the finger never covers it; a dotted line shows the link. The in-game 🎵 button and the menu chip both open the music picker.
+Finger soccer for 1–16 players, phones first. Each player is a square block with your face (photo or cartoon) on top. You drag your players with your finger. Touch control (`holds`, `isHeld`, `drawTethers`): a touch anywhere on the pitch grabs the nearest of your players, which keeps its offset from the finger. If the finger landed on top of the player (within `LIFT_PX`, 70 px), the offset eases over the first 50 px of the drag to a gap of 70 px up the screen (down for the top person in 2-players-one-phone), so the finger never covers the player; a dotted line shows the link. The in-game 🎵 button and the menu chip both open the music picker.
 
 - **Pitch and physics:**
   - `F` holds the sizes (pitch 100 × 160 units).
