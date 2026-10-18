@@ -164,7 +164,7 @@ details summary{color:var(--gold)}
   </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
-    <p class="small">The joystick at the bottom left steers your player nearest the ball; tap it twice to drop a banana once you have that power. Or touch anywhere on the pitch and drag: the nearest of your players (the ones with a glow) follows your finger. Best is to put your finger a little below the player, so you can see it; if you land right on it, it slides out from under your finger as you move. A dashed line shows which player you're holding. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
+    <p class="small">The joystick at the bottom left steers your player nearest the ball. Your powers sit in a row above it: tap one to fire it (bananas, the freeze ray and the ghost curse go off at once; the cannon, rocket and nuke arm, then go off when you next touch the ball). Two quick taps on the stick fire the last power you picked. Or touch anywhere on the pitch and drag: the nearest of your players (the ones with a glow) follows your finger. Best is to put your finger a little below the player, so you can see it; if you land right on it, it slides out from under your finger as you move. A dashed line shows which player you're holding. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
     <p class="small">Playing together: tap <b>Invite friends to play</b> and send the link (WhatsApp, Messages, anything). Friends next to you can just scan the QR code on your screen with their camera instead. Either way they tap <b>Join game</b> and they're in. The link works until the host leaves the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets.</p>
   </details>
 </div>
@@ -344,6 +344,12 @@ const randomBoss = () => BOSS_NAMES[Math.floor(Math.random()*BOSS_NAMES.length)]
 const BOSS_SIZE = 2.2;
 const CANNON = [1.2, 5];     // [shot speed × normal max, seconds between shots]
 const PW = Object.fromEntries(POWERS.map((p, i) => [p.id, i]));
+// Powers a person fires from the joystick (the rest are always on): banana, freeze and ghost go off at once; cannon, rocket
+// and nuke are ARMED for 4 s and go off on your team's next touch of the ball. Computer-only teams fire them by themselves.
+const ACTIVE = {banana:'drop a banana', freeze:'freeze ray', ghost:'ghost curse', cannon:'cannon: arm, then touch the ball', rocket:'rocket: arm, then shoot', nuke:'nuke: arm, then touch the ball'};
+const TOUCH_POWERS = {cannon:1, rocket:1, nuke:1}, ARM_SECS = 4, COOL = {banana:1.5, freeze:4, ghost:40, cannon:CANNON[1], rocket:2.5, nuke:8};
+const humanTeam = (g, T) => g.players.some(p => p.team === T);
+const armed = (g, T, id) => !humanTeam(g, T) || !!(g.arm && g.arm[T] && g.arm[T].id === id && g.arm[T].t > 0);
 const has = (lv, team, id) => !!lv && lv[team] > PW[id];
 const halfOf = (lv, w) => F.r*(w.boss ? BOSS_SIZE : w.role !== 'GK' && has(lv, w.team, 'racket') ? 1.35 : 1);   // half the width of a player's square (keepers stay normal)
 const ghosted = (g, w) => g.ghost && g.ghost[w.team] > 0 && w.role !== 'GK';
@@ -366,28 +372,32 @@ function powerTouch(g, w) {
     b.leo.team = T;
   }
   if (b.home && b.home !== T + 1) b.home = 0;   // the other team knocks a rocket off course
-  if (has(g.lv, T, 'cannon') && !(cool.cannon > 0) && w.role !== 'GK' && Math.abs(b.y - oppGoalY(T)) < 80) {   // slurp! in their half the ball goes inside the player
-    b.held = {w:w.id, t:.6}; b.vx = b.vy = 0; cool.cannon = CANNON[1]; addFx(g, {k:'suck', x:r1(w.x), y:r1(w.y)});
+  const fired = () => { if (g.arm && g.arm[T]) g.arm[T] = null; };
+  if (has(g.lv, T, 'cannon') && armed(g, T, 'cannon') && !(cool.cannon > 0) && w.role !== 'GK' && (!humanTeam(g, T) ? Math.abs(b.y - oppGoalY(T)) < 80 : true)) {   // slurp! the ball goes inside the player
+    b.held = {w:w.id, t:.6}; b.vx = b.vy = 0; cool.cannon = CANNON[1]; addFx(g, {k:'suck', x:r1(w.x), y:r1(w.y)}); fired();
   }
-  if (has(g.lv, T, 'rocket') && w.role !== 'GK' && !(cool.rocket > 0)) { b.home = T + 1; b.homeT = 1.5; b.homeX = aimX(g, T); cool.rocket = 2.5; }
-  if (has(g.lv, T, 'nuke') && !b.nuke && !(cool.nuke > 0)) { b.nuke = {team:T, t:1.2}; cool.nuke = 8; }
+  if (has(g.lv, T, 'rocket') && armed(g, T, 'rocket') && w.role !== 'GK' && !(cool.rocket > 0)) { b.home = T + 1; b.homeT = 1.5; b.homeX = aimX(g, T); cool.rocket = 2.5; fired(); }
+  if (has(g.lv, T, 'nuke') && armed(g, T, 'nuke') && !b.nuke && !(cool.nuke > 0)) { b.nuke = {team:T, t:1.2}; cool.nuke = 8; fired(); }
 }
+// Freeze ray: zap the opponent nearest the ball. Ghost curse: the other team can't touch the ball for 10 s.
+function doFreeze(g, T) {
+  const b = g.ball, near = (list, x, y) => list.sort((a, c) => Math.hypot(a.x - x, a.y - y) - Math.hypot(c.x - x, c.y - y))[0];
+  const tgt = near(g.widgets.filter(w => w.team !== T && !(w.frz > 0) && !w.boss), b.x, b.y);
+  if (tgt) { const src = near(g.widgets.filter(w => w.team === T), tgt.x, tgt.y); tgt.frz = 1.6; addFx(g, {k:'zap', x:r1(src.x), y:r1(src.y), x2:r1(tgt.x), y2:r1(tgt.y)}); }
+  g.cool[T].freeze = COOL.freeze;
+}
+function doGhost(g, T) { g.ghost[1 - T] = 10; g.cool[T].ghost = COOL.ghost; addFx(g, {k:'ghost', x:50, y:80, team:1 - T}); }
 // Powers that run by themselves every frame.
 function powerStep(g, dt) {
   const b = g.ball;
   for (const T of [0, 1]) {
     const cool = g.cool[T]; for (const k in cool) cool[k] -= dt;
+    if (g.arm && g.arm[T] && (g.arm[T].t -= dt) <= 0) g.arm[T] = null;   // an armed power that wasn't used in time
     if (has(g.lv, T, 'magnet') && Math.hypot(b.vx, b.vy) < 70 && Math.abs(b.y - ownGoalY(T)) > 35) for (const w of g.widgets) if (w.team === T && !(w.frz > 0)) {
       const dx = w.x - b.x, dy = w.y - b.y, d = Math.hypot(dx, dy);
       if (d < 24 && d > halfOf(g.lv, w) + F.ballR + .5) { b.vx += dx/d*160*dt; b.vy += dy/d*160*dt; }
     }
-    if (has(g.lv, T, 'freeze') && !(cool.freeze > 0)) {   // zap the opponent nearest the ball
-      const near = (list, x, y) => list.sort((a, c) => Math.hypot(a.x - x, a.y - y) - Math.hypot(c.x - x, c.y - y))[0];
-      const tgt = near(g.widgets.filter(w => w.team !== T && !(w.frz > 0) && !w.boss), b.x, b.y);
-      if (tgt) { const src = near(g.widgets.filter(w => w.team === T), tgt.x, tgt.y); tgt.frz = 1.6;
-                 addFx(g, {k:'zap', x:r1(src.x), y:r1(src.y), x2:r1(tgt.x), y2:r1(tgt.y)}); }
-      cool.freeze = 4;
-    }
+    if (has(g.lv, T, 'freeze') && !(cool.freeze > 0) && !humanTeam(g, T)) doFreeze(g, T);   // computer teams zap by themselves
     if (has(g.lv, T, 'wall')) {   // brick wall sliding along this team's own goal line
       const cx = wallX(g.t, T), hw = WALL_HW(), y0 = T ? 0 : 157;
       const px = clamp(b.x, cx - hw, cx + hw), py = clamp(b.y, y0, y0 + 3), dx = b.x - px, dy = b.y - py, d = Math.hypot(dx, dy);
@@ -409,9 +419,7 @@ function powerStep(g, dt) {
   }
   for (const T of [0, 1]) {
     if (g.ghost[1 - T] > 0) g.ghost[1 - T] -= dt;
-    if (has(g.lv, T, 'ghost') && !(g.cool[T].ghost > 0)) {   // curse the other team: ghosts for 10 seconds
-      g.ghost[1 - T] = 10; g.cool[T].ghost = 40; addFx(g, {k:'ghost', x:50, y:80, team:1 - T});
-    }
+    if (has(g.lv, T, 'ghost') && !(g.cool[T].ghost > 0) && !humanTeam(g, T)) doGhost(g, T);   // computer teams curse by themselves
     if (has(g.lv, T, 'banana') && !(g.cool[T].banana > 0) && !g.players.some(p => p.team === T)) {   // computer teams drop bananas by themselves; people double-tap the joystick
       const mine = g.widgets.filter(w => w.team === T && w.role !== 'GK');
       if (g.bananas.filter(n => n.team === T).length < 4 && mine.length) {
@@ -559,13 +567,13 @@ function newMatch(players, len) {
   const size = teamSize(players); F.goalW = goalWidth(size);
   const g = {players, size, widgets: buildWidgets(players, size), ball:{x:50, y:80, vx:0, vy:0},
              score:[0, 0], t:0, len, status:'kickoff', cd:2.2, kicks:0, lastTouch:null, scorer:null, epoch:(Math.random()*1e6)|0,
-             goals:{}, targets:{}, holder:{}, lv:CHAOS ? [0, 0] : null, cut:CUTS, pu:null, cool:[{}, {}], fx:[], fxN:0, ghost:[0, 0], bananas:[], boss:null};
+             goals:{}, targets:{}, holder:{}, lv:CHAOS ? [0, 0] : null, cut:CUTS, pu:null, cool:[{}, {}], arm:[null, null], fx:[], fxN:0, ghost:[0, 0], bananas:[], boss:null};
   resetKickoff(g, null);
   return g;
 }
 function resetKickoff(g, concededBy) {
   for (const w of g.widgets) { w.x = w.hx; w.y = w.hy; w.vx = w.vy = 0; w.frz = w.kx = w.ky = w.slip = 0; }
-  g.ball = {x:50, y:80, vx:0, vy:0}; g.fx = []; g.pu = null; g.bananas = [];
+  g.ball = {x:50, y:80, vx:0, vy:0}; g.fx = []; g.pu = null; g.bananas = []; g.arm = [null, null];
   if (concededBy !== null) g.ball.y = concededBy === 0 ? 92 : 68;   // team that conceded gets the ball nudged their way
   g.status = 'kickoff'; g.cd = 2.2; g.targets = {}; g.lastTouch = null;
   g.kickTeam = concededBy === null ? 0 : concededBy;   // who takes the kick-off: the home team to start, then whoever conceded
@@ -761,7 +769,7 @@ const r1 = v => Math.round(v*10)/10;
 function snap(g) {
   return {st:g.status, cd:r1(g.cd), t:r1(g.t), len:g.len, sc:g.score, b:[r1(g.ball.x), r1(g.ball.y)], k:g.kicks, ep:g.epoch,
           w:g.widgets.map(w => [r1(w.x), r1(w.y)]), sco:g.scorer, goals:g.goals,
-          lv:g.lv, pu:g.pu, fz:g.widgets.filter(w => w.frz > 0).map(w => w.id), bv:[r1(g.ball.vx), r1(g.ball.vy)],
+          lv:g.lv, pu:g.pu, pc:g.cool.map(c => Object.fromEntries(Object.entries(c).filter(([, v]) => v > 0).map(([k, v]) => [k, r1(v)]))), ar:(g.arm || []).map(a => a && a.t > 0 ? a.id : null), fz:g.widgets.filter(w => w.frz > 0).map(w => w.id), bv:[r1(g.ball.vx), r1(g.ball.vy)],
           bc:g.ball.curl !== null && g.ball.curl !== undefined && g.widgets[g.ball.curl] ? g.widgets[g.ball.curl].team + 1 : 0, bn:g.ball.nuke ? 1 : 0, bl:g.ball.leo ? g.ball.leo.team + 2 : 0, bh:g.ball.home || 0, fx:g.fx.map(f => ({...f, a:r1(f.a)})),
           hd:g.ball.held ? [g.ball.held.w, r1(g.ball.held.t)] : null, gh:g.ghost.map(v => v > 0 ? Math.ceil(v) : 0), na:g.bananas.map(n => [n.x, n.y]),
           sl:g.widgets.filter(w => w.slip > 0).map(w => w.id), bs:g.boss,
@@ -770,18 +778,24 @@ function snap(g) {
 // Static match info sent once at kick-off: who controls which player, and which face it wears.
 const matchInfo = g => ({size:g.size, len:g.len, cut:!!g.cut, adult:AGE === 'adult', players:g.players.map(p => ({pid:p.pid, name:p.name, team:p.team, boss:p.boss})),
                          widgets:g.widgets.map(w => ({id:w.id, team:w.team, role:w.role, ctl:w.ctl, grab:w.grab, face:w.face, num:w.num}))});
-// A person's double tap on the joystick: drop a banana behind their player (needs the banana power; 4 out at most).
-// Returns a message for the player when nothing happened, else null.
-function applyUse(g, T, wid) {
+// A person fires a power from the joystick (a hotbar tap, or a double tap on the stick for the selected one). With no id,
+// the first owned power that's ready. Returns a message for the player when nothing happened, else null.
+const ownedActive = (lv, T) => POWERS.filter(p => ACTIVE[p.id] && has(lv, T, p.id)).map(p => p.id);
+function applyUse(g, T, wid, id) {
   if (g.status !== 'play' || !g.lv) return null;
-  if (!has(g.lv, T, 'banana')) return 'No traps yet: you get powers when you let a goal in';
-  if (g.cool[T].banana > 0) return null;
+  const owned = ownedActive(g.lv, T);
+  if (!owned.length) return 'No powers yet: you get them when you let a goal in';
+  if (!id || !owned.includes(id)) id = owned.find(k => !(g.cool[T][k] > 0)) || owned[0];
+  if (g.cool[T][id] > 0) return POWERS[PW[id]].icon + ' recharging';
+  if (TOUCH_POWERS[id]) { if (g.arm[T] && g.arm[T].id === id) return null; g.arm[T] = {id, t:ARM_SECS}; return null; }   // armed: goes off on the next touch
+  if (id === 'freeze') { doFreeze(g, T); return null; }
+  if (id === 'ghost') { doGhost(g, T); return null; }
   if (g.bananas.filter(n => n.team === T).length >= 4) return 'Four bananas out already';
   const b = g.ball, mine = g.widgets.filter(w => w.team === T && w.role !== 'GK');
   const w = wid !== undefined && g.widgets[wid] && g.widgets[wid].team === T ? g.widgets[wid] : mine.sort((a, c) => Math.hypot(a.x - b.x, a.y - b.y) - Math.hypot(c.x - b.x, c.y - b.y))[0];
   if (!w) return null;
   g.bananas.push({x:r1(clamp(w.x, 10, 90)), y:r1(clamp(w.y + (T ? -12 : 12), F.boxD + 6, 160 - F.boxD - 6)), team:T});
-  g.cool[T].banana = 1.5;
+  g.cool[T].banana = COOL.banana;
   return null;
 }
 // Move a player for pid: their own players, or their team's keeper (whoever grabbed it last has it).
@@ -2135,9 +2149,31 @@ function pollSticks() {
     drivePad('T' + team, mine, flipped ? -st.ax : st.ax, flipped ? -st.ay : st.ay);
   }
 }
-function useTrap(team) {
-  if (mode === 'guest') { if (conn && conn.open) conn.send({t:'use'}); return; }
-  if (game) { const msg = applyUse(game, team, padHeld['T' + team]); if (msg) toast(msg); }
+function useTrap(team, id) {
+  if (mode === 'guest') { if (conn && conn.open) conn.send({t:'use', p:id}); return; }
+  if (game) { const msg = applyUse(game, team, padHeld['T' + team], id); if (msg) toast(msg); }
+}
+// Hotbar: the powers you can fire, in a row above the stick (to its left for the top person). Tap one to fire it (and make
+// it the one a double tap on the stick fires). A dark arc shows recharging; a glow shows one that's armed.
+const HOT = {r:21, gap:8};
+function hotbar(team) {
+  if (!view || !view.lv) return [];
+  const st = stickState(team), ids = ownedActive(view.lv, team), flipped = mode === 'local2' && team === 1, n = ids.length;
+  return ids.map((id, i) => ({id, x:flipped ? st.cx + STICK.r - HOT.r - (n - 1 - i)*(HOT.r*2 + HOT.gap) : st.cx - STICK.r + HOT.r + i*(HOT.r*2 + HOT.gap), y:flipped ? st.cy + STICK.r + HOT.r + 14 : st.cy - STICK.r - HOT.r - 14}));   // a row starting at the stick's edge
+}
+function drawHotbar(team) {
+  const st = stickState(team), ids = hotbar(team); if (!ids.length) return;
+  for (const h of ids) {
+    const cool = view.pc && view.pc[team] ? view.pc[team][h.id] || 0 : 0, isArmed = view.ar && view.ar[team] === h.id, sel = st.sel === h.id;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(h.x, h.y, HOT.r, 0, 7); ctx.fill();
+    if (cool > 0) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.arc(h.x, h.y, HOT.r, -Math.PI/2, -Math.PI/2 + Math.min(1, cool/(COOL[h.id] || 5))*Math.PI*2); ctx.closePath(); ctx.fill(); }
+    ctx.lineWidth = sel || isArmed ? 3 : 1.5; ctx.strokeStyle = isArmed ? '#ffd23f' : sel ? '#fff' : 'rgba(255,255,255,.5)';
+    if (isArmed) { ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 14; }
+    ctx.beginPath(); ctx.arc(h.x, h.y, HOT.r, 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.globalAlpha = cool > 0 ? .5 : 1; ctx.font = '22px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(POWERS[PW[h.id]].icon, h.x, h.y + 1);
+    ctx.restore();
+  }
 }
 function drawSticks() {
   for (const team of stickTeams()) {
@@ -2147,8 +2183,8 @@ function drawSticks() {
     ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,.3)'; for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) { ctx.beginPath(); ctx.arc(st.cx + dx*r*.78, st.cy + dy*r*.78, 3, 0, 7); ctx.fill(); }
     ctx.fillStyle = st.pid !== null ? 'rgba(255,255,255,.8)' : 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(st.cx + st.ax*r*.7, st.cy + st.ay*r*.7, STICK.knob, 0, 7); ctx.fill();
-    if (view.lv && has(view.lv, team, 'banana')) { ctx.font = '600 13px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillText('🍌 tap tap', st.cx, st.cy - r - 8); }
     ctx.restore();
+    drawHotbar(team);
   }
 }
 
@@ -2246,10 +2282,12 @@ function setTarget(wid, x, y) {
 }
 cv.addEventListener('pointerdown', ev => {
   if (!view) return;
-  if (isTouch) for (const team of stickTeams()) {   // a touch on the joystick drives it; two quick taps drop a trap
-    const st = stickState(team); if (st.pid !== null || Math.hypot(ev.clientX - st.cx, ev.clientY - st.cy) > STICK.r*1.5) continue;
+  if (isTouch) for (const team of stickTeams()) {   // a tap on the hotbar fires that power; a touch on the joystick drives it, two quick taps fire the selected power
+    const st = stickState(team), hit = hotbar(team).find(h => Math.hypot(ev.clientX - h.x, ev.clientY - h.y) < HOT.r + 6);
+    if (hit) { st.sel = hit.id; useTrap(team, hit.id); return; }
+    if (st.pid !== null || Math.hypot(ev.clientX - st.cx, ev.clientY - st.cy) > STICK.r*1.5) continue;
     st.pid = ev.pointerId; st.ax = st.ay = 0;
-    const now = performance.now(); if (now - st.lastTap < 350) { useTrap(team); st.lastTap = 0; } else st.lastTap = now;
+    const now = performance.now(); if (now - st.lastTap < 350) { useTrap(team, st.sel); st.lastTap = 0; } else st.lastTap = now;
     try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
     return;
   }
@@ -2529,7 +2567,7 @@ function hostOnData(pid, m) {
   } else if (m.t === 'in' && game) {
     applyInput(game, pid, m.w, m.x, m.y, false);
   } else if (m.t === 'use' && game) {
-    const p = game.players.find(p => p.pid === pid); if (p) applyUse(game, p.team);
+    const p = game.players.find(p => p.pid === pid); if (p) applyUse(game, p.team, undefined, typeof m.p === 'string' ? m.p : undefined);
   }
 }
 function hostLost(pid) {
