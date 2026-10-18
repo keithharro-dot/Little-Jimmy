@@ -49,7 +49,7 @@ const p1 = await page(BASE + '/soccer.html', 'Solo'); await p1.tap('#goPractice'
 check(await p1.evaluate(() => game.status !== undefined && !G3.on), 'practice runs, in 2D when 3D can\'t load');
 
 console.log('Tower Defence');
-const t = await page(BASE + '/tower-defence.html'); await t.tap('#goLocal'); await t.waitForTimeout(1500);
+const t = await page(BASE + '/tower-defence.html'); await t.tap('#goMulti'); await t.tap('#goLocal'); await t.waitForTimeout(1500);
 await t.evaluate(() => { game.status = 'play'; game.gold = 9999; applyCmd(game, 'def', {type:'place', x:5, y:3, spec:PRESETS[0]}); spawnEnemy(game, 'zombie', 1, 1); });
 await t.waitForTimeout(2500);
 check(await t.evaluate(() => game.towers.length === 1), 'a tower can be built');

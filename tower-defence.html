@@ -221,6 +221,7 @@ details p,details li{color:var(--muted)}
   #panels .cards{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
   #game .panel .card .del{display:block;top:-7px;right:-7px;width:20px;height:20px;padding:0;border-radius:50%;background:var(--panel2);border:1px solid var(--line);font-size:12px;line-height:18px}
   #rotate{display:block;grid-column:1/-1;margin:0}
+  #game.solo #panels .panel{grid-column:1/-1}   /* one side only (one player, or online): the tray is all yours */
 }
 
 /* on-screen PIN pad (instead of the browser's prompt box) */
@@ -247,7 +248,7 @@ details p,details li{color:var(--muted)}
 
 <div id="menu">
   <h1><span>Tower</span> <b>Defence</b></h1>
-  <p class="sub">Two players. One sends the zombies, one builds the towers.</p>
+  <p class="sub">Build towers to stop the zombies. Play the computer, or a friend: one sends the zombies, one builds the towers.</p>
   <div id="noScript" class="invite" style="margin-bottom:16px">
     <b>Buttons not working?</b>
     <div class="small">This preview can't run the game. Open it in Safari instead:</div>
@@ -258,9 +259,8 @@ details p,details li{color:var(--muted)}
   <div id="mMain" class="stack">
     <div class="small" style="margin-bottom:-4px">Pick a map</div>
     <div class="maps" id="mapPick"></div>
-    <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
-    <button id="goLocal">📱 Two players, one phone</button>
-    <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
+    <button class="primary big-btn" id="goSolo">👤 One player</button>
+    <button class="big-btn" id="goMulti">👥 Multiplayer</button>
     <button id="goTune">🎛 Characters & tuning</button>
     <button id="musicChip" class="nowplaying"><img src="music/covers/dikshifter-the-2nd-take.jpg" alt=""><span>🎵 Music: <b id="songName">Dikshifter — The 2nd Take</b><br><small id="songHint">Tap to pick a song</small></span><span id="musicState">On</span></button>
     <div class="seg gfxSeg"><button data-gfx="3d">🧊 3D graphics</button><button data-gfx="2d">▦ Classic 2D</button></div>
@@ -268,13 +268,22 @@ details p,details li{color:var(--muted)}
     <details>
       <summary>How to play</summary>
       <ul>
-        <li><b>Start:</b> tap <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
+        <li><b>One player:</b> you build the towers and the computer sends the zombies. It sends more, and nastier ones, as the waves go on.</li>
+        <li><b>Multiplayer:</b> tap <i>Multiplayer</i>, then <i>Play with a friend</i>, pick your side, then tap <i>Send invite</i> and text it. When your friend taps the link, the game starts. Friend sitting next to you? They can scan the QR code with their camera.</li>
         <li><b style="color:var(--def)">🛡 Tower builder</b>: tap a tower, then tap the grass to build it. Tap <i>+ New tower</i> to invent your own: name, colour, damage, range, speed and a special power. Better towers cost more gold. You earn more gold as the zombie sender's eco grows. Tap a built tower to see its range, upgrade it (up to level 4) or sell it. 🚀 The Launcher goes to level 5 and changes weapon each time: mortar shells, then homing missiles, twin missile pods, a laser that burns through a whole line, and finally the ANNIHILATOR (death ray plus missile swarms). 💚 Reviver brings back destroyed towers; 🎧 DJ boosts towers near it.</li>
         <li><b style="color:var(--atk)">🧟 Zombie sender</b>: spend energy to send zombies. You start earning ⚡5 a second, and every zombie you send adds <b>eco</b> to raise that for the rest of the game (bigger zombies add more). Each zombie has a build time before you can send another of that type. Eradicators cost eco, so save them for the right moment. Eco tops out at ⚡150 a second. <b>HIDDEN</b> Phantoms can only be shot by 📡 sensor towers. <b>FLYING</b> Zombie Bats skip the road. <b>SHIELD</b> soaks hits until it breaks. The <b>BOSS</b> Eradicators fire rocket bursts that knock out towers (a tower stunned 3 times is destroyed), and the MK II rages at half health.</li>
         <li>Zombies win if the base's 150 health reaches 0. Towers win by surviving all 50 waves. Waves come automatically, with an Eradicator on wave 20, an MK II on wave 40 and the Void on wave 50. Then swap sides!</li>
       </ul>
       <p>Playing with a friend needs internet or mobile data on both phones. No internet? Use <i>Two players, one phone</i>.</p>
     </details>
+  </div>
+
+  <div id="mMulti" class="stack" hidden>
+    <p style="margin:0">Multiplayer <span class="small">Map: <b id="multiMap" style="color:var(--text)"></b></span></p>
+    <button class="primary big-btn" id="goHost">🎮 Play with a friend</button>
+    <button id="goLocal">📱 Two players, one phone</button>
+    <button class="linkbtn" id="goJoin">Got a code from a friend?</button>
+    <button class="back">Back</button>
   </div>
 
   <div id="mHost" class="stack" hidden>
@@ -721,6 +730,7 @@ function step(g, dt) {
   g.gold += (4 + g.eco*ECO.defGold) * pay * tune('gold') * dt;
   g.energy = Math.min(2500, g.energy + income(g) * pay * tune('energy') * dt);
   for (const k in g.cool) g.cool[k] = Math.max(0, g.cool[k] - dt);
+  if (g.cpu) cpuSend(g, dt);
 
   // Zombies the sender sent, and the automatic filler waves, come out of the gravestone separately.
   g.spawnT -= dt;
@@ -1070,6 +1080,20 @@ function alliesStep(g, dt) {
     if (a.k === 'calamity') { const t = g.towers.find(t => t.id === a.tw); if (t) t.sum = SPAWNER.respawn; addFx(g, 'blast', a.x, a.y, 'CALAMITY FALLS!'); }
     return false;
   });
+}
+// The computer zombie sender (one player). Every few seconds it buys a zombie it can afford, from a mix that grows
+// with the wave: shamblers and speedies first, then bats and hidden phantoms, then riot, medic and brute zombies.
+// It never sends bosses (the waves bring those) and keeps a little energy back so it can't flood the road.
+const CPU = {every:[3.5, 1.6], from:{zombie:0, speedy:0, bat:4, phantom:7, riot:9, medic:11, brute:13}, reserve:10, maxQueue:16};
+function cpuSend(g, dt) {
+  if (g.status !== 'play' || (g.cpuT = (g.cpuT === undefined ? 6 : g.cpuT) - dt) > 0) return;
+  const f = Math.min(1, g.wave/30);
+  g.cpuT = CPU.every[0] + (CPU.every[1] - CPU.every[0])*f + Math.random();
+  if (g.queue.length > CPU.maxQueue) return;
+  const opts = Object.keys(CPU.from).filter(k => g.wave >= CPU.from[k] && !(g.cool[k] > 0) && g.energy - ENEMIES[k].cost >= CPU.reserve);
+  if (!opts.length) return;
+  const k = opts[Math.floor(Math.random()*opts.length)];
+  applyCmd(g, 'atk', {type:'send', kind:k});
 }
 function waveList(n) {
   const pool = WAVE_UNLOCK.filter(([, from]) => n >= from).map(([k]) => k);
@@ -3345,7 +3369,7 @@ addEventListener('keydown', ev => {
 // the page was opened somewhere else (like inside the Claude app).
 const HOME = 'https://keithharro-dot.github.io/Little-Jimmy/tower-defence.html';
 const EMBEDDED = !!window.TD_EMBEDDED;  // set by the Claude-app copy, which can't connect two phones
-function show(id) { ['#mMain','#mHost','#mJoin','#mEmbed'].forEach(s => $(s).hidden = s !== id); }
+function show(id) { ['#mMain','#mMulti','#mHost','#mJoin','#mEmbed'].forEach(s => $(s).hidden = s !== id); }
 function goMenu() { if (EMBEDDED) location.reload(); else location.href = location.pathname + location.search; }
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
@@ -3363,7 +3387,7 @@ $('#goJoin').onclick = () => { show('#mJoin'); $('#joinCode').focus(); };
 document.querySelectorAll('.back').forEach(b => b.onclick = () => {
   if (peer) { peer.destroy(); peer = null; }
   $('#hostPick').hidden = false; $('#hostInvite').hidden = true; $('#qrWrap').hidden = true;
-  show('#mMain');
+  show(b.closest('#mHost, #mJoin') ? '#mMulti' : '#mMain');
 });
 /* ---------- Full screen ---------- */
 // Android and iPad can go properly full screen (and lock sideways); iPhone Safari can't, but a home-screen icon opens full screen.
@@ -3392,13 +3416,16 @@ $('#quitBtn').onclick = () => {
 $('#btnDesel').onclick = () => { selTower = null; };
 
 $('#goLocal').onclick = () => { autoFS(); mode = 'local'; myRole = 'both'; setMap(chosenMap); game = newGame(0, chosenMap); startGame(); };
+// One player: you build the towers; the computer sends the zombies (cpuSend, run inside step).
+$('#goSolo').onclick = () => { autoFS(); mode = 'local'; myRole = 'def'; setMap(chosenMap); game = newGame(0, chosenMap); game.cpu = true; startGame(); };
+$('#goMulti').onclick = () => { $('#multiMap').textContent = MAPS[chosenMap].name; show('#mMulti'); };
 
 function applyRoleUI() {
   selTower = null;
   $('#defPanel').hidden = !isDef(); $('#atkPanel').hidden = !isAtk();
   $('#pGold').hidden = !isDef(); $('#pEnergy').hidden = !isAtk();
   $('#game').classList.toggle('solo', myRole !== 'both');
-  $('#hRole').textContent = {def:'You build 🛡 towers', atk:'You send 🧟 zombies', both:'Two players, one phone'}[myRole];
+  $('#hRole').textContent = game && game.cpu ? '🛡 You vs the computer' : {def:'You build 🛡 towers', atk:'You send 🧟 zombies', both:'Two players, one phone'}[myRole];
   renderDesigns(); renderEnemies(); resize();
 }
 function startGame() {
