@@ -1616,6 +1616,7 @@ function drawSoldier(c, cx, cy, s, spec, face = 1, lvl = 1) {
 
 // Blocky, Roblox-style models drawn with rectangles. (x, y) is the centre, s the model height in px,
 // face = 1 walking right, -1 walking left.
+let drawHold = 0;   // the hold code (ability in progress) of the unit being drawn, for poses
 function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
   c.save(); c.translate(x, y); c.scale(face, 1);
   const R = (bx, by, w, h, col) => { c.fillStyle = col; c.fillRect(bx*s, by*s, w*s, h*s); };
@@ -1709,7 +1710,9 @@ function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
   // Eradicator MK IV: tall humanoid war-suit in gunmetal and olive, cross-braced plates, a shoulder cannon angled up, hands.
   // fury 2 = form 3: the armour (olive plates, X panels, shoulder guards) is gone and only the dark frame is left.
   const mk4 = () => {
-    const shed = fury === 2, AR = f => { if (!shed) f(); };
+    const shed = fury === 2, AR = f => { if (!shed) f(); }, H = drawHold, tt = performance.now()/1000;
+    const sprint = shed && !H, swl = sprint ? Math.sin(tt*9.6)*.5 : sw;   // form 3 sprints: legs pump fast
+    if (sprint) { c.rotate(.18); }   // leaning into the run
     const GN = '#2b2e33', GD = '#1a1c20', GL = '#4a4f57', OL = '#4f6436', OD = '#36472a', OLL = '#728a49', ST = '#6a707b', RB = '#111214';
     const glow = (col, blur, f) => { c.shadowColor = col; c.shadowBlur = s*blur; f(); c.shadowBlur = 0; };
     const xp = (x, y, w, h) => { R(x, y, w, h, GD); c.strokeStyle = GL; c.lineWidth = s*.012; c.beginPath(); c.moveTo(x*s, y*s); c.lineTo((x + w)*s, (y + h)*s); c.moveTo((x + w)*s, y*s); c.lineTo(x*s, (y + h)*s); c.stroke(); };
@@ -1717,13 +1720,14 @@ function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
     // shell rack and antenna on the back
     for (const tx of [-.3, -.24, -.18, -.12]) { R(tx, -.72, .04, .14, ST); R(tx, -.74, .04, .03, '#ff7a2a'); }
     // the cannon, over the right shoulder, nose up and back
-    c.save(); c.translate(.2*s, -.56*s); c.rotate(-.9);
+    c.save(); c.translate(.2*s, -.56*s); c.rotate(H === 14 ? -1.05 : -.9);   // pitched up to fire
+    if (H === 14) { c.translate(-.06*s*Math.abs(Math.sin(tt*14)), 0); glow('#ffd08a', .5, () => { c.fillStyle = '#fff1d6'; c.beginPath(); c.arc(1.02*s, 0, s*.12*(.6 + .4*Math.abs(Math.sin(tt*14))), 0, 7); c.fill(); }); }   // recoil and muzzle flash
     R(-.08, -.09, .18, .18, GN); xp(-.05, -.06, .1, .1); R(.1, -.06, .3, .12, GN); R(.4, -.05, .28, .1, GD); R(.68, -.045, .2, .09, GN); R(.88, -.07, .1, .14, GN);
     R(.3, -.07, .03, .14, GL); R(.58, -.07, .03, .14, GL); glow('#ff7a2a', .1, () => R(.97, -.06, .02, .12, '#ff7a2a'));
     R(-.06, .09, .1, .14, OL); for (const my of [.11, .15, .19]) R(-.04, my, .06, .02, '#ff7a2a');
     c.restore();
     // legs: thighs and shins with X panels, boots with toe plates
-    for (const [lx, b] of [[-.26, sw*.3], [.06, -sw*.3]]) { R(lx, .12 + b, .2, .2, GN); AR(() => { R(lx - .01, .16 + b, .22, .1, OL); xp(lx + .04, .17 + b, .12, .08); });
+    for (const [lx, b] of [[-.26, swl*.3], [.06, -swl*.3]]) { R(lx, .12 + b, .2, .2, GN); AR(() => { R(lx - .01, .16 + b, .22, .1, OL); xp(lx + .04, .17 + b, .12, .08); });
       R(lx, .3 + b, .2, .18, GN); AR(() => R(lx - .02, .34 + b, .24, .12, OL)); R(lx - .06, .46 + b, .3, .1, GD); R(lx + .18, .48 + b, .1, .06, GL); }
     R(-.3, .0, .58, .16, GN); R(-.02, .03, .13, .1, GD);
     if (s > 40) { c.fillStyle = '#d8dde6'; c.font = `bold ${Math.round(s*.065)}px monospace`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('04', .045*s, .08*s); }
@@ -1731,17 +1735,28 @@ function drawUnit(c, k, x, y, s, ph, fury, face = 1) {
     R(-.18, -.36, .36, .38, GN); AR(() => { R(-.09, -.2, .18, .16, OL); xp(-.06, -.17, .12, .1); });
     for (const d of [-1, 1]) { const x0 = d < 0 ? -.34 : .18; AR(() => { R(x0, -.16, .16, .2, OL); R(x0 + (d < 0 ? .11 : .02), -.14, .04, .16, d < 0 ? OD : OLL); }); }
     for (const d of [-1, 1]) { const x0 = d < 0 ? -.46 : .24; AR(() => { R(x0, -.54, .22, .24, GN); R(x0 - .01, -.57, .24, .05, GL); xp(x0 + .05, -.48, .12, .1); });
-      R(x0 + .05, -.64, .12, .07, GD); for (const [hx, hy] of [[.02, .015], [.07, .015], [.02, .045], [.07, .045]]) R(x0 + .05 + hx, -.64 + hy, .025, .02, '#050506'); }
+      if (H === 1) { c.save(); c.translate((x0 + .11)*s, -.57*s); c.rotate(d*.6); c.translate(-(x0 + .11)*s, .57*s); }   // rocket pods tilt up to fire
+      R(x0 + .05, -.64, .12, .07, GD); for (const [hx, hy] of [[.02, .015], [.07, .015], [.02, .045], [.07, .045]]) R(x0 + .05 + hx, -.64 + hy, .025, .02, '#050506');
+      if (H === 1) { glow('#ffd08a', .3, () => R(x0 + .04, -.67, .14, .03, Math.sin(tt*30) > 0 ? '#fff1d6' : '#ff9a2a')); c.restore(); } }
     if (fury) glow('#ff3b1f', .1, () => { c.strokeStyle = '#ff5a2a'; c.lineWidth = s*.02; c.beginPath(); c.moveTo(-.14*s, -.34*s); c.lineTo(-.05*s, -.22*s); c.lineTo(-.12*s, -.08*s); c.moveTo(.14*s, -.3*s); c.lineTo(.06*s, -.16*s); c.stroke(); });
-    // arms: upper arm, forearm with a wrist guard, and a hand with fingers
-    for (const d of [-1, 1]) { const x0 = d < 0 ? -.6 : .46; R(x0, -.3, .13, .3, GD); AR(() => R(x0 + .04, -.26, .05, .18, OL)); R(x0 - .01, -.02, .15, .24, GD); AR(() => R(x0 - .02, .18, .17, .1, OD)); R(x0, .28, .12, .1, GN);
-      for (const f of [0, .03, .06, .09]) R(x0 + f, .37, .025, .05, GD); }
-    // neck, then the head held high: armoured brow, white crest light, twin red eyes in a visor slot
+    // arms: upper arm, forearm with a wrist guard, and a hand with fingers; they swing from the shoulder for each ability
+    const raise = H === 6 ? 2.7 : H === 2 ? 1.6 : H === 15 ? .7 : H === 1 ? .35 : H === 14 ? .45 : 0;
+    for (const d of [-1, 1]) { const x0 = d < 0 ? -.6 : .46, ang = sprint ? d*Math.sin(tt*9.6)*.7 : H === 14 && d > 0 ? 0 : d*raise;
+      c.save(); c.translate((x0 + .065)*s, -.3*s); c.rotate(ang); c.translate(-(x0 + .065)*s, .3*s);
+      R(x0, -.3, .13, .3, GD); AR(() => R(x0 + .04, -.26, .05, .18, OL)); R(x0 - .01, -.02, .15, .24, GD); AR(() => R(x0 - .02, .18, .17, .1, OD)); R(x0, .28, .12, .1, GN);
+      for (const f of [0, .03, .06, .09]) R(x0 + f, .37, .025, .05, GD); c.restore(); }
+    // neck, then the head held high: armoured brow, white crest light, twin red eyes in a visor slot; it tips back to roar or breathe fire, down to aim the laser
     R(-.06, -.44, .12, .1, GD); R(-.08, -.4, .16, .03, ST);
-    R(-.12, -.66, .24, .18, GN); R(-.14, -.7, .28, .05, GL);
+    const tilt = H === 15 ? -.35 : H === 2 ? -.3 : H === 7 ? .25 : H === 6 ? -.15 : 0, jaw = H === 15 || H === 2 ? .06 : 0;
+    c.save(); c.translate(0, -.44*s); c.rotate(tilt); c.translate(0, .44*s);
+    R(-.12, -.66, .24, .18 - jaw, GN); R(-.14, -.7, .28, .05, GL);
     glow('#f4f7ff', .12, () => R(-.08, -.74, .16, .025, fury ? '#ff5a3a' : '#f4f7ff'));
     R(-.1, -.6, .2, .05, GD);
-    glow('#ff2a1a', .16, () => { c.fillStyle = '#ff3b2a'; for (const ex of [-.05, .05]) { c.beginPath(); c.arc(ex*s, -.575*s, .025*s, 0, 7); c.fill(); } });
+    const eye = H === 7 ? .035 : .025;
+    glow('#ff2a1a', H === 7 ? .3 : .16, () => { c.fillStyle = '#ff3b2a'; for (const ex of [-.05, .05]) { c.beginPath(); c.arc(ex*s, -.575*s, eye*s, 0, 7); c.fill(); } });
+    if (jaw) { R(-.08, -.48 + jaw*.3, .16, .05, GL);   // the jaw drops; fire breath pours out of the mouth
+      if (H === 15) glow('#ff9a2a', .3, () => { c.fillStyle = Math.sin(tt*25) > 0 ? '#ffd08a' : '#ff6a2a'; c.beginPath(); c.moveTo(-.06*s, -.5*s); c.lineTo(.4*s, -.62*s - Math.sin(tt*31)*.04*s); c.lineTo(.4*s, -.36*s + Math.sin(tt*27)*.04*s); c.closePath(); c.fill(); }); }
+    c.restore();
   };
   // Doom Dad: a chunky cartoon space marine in green armour with a BFG, and a real face in the helmet.
   const doomDad = () => {
@@ -2298,7 +2313,8 @@ function mk4Tpl() {
   for (const sd of [-1, 1]) { A(box(.26, .18, .1, olive, .02, .1, sd*.23, torso)); A(box(.012, .16, .04, sd > 0 ? oliveL : oliveD, .15, .1, sd*.23, torso));
     A(box(.26, .2, .18, gun, -.03, .44, sd*.3, torso)); A(box(.22, .05, .2, gunL, -.03, .56, sd*.3, torso));
     xpanel(.1, .44, sd*.3, .12, .1, torso); xpanel(0, .44, sd*.39, .16, .12, torso, sd*Math.PI/2);
-    box(.12, .07, .12, gunD, .06, .62, sd*.28, torso); for (const [py, pz] of [[-.015, -.025], [-.015, .025], [.015, -.025], [.015, .025]]) face(new T.CircleGeometry(.014, 8), hole, .121, .62 + py, sd*.28 + pz, torso); }
+    const pod = new T.Group(); pod.position.set(.0, .62, sd*.28); pod.name = 'pod' + sd; torso.add(pod);   // tilts up to fire
+    box(.12, .07, .12, gunD, .06, 0, 0, pod); for (const [py, pz] of [[-.015, -.025], [-.015, .025], [.015, -.025], [.015, .025]]) face(new T.CircleGeometry(.014, 8), hole, .121, py, pz, pod); }
   // back: reactor housing with two exhausts and a rack of shells
   box(.18, .3, .36, gunL, -.2, .4, 0, torso);
   const reactor = new T.Group(); reactor.name = 'reactor'; torso.add(reactor);
@@ -2306,11 +2322,13 @@ function mk4Tpl() {
   for (const z of [-.12, -.04, .04, .12]) { cyl(.025, .16, steel, -.2, .62, z, torso, 10, 0); cyl(.027, .03, orange, -.2, .71, z, torso, 10, 0); }
   // neck, then the head held high: armoured brow, white crest light (the core), twin red eyes in a visor slot
   cyl(.06, .14, gunD, .06, .42, 0, torso, 10, 0); cyl(.08, .03, steel, .06, .37, 0, torso, 10, 0);
-  box(.2, .16, .2, gun, .1, .58, 0, torso); box(.22, .05, .22, gunL, .1, .68, 0, torso);
-  const core = box(.14, .024, .16, white, .08, .715, 0, torso); core.name = 'core';
-  box(.03, .05, .18, gunD, .205, .6, 0, torso);
-  for (const sd of [-1, 1]) { const e = new T.Mesh(new T.SphereGeometry(.026, 12, 8), red); e.position.set(.222, .6, sd*.055); torso.add(e); }
-  box(.08, .06, .12, gunL, .16, .5, 0, torso);
+  const head = new T.Group(); head.position.set(.06, .5, 0); head.name = 'head'; torso.add(head);   // pivots at the top of the neck
+  box(.2, .16, .2, gun, .04, .08, 0, head); box(.22, .05, .22, gunL, .04, .18, 0, head);
+  const core = box(.14, .024, .16, white, .02, .215, 0, head); core.name = 'core';
+  box(.03, .05, .18, gunD, .145, .1, 0, head);
+  for (const sd of [-1, 1]) { const e = new T.Mesh(new T.SphereGeometry(.026, 12, 8), red); e.position.set(.162, .1, sd*.055); head.add(e); }
+  const jaw = new T.Group(); jaw.position.set(.06, .0, 0); jaw.name = 'jaw'; head.add(jaw);   // drops open for the roar and the fire breath
+  box(.08, .06, .12, gunL, .04, 0, 0, jaw);
   // right shoulder: the artillery cannon, nose up
   const cannon = new T.Group(); cannon.position.set(-.1, .62, .38); cannon.name = 'cannon'; torso.add(cannon);
   cyl(.07, .1, gunD, 0, -.05, 0, cannon, 12, 0); box(.22, .18, .2, gun, 0, .02, 0, cannon); box(.1, .14, .1, gunD, -.16, .06, 0, cannon, 0, 0, .2);
@@ -2321,10 +2339,10 @@ function mk4Tpl() {
   cyl(.06, .02, orange, .97, 0, 0, barrel, 14); face(new T.CircleGeometry(.05, 14), hole, .981, 0, 0, barrel);
   // arms: ordinary armoured arms with hands; the forearm hinges at the elbow, the right one raised a little to brace the cannon
   const arm = (sd, bend) => {
-    const z = sd*.42;
-    cyl(.05, .06, steel, 0, .5, z, torso, 12, 0); box(.13, .3, .13, gunD, 0, .32, z, torso); A(box(.03, .18, .11, olive, .07, .32, z, torso)); xpanel(.086, .32, z, .08, .1, torso);
-    const el = new T.Mesh(new T.CylinderGeometry(.05, .05, .14, 10), gun); el.position.set(.02, .16, z); el.rotation.x = Math.PI/2; torso.add(el);
-    const fa = new T.Group(); fa.position.set(.02, .16, z); fa.rotation.z = bend*.9; torso.add(fa);
+    const z = sd*.42, am = new T.Group(); am.position.set(0, .5, z); am.name = 'arm' + sd; torso.add(am);   // swings from the shoulder
+    cyl(.05, .06, steel, 0, 0, 0, am, 12, 0); box(.13, .3, .13, gunD, 0, -.18, 0, am); A(box(.03, .18, .11, olive, .07, -.18, 0, am)); xpanel(.086, -.18, 0, .08, .1, am);
+    const el = new T.Mesh(new T.CylinderGeometry(.05, .05, .14, 10), gun); el.position.set(.02, -.34, 0); el.rotation.x = Math.PI/2; am.add(el);
+    const fa = new T.Group(); fa.position.set(.02, -.34, 0); fa.rotation.z = bend*.9; fa.name = 'fore' + sd; am.add(fa);
     box(.12, .26, .12, gunD, 0, -.14, 0, fa); A(box(.14, .1, .14, oliveD, 0, -.26, 0, fa)); box(.1, .1, .11, gun, 0, -.36, 0, fa);
     for (const fz of [-.04, -.013, .013, .04]) { box(.05, .035, .022, gunD, .06, -.38, fz, fa); box(.03, .035, .022, gunD, .09, -.405, fz, fa); }
     box(.03, .03, .045, gunD, .04, -.35, -sd*.07, fa);
@@ -2454,7 +2472,7 @@ function makeEnemy(k) {
   const u = tpl.userData;
   if (u.mech) {
     const n = x => g.getObjectByName(x);
-    g.userData = {mech:true, legs:[n('hip-1'), n('hip1')], shins:[n('knee-1'), n('knee1')], torso:n('torso'), guns:['gun-1', 'gun1', 'gun-2', 'gun2'].map(n).filter(Boolean), reactor:n('reactor'), core:n('core'), rage:n('rage'), cannon:n('cannon'), coreCol:u.coreCol, flame:u.flame, armorParts:(() => { const a = []; g.traverse(o => { if (o.userData.armor) a.push(o); }); return a; })()};
+    g.userData = {mech:true, legs:[n('hip-1'), n('hip1')], shins:[n('knee-1'), n('knee1')], torso:n('torso'), guns:['gun-1', 'gun1', 'gun-2', 'gun2'].map(n).filter(Boolean), reactor:n('reactor'), core:n('core'), rage:n('rage'), cannon:n('cannon'), head:n('head'), jaw:n('jaw'), pods:['pod-1', 'pod1'].map(n).filter(Boolean), marms:['arm-1', 'arm1'].map(n).filter(Boolean), fores:['fore-1', 'fore1'].map(n).filter(Boolean), coreCol:u.coreCol, flame:u.flame, armorParts:(() => { const a = []; g.traverse(o => { if (o.userData.armor) a.push(o); }); return a; })()};
     g.userData.core.material = g.userData.core.material.clone();
   } else g.userData = {legs:u.legs && u.legs.map(pick), arms:u.arms && pick(u.arms), wings:u.wings && u.wings.map(pick), tent:u.tent && u.tent.map(pick), core:u.core && pick(u.core), rage:u.rage && pick(u.rage), coreCol:u.coreCol, float:u.float, fly:u.fly, big:u.big, showShield:u.showShield, head:u.head && pick(u.head)};
   if (g.userData.core && !u.mech) g.userData.core.material = g.userData.core.material.clone();
@@ -2597,18 +2615,39 @@ function render3D(v) {
     g.scale.setScalar(vis);
     g.position.set(...W3(x, y, U.fly ? 1.1 + Math.sin(t*3 + id)*.08 : U.float ? .15 + Math.sin(t*1.4)*.05 : 0));
     if (U.mech) {   // heavy stomping walk, spinning gatlings, a pulsing reactor; the upper body turns to aim while firing
-      const st = Math.sin(ph*.8);
+      const php = U.marms && fury === 2 ? ph*4.8 : ph;   // the MK IV sprints in form 3: legs pump at a zombie's pace
+      const st = Math.sin(php*.8);
       U.legs[0].rotation.z = st*.45; U.legs[1].rotation.z = -st*.45;
       U.shins[0].rotation.z = -Math.max(0, st)*.7; U.shins[1].rotation.z = -Math.max(0, -st)*.7;
       if (!hold) g.position.y += Math.abs(Math.cos(ph*.8))*.035*vis;
       for (const gn of U.guns) gn.rotation.x += dt*(hold ? 30 : 2.5);
       if (U.cannon) U.cannon.position.x = hold === 14 ? -.08*Math.abs(Math.sin(t*14)) : 0;   // the MK IV's cannon kicks back while it fires
+      if (U.marms && U.marms.length === 2) {   // MK IV poses: a target pose per ability, eased so he flows between them
+        const Tg = {a0:0, a1:0, sp:0, f0:.135, f1:.5, hd:0, jw:0, pd:0, ln:0, cn:0};
+        if (hold === 14) Object.assign(Tg, {ln:-.12, cn:.25, a0:.5, sp:.15});                    // artillery: braces back, cannon pitched up, left arm out
+        else if (hold === 1) Object.assign(Tg, {pd:.6, ln:.08, a0:.3, a1:.3, sp:.3});              // rockets: shoulder pods tilt up, arms flare
+        else if (hold === 6) Object.assign(Tg, {a0:2.6, a1:2.6, f0:.3, f1:.3, hd:.3});             // calling Avatars: both arms raised high, head up
+        else if (hold === 7) Object.assign(Tg, {hd:-.35, ln:.1});                                   // laser: head down, leaning in
+        else if (hold === 15) Object.assign(Tg, {hd:.45, jw:-.5, ln:-.1, a0:.6, a1:.6, sp:.4});     // fire breath: head back, jaw wide, arms out
+        else if (hold === 2) Object.assign(Tg, {hd:.5, jw:-.4, ln:-.2, a0:1.2, a1:1.2, f0:1.2, f1:1.2, sp:.6});   // roar: chest out, fists up
+        else if (fury === 2) { const pm = Math.sin(php*.8)*.8; Object.assign(Tg, {ln:.3, a0:pm, a1:-pm, f0:1.3, f1:1.3}); }   // sprint: leaning forward, arms pumping
+        else { const sw2 = Math.sin(php*.8)*.25; Tg.a0 = sw2; Tg.a1 = -sw2; }                       // walking: a gentle arm swing
+        U.pose = U.pose || Object.assign({}, Tg); const k = Math.min(1, dt*(hold ? 10 : 6)), Q = U.pose;
+        for (const key in Tg) Q[key] += (Tg[key] - Q[key])*k;
+        U.marms[0].rotation.z = Q.a0; U.marms[1].rotation.z = Q.a1; U.marms[0].rotation.x = Q.sp; U.marms[1].rotation.x = -Q.sp;
+        U.fores[0].rotation.z = Q.f0; U.fores[1].rotation.z = Q.f1;
+        if (U.head) U.head.rotation.z = Q.hd; if (U.jaw) U.jaw.rotation.z = Q.jw; for (const pd of U.pods) pd.rotation.z = Q.pd;
+        U.torso.rotation.z = Q.ln; U.cannon.rotation.z = Q.cn;
+        const hv = hold === 2 || hold === 15 ? 1 + .04*Math.sin(t*20) : 1; U.torso.scale.set(hv, 1, hv);   // chest heaving while he roars or breathes fire
+        if (hold === 15 && U.jaw && Math.random() < dt*40) { const r = g.rotation.y + U.torso.rotation.y, fx2 = x + Math.cos(r)*.45*vis, fy2 = y - Math.sin(r)*.45*vis;   // flame from the mouth
+          spawn3(fx2, fy2, 1.9*vis/1.5, [Math.cos(r)*3, .6 + Math.random(), -Math.sin(r)*3], .35, .18, .05, Math.random() < .5 ? '#ff9a2a' : '#fff1c0'); }
+      }
       U.reactor.scale.set(1 + .25*Math.sin(t*9), 1, 1 + .25*Math.sin(t*9));
       if (Math.random() < dt*(hold ? 4 : 14)) { const r = g.rotation.y, bx = x - Math.cos(r)*.3*vis, by = y + Math.sin(r)*.3*vis;   // jetpack flames
         spawn3(bx, by, .72*vis, [(Math.random() - .5)*.3, -.8, (Math.random() - .5)*.3], .35, .12*vis, .04*vis, Math.random() < .5 ? '#ffb040' : U.flame); }
       let aim = 0;
-      if (hold && v.tw.length) {
-        const tw = v.tw.reduce((b, o) => Math.hypot(o.x+.5-x, o.y+.5-y) < Math.hypot(b.x+.5-x, b.y+.5-y) ? o : b);
+      if (hold && v.tw.length) {   // the artillery turns to the most expensive tower; everything else to the nearest
+        const tw = hold === 14 ? v.tw.reduce((b, o) => o.sell > b.sell ? o : b) : v.tw.reduce((b, o) => Math.hypot(o.x+.5-x, o.y+.5-y) < Math.hypot(b.x+.5-x, b.y+.5-y) ? o : b);
         aim = -Math.atan2(tw.y+.5-y, tw.x+.5-x) - g.rotation.y; aim = Math.atan2(Math.sin(aim), Math.cos(aim));
       }
       U.torso.rotation.y += (aim - U.torso.rotation.y)*Math.min(1, dt*6);
@@ -2638,7 +2677,7 @@ function render3D(v) {
     if (k === 'cstomp') ring3(x, y, .3 + p*SPAWNER.stompR, '#ff2a2a', a); else if (k === 'csummon') ring3(x, y, .3 + p*1.2, '#ff2a2a', a);
     if (k === 'ablast') ring3(x, y, .2 + p*3, '#ff7a2a', a);
     if (k === 'fire') { const f = v.fx.find(f => f[0] === id); if (f && f[6] !== null) for (let i = 0; i < 4; i++) { const q = Math.random()*Math.min(1, p*3);
-      spawn3(x + (f[6] - x)*q + (Math.random() - .5)*q*1.2, y + (f[7] - y)*q + (Math.random() - .5)*q*1.2, .9 + q*.3, [0, .8 + Math.random()*1.5, 0], .4, .2 + q*.35, .05, Math.random() < .5 ? '#ff9a2a' : '#ff4a1a'); } }
+      spawn3(x + (f[6] - x)*q + (Math.random() - .5)*q*1.2, y + (f[7] - y)*q + (Math.random() - .5)*q*1.2, 1.9 - q*1.4, [0, .4 + Math.random()*1.2, 0], .4, .2 + q*.35, .05, Math.random() < .5 ? '#ff9a2a' : '#ff4a1a'); } }
     if (k === 'pblast') ring3(x, y, .2 + p*SPARTAN.grenR, '#3ee6ff', a); else if (k === 'shieldup') ring3(x, y, .4 + p*.8, '#ffd23f', a);
     if (R) ring3(x, y, R, col, a);
     const key = v.ep + ':' + id; if (G3.seen.has(key)) continue; G3.seen.add(key);
@@ -2898,7 +2937,7 @@ function draw2D(v) {
       ctx.beginPath(); ctx.arc(px, py, s*(.6 + .08*Math.sin(now/90)), 0, 7);
       ctx.fillStyle = hold === 15 ? 'rgba(255,154,42,.3)' : hold === 14 ? 'rgba(255,122,42,.28)' : hold === 12 || hold === 13 ? 'rgba(62,230,255,.25)' : hold === 11 ? 'rgba(201,209,217,.25)' : hold === 8 ? 'rgba(141,255,74,.3)' : hold === 9 ? 'rgba(255,59,48,.28)' : hold === 10 ? 'rgba(255,154,60,.25)' : hold === 2 ? 'rgba(255,59,48,.28)' : hold === 6 ? 'rgba(62,230,255,.28)' : hold >= 3 ? 'rgba(150,60,230,.3)' : 'rgba(255,154,60,.25)'; ctx.fill();
     }
-    drawUnit(ctx, k, px, E.fly ? py - s*.2 : py, s, hold ? 0 : now/1000*E.spd*7 + id, fury, face);
+    drawHold = hold; drawUnit(ctx, k, px, E.fly ? py - s*.2 : py, s, hold ? 0 : now/1000*E.spd*7 + id, fury, face); drawHold = 0;
     ctx.globalAlpha = 1;
     if (sh > 0) {
       ctx.beginPath(); ctx.arc(px, py, s*.62, 0, 7);
