@@ -164,7 +164,7 @@ details summary{color:var(--gold)}
   </div>
   <details class="card" style="margin-top:14px">
     <summary><b>How to play</b></summary>
-    <p class="small">Drag your players (the ones with a glow) with your finger. You don't have to touch the player itself: put your finger next to it (up to about a centimetre away) and drag, and it keeps that gap so your finger never hides it. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
+    <p class="small">Touch anywhere on the pitch and drag: the nearest of your players (the ones with a glow) follows your finger. Best is to put your finger a little below the player, so you can see it; if you land right on it, it slides out from under your finger as you move. A dashed line shows which player you're holding. Bump the ball to pass, run into it fast to shoot. Keepers stay in their box; nobody else can go in a box. Score in the other team's goal!</p>
     <p class="small">Playing together: tap <b>Invite friends to play</b> and send the link (WhatsApp, Messages, anything). Friends next to you can just scan the QR code on your screen with their camera instead. Either way they tap <b>Join game</b> and they're in. The link works until the host leaves the lobby, so only send it to people you want in.<br><br> Each side gets one player per person (1 v 1 = one player each), plus a keeper: the computer plays the keeper until someone on that team grabs it, then whoever grabbed it controls it. 4 players = defence and striker on each side.<br><br><b>⚡ Chaos power-ups:</b> every time a team lets in a goal, it gets a new power — turbo boots, banana peels, the human cannon, tennis rackets, the ghost curse, a freeze ray, magnet boots, a brick wall, a homing rocket ball, and finally the NUCLEAR BALL. In the last 45 seconds (or at match point) it's the <b>BOSS ROUND</b>: one player on each team turns into a giant boss with the boss name they chose. The ball becomes the <b>☢ LEO BOMB</b>: touch it first to arm it, then hit anyone on the other team with it and their whole team is blasted across the pitch and frozen. Powers stack, so the longer the match goes, the crazier it gets.</p>
   </details>
 </div>
@@ -2178,9 +2178,11 @@ function endScreen(v) {
 }
 
 /* ---------- Touch control: drag your players ---------- */
-// Touch near a player (up to about a centimetre away) and drag: it keeps the gap it had from your finger,
-// so your finger never hides it. A thin line joins your finger to the player you're holding.
-const GRAB_PX = 60;   // about 1 cm on a phone
+// Touch ANYWHERE on the pitch and drag: the nearest of your players follows your finger's movement, keeping the gap it
+// had from your finger. If you touched right on top of it, the gap opens up over the first centimetre of the drag until
+// the player sits about 1.2 cm ahead of your finger (up the screen; down for the top person in 2-players-one-phone),
+// so your finger never hides it. A thin dashed line joins your finger to the player you're holding.
+const LIFT_PX = 70;   // the gap we open up when a finger lands on top of a player (about 1.2 cm on a phone)
 let sendTimer = {};
 function controllable() { return info ? info.widgets.filter(isMine) : []; }
 function setTarget(wid, x, y) {
@@ -2191,21 +2193,31 @@ function setTarget(wid, x, y) {
 }
 cv.addEventListener('pointerdown', ev => {
   if (!view) return;
-  const [x, y] = toWorld(ev.clientX, ev.clientY), [x2, y2] = toWorld(ev.clientX + GRAB_PX, ev.clientY);
-  let best = null, bd = clamp(Math.hypot(x2 - x, y2 - y), 18, 30);
-  for (const wi of controllable()) {
+  const [x, y] = toWorld(ev.clientX, ev.clientY);
+  let best = null, bd = 1e9;
+  for (const wi of controllable()) {   // the nearest of your players, wherever you touch
     if (isHeld(wi.id)) continue;
     const [wx, wy] = view.w[wi.id], d = Math.hypot(wx - x, wy - y);
     if (d < bd) { bd = d; best = wi; }
   }
   if (!best) return;
-  const [wx, wy] = view.w[best.id];
-  holds[ev.pointerId] = {id:best.id, ox:wx - x, oy:wy - y, sx:ev.clientX, sy:ev.clientY}; try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+  const [wx, wy] = view.w[best.id], [px, py] = toScreen(wx, wy), gap = Math.hypot(px - ev.clientX, py - ev.clientY);
+  const h = holds[ev.pointerId] = {id:best.id, ox:wx - x, oy:wy - y, sx:ev.clientX, sy:ev.clientY, x0:ev.clientX, y0:ev.clientY};
+  if (gap < LIFT_PX) {   // finger on (or nearly on) the player: open a gap as the drag starts
+    const up = mode === 'local2' && ev.clientY < innerHeight/2 ? 1 : -1;   // the top person's player moves down, away from their finger
+    const [lx, ly] = toWorld(ev.clientX, ev.clientY + up*LIFT_PX);
+    h.lift = [lx - x, ly - y]; h.o0 = [h.ox, h.oy];
+  }
+  try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
   setTarget(best.id, wx, wy);
 });
 cv.addEventListener('pointermove', ev => {
   const h = holds[ev.pointerId]; if (!h) return;
   const [x, y] = toWorld(ev.clientX, ev.clientY); h.sx = ev.clientX; h.sy = ev.clientY;
+  if (h.lift) {   // ease from where the player was to the lifted gap over the first ~1 cm of movement
+    const f = Math.min(1, Math.hypot(ev.clientX - h.x0, ev.clientY - h.y0)/50);
+    h.ox = h.o0[0] + (h.lift[0] - h.o0[0])*f; h.oy = h.o0[1] + (h.lift[1] - h.o0[1])*f;
+  }
   setTarget(h.id, clamp(x + h.ox, 0, 100), clamp(y + h.oy, 0, 160));
 });
 const release = ev => { const h = holds[ev.pointerId]; if (!h) return; delete holds[ev.pointerId]; setTarget(h.id, null, null); };
